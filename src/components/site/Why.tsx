@@ -1,26 +1,26 @@
-import { Gauge, LineChart, Sparkles, TrendingUp } from "lucide-react";
+import { Eye, FlaskConical, Layers, TrendingUp } from "lucide-react";
 import { Reveal } from "./Reveal";
 
 const usps = [
   {
-    icon: Gauge,
-    title: "Resultat i fokus",
-    text: "Vi fokuserar på vad marknadsföringen faktiskt leder till – inte bara klick och visningar.",
+    icon: Eye,
+    title: "Vi visar vad som händer",
+    text: "Du ska kunna se vad du betalar för och vad det leder till.",
   },
   {
-    icon: LineChart,
-    title: "Datadrivet",
-    text: "Beslut baseras på data, testning och kontinuerlig optimering.",
+    icon: FlaskConical,
+    title: "Vi testar istället för att gissa",
+    text: "Annonser, målgrupper och budskap förbättras utifrån faktisk data.",
   },
   {
-    icon: Sparkles,
-    title: "Enkelt för dig",
-    text: "Vi hanterar den digitala delen så att du kan fokusera på din verksamhet.",
+    icon: Layers,
+    title: "Vi tar ansvar för helheten",
+    text: "Inte bara annonserna – utan vägen från första klick till bokad kund.",
   },
   {
     icon: TrendingUp,
-    title: "Byggt för tillväxt",
-    text: "Systemen kan utvecklas och skalas i takt med att företaget växer.",
+    title: "Vi bygger för långsiktig tillväxt",
+    text: "Målet är inte en bra kampanj. Målet är ett system som fortsätter fungera.",
   },
 ];
 
