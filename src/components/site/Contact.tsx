@@ -194,7 +194,7 @@ function Field({
   name,
   error,
   ...rest
-}: React.InputHTMLAttributes<HTMLInputElement> & { label: string; name: string; error?: string }) {
+}: React.InputHTMLAttributes<HTMLInputElement> & { label: string; name: string; error?: string | undefined }) {
   return (
     <div>
       <Label htmlFor={name}>{label}</Label>
@@ -224,7 +224,7 @@ function SelectField({
   label: string;
   name: string;
   options: string[];
-  error?: string;
+  error?: string | undefined;
 }) {
   return (
     <div>
