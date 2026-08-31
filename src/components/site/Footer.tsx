@@ -3,7 +3,7 @@ import { Logo } from "./Logo";
 
 const nav = [
   { href: "/#tjanster", label: "Tjänster" },
-  { href: "/#process", label: "Hur det fungerar" },
+  { href: "/#process", label: "Så fungerar det" },
   { href: "/#resultat", label: "Resultat" },
   { href: "/#om", label: "Om Noryva" },
   { href: "/#faq", label: "FAQ" },
@@ -45,7 +45,6 @@ export function Footer() {
                 hej@noryva.se
               </a>
             </li>
-            <li>Telefonnummer läggs till inom kort</li>
           </ul>
 
           <h2 className="mt-8 text-sm font-semibold">Juridiskt</h2>

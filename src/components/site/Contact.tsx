@@ -10,24 +10,15 @@ const schema = z.object({
   epost: z.string().trim().email("Ange en giltig e-postadress").max(255),
   telefon: z.string().trim().min(6, "Ange ett telefonnummer").max(30),
   hemsida: z.string().trim().max(200).optional().or(z.literal("")),
-  bransch: z.string().trim().min(1, "Ange bransch").max(100),
   forbattra: z.string().trim().min(1, "Välj vad du vill förbättra").max(200),
-  budget: z.string().trim().min(1, "Välj ungefärlig budget").max(100),
   meddelande: z.string().trim().max(1000).optional().or(z.literal("")),
 });
 
-type Errors = Partial<Record<keyof z.infer<typeof schema>, string>>;
+type Lead = z.infer<typeof schema>;
+type Errors = Partial<Record<keyof Lead, string>>;
 
 const fieldClass =
-  "w-full rounded-xl border border-input bg-surface/70 px-4 py-3.5 text-base text-foreground placeholder:text-muted-foreground/70 transition-colors focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-ring";
-
-const budgets = [
-  "Under 10 000 kr / månad",
-  "10 000 – 25 000 kr / månad",
-  "25 000 – 50 000 kr / månad",
-  "Över 50 000 kr / månad",
-  "Vet ej ännu",
-];
+  "w-full rounded-xl border border-input bg-surface/70 px-4 py-3.5 text-base text-foreground placeholder:text-muted-foreground/70 transition-colors focus:border-primary/50 focus:outline-none focus:ring-2 focus-visible:ring-ring";
 
 const goals = [
   "Fler leads",
@@ -37,6 +28,20 @@ const goals = [
   "Komma igång med annonsering",
   "Annat",
 ];
+
+/**
+ * ENDA stället där ett inskick skickas vidare.
+ * Fältnamnen (namn, foretag, epost, telefon, hemsida, forbattra, meddelande)
+ * mappar rakt av mot kolumner i Google Sheets.
+ *
+ * För att koppla på automationen senare: gör funktionen async och posta
+ * `lead` som JSON till din Make-webhook (eller motsvarande) här, t.ex.:
+ *   await fetch(MAKE_WEBHOOK_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(lead) });
+ * Alternativt kan ett Tally-formulär bäddas in i sektionen istället.
+ */
+function submitLead(lead: Lead) {
+  void lead; // webhook-koppling läggs till här
+}
 
 export function Contact() {
   const [errors, setErrors] = useState<Errors>({});
@@ -56,6 +61,7 @@ export function Contact() {
       return;
     }
     setErrors({});
+    submitLead(result.data);
     setSent(true);
   }
 
@@ -71,23 +77,17 @@ export function Contact() {
           <div className="lg:sticky lg:top-28">
             <span className="eyebrow">Kontakt</span>
             <h2 className="mt-5 text-3xl leading-tight font-semibold sm:text-[2.6rem]">
-              Redo att få fler rätt kunder?
+              Berätta om ditt företag.
             </h2>
             <p className="mt-5 text-sm leading-relaxed text-muted-foreground sm:text-base">
-              Boka ett kostnadsfritt möte så går vi igenom ditt företag, din nuvarande
+              Fyll i formuläret så återkommer vi med en kostnadsfri genomgång av din nuvarande
               kundanskaffning och vilka möjligheter som finns.
             </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <CtaLink href="#formular" className="py-4 sm:py-3.5">
-                Boka ett kostnadsfritt möte <ArrowRight size={17} />
-              </CtaLink>
-              <CtaLink href="mailto:hej@noryva.se" variant="ghost" className="py-4 sm:py-3.5">
-                <Mail size={16} /> Kontakta Noryva
+            <div className="mt-8">
+              <CtaLink href="mailto:hej@noryva.se" variant="ghost" className="py-3.5">
+                <Mail size={16} /> hej@noryva.se
               </CtaLink>
             </div>
-            <p className="mt-6 text-sm text-muted-foreground">
-              Ingen bindningstid <span className="mx-1.5 text-primary">•</span> Kostnadsfri genomgång
-            </p>
           </div>
         </Reveal>
 
@@ -123,34 +123,31 @@ export function Contact() {
                   required
                 />
                 <Field
-                  label="Telefonnummer"
+                  label="Telefon"
                   name="telefon"
                   type="tel"
                   error={errors.telefon}
                   autoComplete="tel"
                   required
                 />
-                <Field
-                  label="Hemsida"
-                  name="hemsida"
-                  placeholder="valfritt"
-                  error={errors.hemsida}
-                  autoComplete="url"
-                />
-                <Field label="Vilken bransch?" name="bransch" error={errors.bransch} required />
+                <div className="sm:col-span-2">
+                  <Field
+                    label="Hemsida"
+                    name="hemsida"
+                    placeholder="valfritt"
+                    error={errors.hemsida}
+                    autoComplete="url"
+                  />
+                </div>
 
-                <SelectField
-                  label="Vad vill du förbättra?"
-                  name="forbattra"
-                  options={goals}
-                  error={errors.forbattra}
-                />
-                <SelectField
-                  label="Ungefärlig månadsbudget"
-                  name="budget"
-                  options={budgets}
-                  error={errors.budget}
-                />
+                <div className="sm:col-span-2">
+                  <SelectField
+                    label="Vad vill du förbättra?"
+                    name="forbattra"
+                    options={goals}
+                    error={errors.forbattra}
+                  />
+                </div>
 
                 <div className="sm:col-span-2">
                   <Label htmlFor="meddelande">Meddelande</Label>
@@ -160,7 +157,7 @@ export function Contact() {
                     rows={4}
                     maxLength={1000}
                     className={fieldClass}
-                    placeholder="Berätta kort om ditt företag och vad du vill uppnå."
+                    placeholder="Berätta kort om ditt företag och vad du vill uppnå (valfritt)."
                   />
                 </div>
 
