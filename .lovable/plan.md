@@ -7,7 +7,7 @@ Du kan se resultatet direkt i förhandsvisningen så fort planen är godkänd �
 ## Vad som ändras
 
 **Färg och typografi**
-- Ny mörkare bas: bakgrund nära svart, alternativa sektioner något ljusare, cards en nivå upp, subtila mörkgrå borders.
+- Vi gör INTE sidan mörkare än idag. Den nuvarande mörka grafitbasen behålls, men justeras något varmare/ljusare och mer inbjudande istället för nära svart. Subtila borders och ljusgrå sekundärtext behålls.
 - Accentfärgen byts från grön-teal till en sofistikerad elektrisk blå/lila, använd sparsamt (CTA, linjer, ikoner, hover, grafik).
 - Behåller Sora/Manrope; ökar hero-rubrikens storlek och luft mellan sektioner.
 
