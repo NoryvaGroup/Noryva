@@ -1,3 +1,5 @@
+import { ArrowRight } from "lucide-react";
+import { CtaLink } from "./Button";
 import { Reveal } from "./Reveal";
 
 const steps = [
@@ -18,8 +20,8 @@ const steps = [
   },
   {
     n: "04",
-    title: "Du får fler möjligheter till affärer",
-    text: "Resultatet är ett mer strukturerat och förutsägbart inflöde av relevanta potentiella kunder.",
+    title: "Vi skalar det som fungerar",
+    text: "När vi hittar det som ger resultat lägger vi mer fokus på det som fungerar och mindre på det som inte gör det.",
   },
 ];
 
@@ -28,7 +30,7 @@ export function Process() {
     <section id="process" className="border-t border-border py-20 sm:py-28">
       <div className="container-x">
         <Reveal>
-          <span className="eyebrow">Hur det fungerar</span>
+          <span className="eyebrow">Så fungerar det</span>
           <h2 className="mt-5 max-w-2xl text-3xl leading-tight font-semibold sm:text-[2.6rem]">
             Från första klick till ny kund.
           </h2>
@@ -54,6 +56,14 @@ export function Process() {
             </Reveal>
           ))}
         </ol>
+
+        <Reveal delay={200}>
+          <div className="mt-14">
+            <CtaLink href="/#kontakt" className="py-4 sm:py-3.5">
+              Boka kostnadsfri genomgång <ArrowRight size={17} />
+            </CtaLink>
+          </div>
+        </Reveal>
       </div>
     </section>
   );
