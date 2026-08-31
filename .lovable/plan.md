@@ -43,10 +43,18 @@ Hero → Problemet → Hur Noryva fungerar → Tjänster → Dashboard → Det v
 - Title: "Noryva | Digital annonsering som ger fler kunder".
 - Ny meta description, uppdaterad Open Graph, JSON-LD (inkl. uppdaterad FAQ). Sitemap/robots/favicon behålls.
 
-## Avvikelser jag föreslår
+## Formuläret och din AI-tjänst
 
-1. **Formuläret skickas fortfarande inte någonstans.** Idag visar det bara en tacktext lokalt – förfrågningar når aldrig din inkorg. Jag föreslår att vi kopplar det till Lovable Cloud (lagring + mejlnotis) som ett separat steg efter redesignen. Säg till om du vill ha med det direkt.
-2. **Behåll en kort trust-rad längre ner** (t.ex. vid stora CTA:t) i stället för att ta bort den helt – den gör nytta när besökaren är nära beslut, bara inte i heron.
+Uppfattat – inskicken ska gå vidare till Tally/Make/Google Sheets och behandlas av din AI-tjänst. Därför bygger vi om formuläret så det är redo för det, utan att låsa in något nu:
+
+- Ett enda ställe i koden där inskicket skickas (en submit-funktion), så du senare bara pekar den mot en Make-webhook eller ett Tally-formulär.
+- Fälten namnges konsekvent (namn, företag, epost, telefon, hemsida, förbättra) så de mappar rakt av till kolumner i Google Sheets.
+- Tills kopplingen finns visas samma tacktext som idag. Alternativt kan vi bädda in Tally-formuläret direkt i sektionen – säg till vilket du föredrar.
+
+## Övrig avvikelse jag föreslår
+
+- **Behåll en kort trust-rad längre ner** (t.ex. vid stora CTA:t) i stället för att ta bort den helt – den gör nytta när besökaren är nära beslut, bara inte i heron.
+
 
 ## Tekniskt
 
