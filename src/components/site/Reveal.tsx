@@ -33,7 +33,7 @@ export function Reveal({
     return () => io.disconnect();
   }, []);
 
-  const Comp = Tag as never;
+  const Comp = Tag as React.ElementType;
   return (
     <Comp
       ref={ref as never}
