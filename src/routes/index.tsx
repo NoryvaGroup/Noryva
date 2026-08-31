@@ -75,9 +75,6 @@ function Index() {
     <div className="min-h-screen bg-background">
       <Nav />
       <main>
-        <h1 className="sr-only">
-          Noryva – digital annonsering som ger svenska tjänsteföretag fler kunder
-        </h1>
         <Hero />
         <Problem />
         <Process />
