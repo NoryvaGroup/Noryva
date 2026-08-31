@@ -39,36 +39,36 @@
 :root {
   --radius: 0.75rem;
 
-  /* Dark graphite premium base */
-  --background: oklch(0.16 0.008 260);
+  /* Dark graphite premium base – varmare och mer inbjudande än nära-svart */
+  --background: oklch(0.18 0.01 265);
   --foreground: oklch(0.97 0.004 260);
-  --surface: oklch(0.2 0.009 260);
-  --surface-2: oklch(0.24 0.01 260);
-  --card: oklch(0.2 0.009 260);
+  --surface: oklch(0.215 0.011 265);
+  --surface-2: oklch(0.255 0.013 265);
+  --card: oklch(0.215 0.011 265);
   --card-foreground: oklch(0.97 0.004 260);
-  --popover: oklch(0.2 0.009 260);
+  --popover: oklch(0.215 0.011 265);
   --popover-foreground: oklch(0.97 0.004 260);
 
-  /* Subtle accent: cool signal green-teal */
-  --primary: oklch(0.82 0.15 168);
-  --primary-foreground: oklch(0.17 0.01 260);
-  --secondary: oklch(0.26 0.01 260);
+  /* Enda accentfärgen: sofistikerad elektrisk blå/violett */
+  --primary: oklch(0.74 0.16 268);
+  --primary-foreground: oklch(0.16 0.02 268);
+  --secondary: oklch(0.28 0.012 265);
   --secondary-foreground: oklch(0.97 0.004 260);
-  --muted: oklch(0.24 0.01 260);
-  --muted-foreground: oklch(0.72 0.012 260);
-  --accent: oklch(0.82 0.15 168);
-  --accent-foreground: oklch(0.17 0.01 260);
-  --destructive: oklch(0.62 0.2 25);
+  --muted: oklch(0.255 0.013 265);
+  --muted-foreground: oklch(0.74 0.012 260);
+  --accent: oklch(0.74 0.16 268);
+  --accent-foreground: oklch(0.16 0.02 268);
+  --destructive: oklch(0.68 0.19 25);
   --destructive-foreground: oklch(0.98 0 0);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 14%);
-  --ring: oklch(0.82 0.15 168 / 60%);
+  --ring: oklch(0.74 0.16 268 / 60%);
 
   --shadow-elevated: 0 24px 60px -30px oklch(0 0 0 / 0.8);
-  --glow-accent: 0 0 0 1px oklch(0.82 0.15 168 / 0.25), 0 18px 50px -24px oklch(0.82 0.15 168 / 0.45);
+  --glow-accent: 0 0 0 1px oklch(0.74 0.16 268 / 0.22), 0 18px 50px -24px oklch(0.74 0.16 268 / 0.4);
   --gradient-veil: radial-gradient(
     60% 55% at 50% 0%,
-    oklch(0.82 0.15 168 / 0.1) 0%,
+    oklch(0.74 0.16 268 / 0.09) 0%,
     transparent 70%
   );
 }
@@ -99,7 +99,7 @@
   }
 
   ::selection {
-    background: oklch(0.82 0.15 168 / 0.3);
+    background: oklch(0.74 0.16 268 / 0.3);
   }
 }
 
@@ -141,6 +141,20 @@
   transform: none;
 }
 
+@keyframes bar-grow {
+  from {
+    transform: scaleY(0.15);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@utility bar-animate {
+  transform-origin: bottom;
+  animation: bar-grow 1.1s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
@@ -149,5 +163,11 @@
     opacity: 1;
     transform: none;
     transition: none;
+  }
+  .bar-animate {
+    animation: none;
+  }
+  .motion-dot {
+    display: none;
   }
 }
