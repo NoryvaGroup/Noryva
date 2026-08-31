@@ -1,6 +1,6 @@
 # Noryva v2 – redesign och konverteringsoptimering
 
-Ja, det här är i huvudsak bra ändringar. De starkaste förbättringarna: skarpare hero-budskap, tomma kundcase bort, en enda konsekvent CTA, enklare formulär och en ny datadriven dashboard-sektion. Två saker rekommenderar jag att vi justerar (se "Avvikelser").
+Ja, det här är i huvudsak bra ändringar. De starkaste förbättringarna: skarpare hero-budskap, tomma kundcase bort, en enda konsekvent CTA, enklare formulär och en ny datadriven dashboard-sektion. Formuläret förbereds för din kommande AI-automation (se avsnittet nedan).
 
 Du kan se resultatet direkt i förhandsvisningen så fort planen är godkänd – ändringarna byggs på befintlig kod, inte från noll.
 
