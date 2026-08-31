@@ -9,8 +9,13 @@ const flowSteps = ["Annons", "Besökare", "Lead", "Bokning", "Kund"];
  * Illustrerar principen bakom arbetssättet – inte faktiska kunddata.
  */
 function FlowVisual() {
-  const nodes = [40, 175, 310, 445, 580];
-  const ys = [78, 62, 48, 34, 20];
+  const nodes: Array<{ x: number; y: number; label: string }> = [
+    { x: 40, y: 78, label: "Annons" },
+    { x: 175, y: 62, label: "Besökare" },
+    { x: 310, y: 48, label: "Lead" },
+    { x: 445, y: 34, label: "Bokning" },
+    { x: 580, y: 20, label: "Kund" },
+  ];
   const path = "M40 78 C 100 74, 120 66, 175 62 C 230 58, 255 52, 310 48 C 365 44, 390 38, 445 34 C 500 30, 525 24, 580 20";
 
   return (
