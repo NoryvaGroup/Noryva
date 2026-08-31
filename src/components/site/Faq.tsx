@@ -6,27 +6,31 @@ import { cn } from "@/lib/utils";
 export const faqItems = [
   {
     q: "Vad kostar det att anlita Noryva?",
-    a: "Priset anpassas efter företagets behov, mål och omfattning. Du får alltid en tydlig genomgång av upplägg och kostnad innan ett eventuellt samarbete inleds – inga dolda avgifter.",
+    a: "Priset anpassas efter företagets behov, mål och omfattning. Vi går igenom upplägget innan ett eventuellt samarbete.",
   },
   {
     q: "Behöver jag redan annonsera?",
-    a: "Nej. Vi hjälper både företag som redan annonserar och företag som ska börja från noll.",
+    a: "Nej. Vi kan hjälpa till från grunden, beroende på företagets förutsättningar och mål.",
   },
   {
     q: "Hur snabbt kan vi komma igång?",
-    a: "Det beror på omfattning och vilket material som finns på plats. Vi börjar med en genomgång, går sedan vidare till uppsättning av annonser, landningssida och leadflöden. Vi sätter en realistisk tidsplan tillsammans istället för att lova ett fast datum.",
+    a: "Efter en första genomgång tar vi fram ett upplägg och går igenom nästa steg tillsammans.",
   },
   {
     q: "Vilka företag arbetar ni med?",
-    a: "Främst företag som vill öka inflödet av nya kunder, med extra fokus på tjänsteföretag och lokala verksamheter. Arbetssättet fungerar dock i de flesta branscher.",
+    a: "Främst tjänsteföretag och lokala företag som vill öka inflödet av nya kunder.",
   },
   {
     q: "Sköter ni annonseringen åt oss?",
-    a: "Ja. Målet är att du ska kunna lämna den digitala kundanskaffningen till oss och istället fokusera på din verksamhet.",
+    a: "Ja. Vi kan hantera strategi, skapande, testning och löpande optimering.",
+  },
+  {
+    q: "Betalar jag annonskostnaden till Noryva?",
+    a: "Nej. Annonsbudgeten är separat från Noryvas arvode. Du har full kontroll över vad som spenderas på annonsering.",
   },
   {
     q: "Kan jag avsluta samarbetet?",
-    a: "Vi arbetar utan lång bindningstid. Exakta villkor, uppsägningstid och omfattning kommer vi överens om skriftligt innan start så att allt är tydligt för båda parter.",
+    a: "Det beror på det avtalade upplägget. Alla villkor ska vara tydliga innan ett samarbete börjar.",
   },
 ];
 
@@ -43,7 +47,7 @@ export function Faq() {
               Vanliga frågor
             </h2>
             <p className="mt-5 text-sm text-muted-foreground">
-              Hittar du inte svaret? Boka ett kostnadsfritt möte så går vi igenom det tillsammans.
+              Hittar du inte svaret? Boka en kostnadsfri genomgång så går vi igenom det tillsammans.
             </p>
           </div>
         </Reveal>

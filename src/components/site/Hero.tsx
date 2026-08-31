@@ -1,63 +1,92 @@
-import { ArrowRight } from "lucide-react";
+import { ArrowDown, ArrowRight } from "lucide-react";
 import { CtaLink } from "./Button";
 import { Reveal } from "./Reveal";
 
+const flowSteps = ["Annons", "Besökare", "Lead", "Bokning", "Kund"];
+
+/**
+ * Abstrakt visualisering av kundflödet ANNONS → BESÖKARE → LEAD → BOKNING → KUND.
+ * Illustrerar principen bakom arbetssättet – inte faktiska kunddata.
+ */
 function FlowVisual() {
-  const steps = [
-    { label: "Trafik", value: "Annons" },
-    { label: "Leads", value: "Formulär" },
-    { label: "Kunder", value: "Bokning" },
+  const nodes: Array<{ x: number; y: number; label: string }> = [
+    { x: 40, y: 78, label: "Annons" },
+    { x: 175, y: 62, label: "Besökare" },
+    { x: 310, y: 48, label: "Lead" },
+    { x: 445, y: 34, label: "Bokning" },
+    { x: 580, y: 20, label: "Kund" },
   ];
+  const path = "M40 78 C 100 74, 120 66, 175 62 C 230 58, 255 52, 310 48 C 365 44, 390 38, 445 34 C 500 30, 525 24, 580 20";
+
   return (
     <div className="relative rounded-2xl border border-border bg-surface/60 p-5 backdrop-blur-sm sm:p-7">
-      <div className="flex items-center justify-between text-[0.7rem] uppercase tracking-[0.16em] text-muted-foreground">
+      <div className="flex items-center justify-between text-[0.7rem] tracking-[0.16em] text-muted-foreground uppercase">
         <span>Kundflöde</span>
         <span className="text-primary">Live-princip</span>
       </div>
 
-      <div className="mt-6 grid gap-3 sm:grid-cols-3">
-        {steps.map((s, i) => (
-          <div
-            key={s.label}
-            className="relative rounded-xl border border-border bg-surface-2/70 p-4 transition-transform duration-300 hover:-translate-y-0.5"
-          >
-            <div className="text-xs text-muted-foreground">{s.value}</div>
-            <div className="mt-1 font-display text-base font-semibold">{s.label}</div>
-            <div
-              className="mt-3 h-1 rounded-full bg-primary/70"
-              style={{ width: `${100 - i * 28}%` }}
-            />
-          </div>
-        ))}
-      </div>
-
-      <svg viewBox="0 0 600 90" className="mt-6 w-full" aria-hidden="true">
+      <svg viewBox="0 0 620 130" className="mt-8 w-full" role="img" aria-label="Illustration av kundflödet från annons till kund">
         <defs>
-          <linearGradient id="heroLine" x1="0" x2="1">
-            <stop offset="0%" stopColor="oklch(0.82 0.15 168)" stopOpacity="0.15" />
-            <stop offset="100%" stopColor="oklch(0.82 0.15 168)" stopOpacity="0.9" />
+          <linearGradient id="flowLine" x1="0" x2="1">
+            <stop offset="0%" stopColor="oklch(0.74 0.16 268)" stopOpacity="0.12" />
+            <stop offset="100%" stopColor="oklch(0.74 0.16 268)" stopOpacity="0.9" />
           </linearGradient>
         </defs>
-        <path
-          d="M0 80 C 140 78, 200 50, 300 42 C 400 34, 470 22, 600 8"
-          fill="none"
-          stroke="url(#heroLine)"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-        />
-        {[0, 1, 2, 3, 4, 5].map((i) => (
+
+        {/* rutnätslinjer */}
+        {[0, 1, 2, 3, 4].map((i) => (
           <line
             key={i}
-            x1={i * 120}
-            y1="0"
-            x2={i * 120}
-            y2="90"
+            x1={110 + i * 130}
+            y1="4"
+            x2={110 + i * 130}
+            y2="96"
             stroke="oklch(1 0 0 / 0.05)"
             strokeWidth="1"
           />
         ))}
+
+        <path d={path} fill="none" stroke="url(#flowLine)" strokeWidth="2" strokeLinecap="round" />
+
+        {/* noder */}
+        {nodes.map((node) => (
+          <g key={node.label}>
+            <circle cx={node.x} cy={node.y} r="10" fill="oklch(0.74 0.16 268 / 0.12)" />
+            <circle cx={node.x} cy={node.y} r="4" fill="oklch(0.74 0.16 268)" />
+            <text
+              x={node.x}
+              y={node.y + 34}
+              textAnchor="middle"
+              fill="oklch(0.74 0.012 260)"
+              fontSize="11"
+              fontFamily="inherit"
+            >
+              {node.label}
+            </text>
+          </g>
+        ))}
+
+        {/* ljuspunkt som rör sig genom flödet */}
+        <circle r="5" fill="oklch(0.9 0.1 268)" className="motion-dot">
+          <animateMotion dur="5s" repeatCount="indefinite" path={path} />
+        </circle>
+        <circle r="10" fill="oklch(0.74 0.16 268 / 0.25)" className="motion-dot">
+          <animateMotion dur="5s" repeatCount="indefinite" path={path} />
+        </circle>
       </svg>
-      <p className="mt-2 text-xs text-muted-foreground">
+
+      <div className="mt-4 grid grid-cols-5 gap-2">
+        {flowSteps.map((s, i) => (
+          <div
+            key={s}
+            className="rounded-lg border border-border bg-surface-2/70 px-2 py-2.5 text-center transition-transform duration-300 hover:-translate-y-0.5"
+          >
+            <div className="h-1 rounded-full bg-primary/60" style={{ width: `${38 + i * 14}%`, marginInline: "auto" }} />
+          </div>
+        ))}
+      </div>
+
+      <p className="mt-4 text-xs text-muted-foreground">
         Illustrationen visar principen bakom arbetssättet – inte faktiska kunddata.
       </p>
     </div>
@@ -66,7 +95,7 @@ function FlowVisual() {
 
 export function Hero() {
   return (
-    <section id="top" className="relative overflow-hidden pt-32 pb-20 sm:pt-40 sm:pb-28">
+    <section id="top" className="relative overflow-hidden pt-32 pb-20 sm:pt-44 sm:pb-28">
       <div
         className="pointer-events-none absolute inset-0 grid-veil opacity-60"
         style={{ maskImage: "radial-gradient(70% 60% at 50% 0%, black, transparent)" }}
@@ -88,35 +117,39 @@ export function Hero() {
           </Reveal>
 
           <Reveal delay={60}>
-            <h1 className="mt-5 text-[2.6rem] leading-[1.05] font-semibold sm:text-6xl lg:text-[4.1rem]">
-              Fler rätt kunder.
+            <h1 className="mt-5 text-[2.75rem] leading-[1.04] font-semibold sm:text-6xl lg:text-[4.4rem]">
+              Fler kunder.
               <br />
-              <span className="text-primary">Mindre krångel.</span>
+              <span className="text-primary">Utan att gissa vad som fungerar.</span>
             </h1>
           </Reveal>
 
           <Reveal delay={120}>
             <p className="mt-6 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-              Noryva hjälper företag att få fler kvalificerade kunder genom smart digital
-              annonsering, effektiv leadgenerering och automatiserade processer.
+              Noryva hjälper tjänsteföretag att skapa ett stabilt inflöde av nya kunder genom
+              digital annonsering, leadgenerering och automatiserad uppföljning.
             </p>
           </Reveal>
 
           <Reveal delay={180}>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
               <CtaLink href="/#kontakt" className="py-4 sm:py-3.5">
-                Boka ett kostnadsfritt möte <ArrowRight size={17} />
+                Boka kostnadsfri genomgång <ArrowRight size={17} />
               </CtaLink>
               <CtaLink href="/#process" variant="ghost" className="py-4 sm:py-3.5">
-                Se hur det fungerar
+                Se hur det fungerar <ArrowDown size={16} />
               </CtaLink>
             </div>
           </Reveal>
 
           <Reveal delay={240}>
-            <p className="mt-6 text-sm text-muted-foreground">
-              Ingen bindningstid <span className="mx-1.5 text-primary">•</span> Kostnadsfri genomgång
-              <span className="mx-1.5 text-primary">•</span> Fokus på faktiska resultat
+            <p className="mt-7 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+              {["Annonsering", "Leads", "Bokningar", "Kunder"].map((s, i, arr) => (
+                <span key={s} className="inline-flex items-center gap-2">
+                  {s}
+                  {i < arr.length - 1 && <ArrowRight size={13} className="text-primary" aria-hidden="true" />}
+                </span>
+              ))}
             </p>
           </Reveal>
         </div>

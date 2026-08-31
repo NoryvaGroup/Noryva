@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import { Menu, X } from "lucide-react";
+import { ArrowRight, Menu, X } from "lucide-react";
 import { Logo } from "./Logo";
 import { CtaLink } from "./Button";
 import { cn } from "@/lib/utils";
 
 const links = [
   { href: "/#tjanster", label: "Tjänster" },
-  { href: "/#process", label: "Hur det fungerar" },
+  { href: "/#process", label: "Så fungerar det" },
   { href: "/#resultat", label: "Resultat" },
   { href: "/#om", label: "Om Noryva" },
   { href: "/#faq", label: "FAQ" },
@@ -35,11 +35,16 @@ export function Nav() {
     <header
       className={cn(
         "fixed inset-x-0 top-0 z-50 transition-all duration-300",
-        scrolled ? "border-b border-border bg-background/80 backdrop-blur-xl" : "border-b border-transparent",
+        scrolled || open
+          ? "border-b border-border bg-background/85 backdrop-blur-xl"
+          : "border-b border-transparent",
       )}
     >
       <nav aria-label="Huvudmeny" className="container-x flex h-[68px] items-center justify-between">
-        <a href="/#top" className="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <a
+          href="/#top"
+          className="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
           <Logo />
         </a>
 
@@ -58,7 +63,7 @@ export function Nav() {
 
         <div className="hidden lg:block">
           <CtaLink href="/#kontakt" className="px-5 py-2.5">
-            Boka ett kostnadsfritt möte
+            Boka kostnadsfri genomgång <ArrowRight size={15} />
           </CtaLink>
         </div>
 
@@ -74,7 +79,7 @@ export function Nav() {
       </nav>
 
       {open && (
-        <div className="border-t border-border bg-background lg:hidden">
+        <div className="animate-in border-t border-border bg-background duration-200 fade-in slide-in-from-top-2 lg:hidden">
           <ul className="container-x flex flex-col py-4">
             {links.map((l) => (
               <li key={l.href}>
@@ -90,7 +95,7 @@ export function Nav() {
           </ul>
           <div className="container-x pb-6">
             <CtaLink href="/#kontakt" onClick={() => setOpen(false)} className="w-full py-4 text-base">
-              Boka ett kostnadsfritt möte
+              Boka kostnadsfri genomgång <ArrowRight size={17} />
             </CtaLink>
           </div>
         </div>
