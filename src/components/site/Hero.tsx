@@ -49,19 +49,19 @@ function FlowVisual() {
         <path d={path} fill="none" stroke="url(#flowLine)" strokeWidth="2" strokeLinecap="round" />
 
         {/* noder */}
-        {nodes.map((x, i) => (
-          <g key={flowSteps[i]}>
-            <circle cx={x} cy={ys[i]} r="10" fill="oklch(0.74 0.16 268 / 0.12)" />
-            <circle cx={x} cy={ys[i]} r="4" fill="oklch(0.74 0.16 268)" />
+        {nodes.map((node) => (
+          <g key={node.label}>
+            <circle cx={node.x} cy={node.y} r="10" fill="oklch(0.74 0.16 268 / 0.12)" />
+            <circle cx={node.x} cy={node.y} r="4" fill="oklch(0.74 0.16 268)" />
             <text
-              x={x}
-              y={ys[i] + 34}
+              x={node.x}
+              y={node.y + 34}
               textAnchor="middle"
               fill="oklch(0.74 0.012 260)"
               fontSize="11"
               fontFamily="inherit"
             >
-              {flowSteps[i]}
+              {node.label}
             </text>
           </g>
         ))}
