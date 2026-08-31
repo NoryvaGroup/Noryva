@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ElementType, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 export function Reveal({
@@ -33,7 +33,7 @@ export function Reveal({
     return () => io.disconnect();
   }, []);
 
-  const Comp = Tag as React.ElementType;
+  const Comp = Tag as ElementType;
   return (
     <Comp
       ref={ref as never}
