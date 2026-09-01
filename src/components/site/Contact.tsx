@@ -84,8 +84,8 @@ export function Contact() {
               kundanskaffning och vilka möjligheter som finns.
             </p>
             <div className="mt-8">
-              <CtaLink href="mailto:hej@noryva.se" variant="ghost" className="py-3.5">
-                <Mail size={16} /> hej@noryva.se
+              <CtaLink href="mailto:info@noryva.se" variant="ghost" className="py-3.5">
+                <Mail size={16} /> info@noryva.se
               </CtaLink>
             </div>
           </div>
