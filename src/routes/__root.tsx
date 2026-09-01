@@ -85,6 +85,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { name: "author", content: "Noryva" },
       { name: "theme-color", content: "#151719" },
+      {
+        name: "google-site-verification",
+        content: "JADYkfjIhYIMHO0j8azC0cXDl2exizbVtz-UJekPyz0",
+      },
       { property: "og:site_name", content: "Noryva" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
