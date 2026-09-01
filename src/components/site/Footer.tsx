@@ -41,8 +41,8 @@ export function Footer() {
           <h2 className="text-sm font-semibold">Kontakt</h2>
           <ul className="mt-4 space-y-2.5 text-sm text-muted-foreground">
             <li>
-              <a href="mailto:hej@noryva.se" className="transition-colors hover:text-foreground">
-                hej@noryva.se
+              <a href="mailto:info@noryva.se" className="transition-colors hover:text-foreground">
+                info@noryva.se
               </a>
             </li>
           </ul>

@@ -57,7 +57,7 @@ function Page() {
           <li>Invända mot eller begränsa behandlingen</li>
         </ul>
         <p>
-          Kontakta oss på <a className="text-primary" href="mailto:hej@noryva.se">hej@noryva.se</a>{" "}
+          Kontakta oss på <a className="text-primary" href="mailto:info@noryva.se">info@noryva.se</a>{" "}
           så hjälper vi dig.
         </p>
       </section>

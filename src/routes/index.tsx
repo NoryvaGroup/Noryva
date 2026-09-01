@@ -46,7 +46,7 @@ export const Route = createFileRoute("/")({
               name: "Noryva",
               description,
               areaServed: "SE",
-              email: "hej@noryva.se",
+              email: "info@noryva.se",
               url: "https://noryva.se",
               serviceType: [
                 "Digital annonsering",
