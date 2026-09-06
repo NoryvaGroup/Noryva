@@ -14,6 +14,7 @@ import { Route as CookiesRouteImport } from './routes/cookies'
 import { Route as IntegritetspolicyRouteImport } from './routes/integritetspolicy'
 import { Route as McpRouteImport } from './routes/mcp'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as TakoffertRouteImport } from './routes/takoffert'
 import { Route as VillkorRouteImport } from './routes/villkor'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 
@@ -42,6 +43,11 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TakoffertRoute = TakoffertRouteImport.update({
+  id: '/takoffert',
+  path: '/takoffert',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VillkorRoute = VillkorRouteImport.update({
   id: '/villkor',
   path: '/villkor',
@@ -60,6 +66,7 @@ export interface FileRoutesByFullPath {
   '/integritetspolicy': typeof IntegritetspolicyRoute
   '/mcp': typeof McpRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/takoffert': typeof TakoffertRoute
   '/villkor': typeof VillkorRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
 }
@@ -69,6 +76,7 @@ export interface FileRoutesByTo {
   '/integritetspolicy': typeof IntegritetspolicyRoute
   '/mcp': typeof McpRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/takoffert': typeof TakoffertRoute
   '/villkor': typeof VillkorRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
 }
@@ -79,6 +87,7 @@ export interface FileRoutesById {
   '/integritetspolicy': typeof IntegritetspolicyRoute
   '/mcp': typeof McpRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/takoffert': typeof TakoffertRoute
   '/villkor': typeof VillkorRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
 }
@@ -90,6 +99,7 @@ export interface FileRouteTypes {
     | '/integritetspolicy'
     | '/mcp'
     | '/sitemap.xml'
+    | '/takoffert'
     | '/villkor'
     | '/.well-known/oauth-protected-resource'
   fileRoutesByTo: FileRoutesByTo
@@ -99,6 +109,7 @@ export interface FileRouteTypes {
     | '/integritetspolicy'
     | '/mcp'
     | '/sitemap.xml'
+    | '/takoffert'
     | '/villkor'
     | '/.well-known/oauth-protected-resource'
   id:
@@ -108,6 +119,7 @@ export interface FileRouteTypes {
     | '/integritetspolicy'
     | '/mcp'
     | '/sitemap.xml'
+    | '/takoffert'
     | '/villkor'
     | '/.well-known/oauth-protected-resource'
   fileRoutesById: FileRoutesById
@@ -118,6 +130,7 @@ export interface RootRouteChildren {
   IntegritetspolicyRoute: typeof IntegritetspolicyRoute
   McpRoute: typeof McpRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  TakoffertRoute: typeof TakoffertRoute
   VillkorRoute: typeof VillkorRoute
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
 }
@@ -159,6 +172,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/takoffert': {
+      id: '/takoffert'
+      path: '/takoffert'
+      fullPath: '/takoffert'
+      preLoaderRoute: typeof TakoffertRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/villkor': {
       id: '/villkor'
       path: '/villkor'
@@ -182,6 +202,7 @@ const rootRouteChildren: RootRouteChildren = {
   IntegritetspolicyRoute: IntegritetspolicyRoute,
   McpRoute: McpRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  TakoffertRoute: TakoffertRoute,
   VillkorRoute: VillkorRoute,
   Char91DotwellKnownChar93OauthProtectedResourceRoute:
     Char91DotwellKnownChar93OauthProtectedResourceRoute,
