@@ -171,3 +171,38 @@
     display: none;
   }
 }
+
+/* ---------------------------------------------------------------
+   Scopat ljust tema för landningssidor mot privatpersoner (t.ex. /takoffert).
+   Påverkar inget utanför .lp-light – Noryvas mörka startsida är orörd.
+   --------------------------------------------------------------- */
+.lp-light {
+  --background: oklch(0.982 0.004 95);
+  --foreground: oklch(0.24 0.012 260);
+  --surface: oklch(1 0 0);
+  --surface-2: oklch(0.955 0.005 95);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.24 0.012 260);
+  --primary: oklch(0.52 0.13 250);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.95 0.006 250);
+  --secondary-foreground: oklch(0.24 0.012 260);
+  --muted: oklch(0.955 0.005 95);
+  --muted-foreground: oklch(0.47 0.012 260);
+  --accent: oklch(0.52 0.13 250);
+  --accent-foreground: oklch(0.99 0 0);
+  --destructive: oklch(0.52 0.19 27);
+  --destructive-foreground: oklch(0.99 0 0);
+  --border: oklch(0.24 0.012 260 / 12%);
+  --input: oklch(0.24 0.012 260 / 18%);
+  --ring: oklch(0.52 0.13 250 / 55%);
+  --glow-accent: 0 12px 30px -18px oklch(0.52 0.13 250 / 0.55);
+  --gradient-veil: radial-gradient(70% 50% at 50% 0%, oklch(0.52 0.13 250 / 0.07) 0%, transparent 70%);
+
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+}
+
+.lp-light ::selection {
+  background: oklch(0.52 0.13 250 / 0.18);
+}
