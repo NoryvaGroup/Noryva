@@ -1,0 +1,107 @@
+{
+  "version": 1,
+  "sdk_version": "2.0.2",
+  "path": "/mcp",
+  "auth": {
+    "type": "none"
+  },
+  "mcp": {
+    "server": {
+      "name": "noryva-growth-engine",
+      "version": "0.1.0",
+      "title": "Noryva Growth Engine"
+    },
+    "tools": [
+      {
+        "name": "get_company_info",
+        "title": "Om Noryva",
+        "description": "Hämta grundläggande information om Noryva: vad byrån gör, kontaktmejl, webbplats och länk för att boka en kostnadsfri genomgång.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_services",
+        "title": "Lista tjänster",
+        "description": "Lista Noryvas tjänster (digital annonsering, leadgenerering, automatisering, konverteringsoptimering) med beskrivning och vad som ingår.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_process",
+        "title": "Noryvas process",
+        "description": "Hämta Noryvas fyrstegsprocess: analysera, bygga, optimera och skala det som fungerar.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "search_faq",
+        "title": "Sök i vanliga frågor",
+        "description": "Sök bland Noryvas vanliga frågor och svar (pris, uppstart, branscher, annonsbudget, villkor). Utan sökord returneras alla frågor.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "query": {
+              "description": "Valfritt sökord, t.ex. 'pris' eller 'avsluta'.",
+              "type": "string"
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "check_fit",
+        "title": "Passar Noryva?",
+        "description": "Beskriv en bransch eller ett företag och få veta om det tillhör Noryvas typiska målgrupp, samt hur man tar kontakt.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "bransch": {
+              "description": "Bransch eller kort beskrivning av företaget, t.ex. 'takläggare i Göteborg'.",
+              "type": "string"
+            }
+          }
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
