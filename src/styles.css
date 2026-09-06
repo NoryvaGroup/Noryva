@@ -39,36 +39,36 @@
 :root {
   --radius: 0.75rem;
 
-  /* Dark graphite premium base – varmare och mer inbjudande än nära-svart */
-  --background: oklch(0.18 0.01 265);
+  /* Dark graphite premium base – lyft, varmare och mer välkomnande */
+  --background: oklch(0.235 0.012 265);
   --foreground: oklch(0.97 0.004 260);
-  --surface: oklch(0.215 0.011 265);
-  --surface-2: oklch(0.255 0.013 265);
-  --card: oklch(0.215 0.011 265);
+  --surface: oklch(0.285 0.014 265);
+  --surface-2: oklch(0.33 0.016 265);
+  --card: oklch(0.285 0.014 265);
   --card-foreground: oklch(0.97 0.004 260);
-  --popover: oklch(0.215 0.011 265);
+  --popover: oklch(0.285 0.014 265);
   --popover-foreground: oklch(0.97 0.004 260);
 
   /* Enda accentfärgen: sofistikerad elektrisk blå/violett */
   --primary: oklch(0.74 0.16 268);
   --primary-foreground: oklch(0.16 0.02 268);
-  --secondary: oklch(0.28 0.012 265);
+  --secondary: oklch(0.34 0.015 265);
   --secondary-foreground: oklch(0.97 0.004 260);
-  --muted: oklch(0.255 0.013 265);
+  --muted: oklch(0.33 0.016 265);
   --muted-foreground: oklch(0.74 0.012 260);
   --accent: oklch(0.74 0.16 268);
   --accent-foreground: oklch(0.16 0.02 268);
   --destructive: oklch(0.68 0.19 25);
   --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 14%);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 16%);
   --ring: oklch(0.74 0.16 268 / 60%);
 
-  --shadow-elevated: 0 24px 60px -30px oklch(0 0 0 / 0.8);
+  --shadow-elevated: 0 24px 60px -30px oklch(0 0 0 / 0.75);
   --glow-accent: 0 0 0 1px oklch(0.74 0.16 268 / 0.22), 0 18px 50px -24px oklch(0.74 0.16 268 / 0.4);
   --gradient-veil: radial-gradient(
     60% 55% at 50% 0%,
-    oklch(0.74 0.16 268 / 0.09) 0%,
+    oklch(0.74 0.16 268 / 0.1) 0%,
     transparent 70%
   );
 }
