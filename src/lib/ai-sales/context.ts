@@ -93,12 +93,18 @@ export function buildAiSalesContext(
   const answers = stored.answers ?? {};
   const make = stored.make;
 
+  // Kända PII-värden (namn, e-post, telefon) plockas ut och stryks även när
+  // de förekommer i fritextfält – mönstermatchning fångar inte personnamn.
+  const knownPii = collectKnownPii(answers, make as Record<string, unknown> | null);
+  const clean = (value: unknown) => redactText(stripKnownPii(String(value ?? ""), knownPii));
+
   const signals: Record<string, string> = {};
   for (const [key, raw] of Object.entries(answers)) {
     if (isPiiKey(key)) continue;
-    const value = redactText(String(raw ?? ""));
+    const value = clean(raw);
     if (value) signals[key] = value;
   }
+
 
   const need =
     BUSINESS_NEED_KEYS.map((k) => signals[k]).find(Boolean) ??
