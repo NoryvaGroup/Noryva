@@ -22,9 +22,18 @@ export function AdminShell({ title, children }: { title: string; children: React
           <Link to="/admin" className="flex items-center gap-3">
             <Logo />
           </Link>
-          <button type="button" onClick={signOut} className="text-sm text-muted-foreground underline">
-            Logga ut
-          </button>
+          <nav className="flex items-center gap-5 text-sm">
+            <Link to="/admin" className="text-muted-foreground hover:text-foreground">
+              Kunder
+            </Link>
+            <Link to="/admin/ai-assistent" className="text-muted-foreground hover:text-foreground">
+              AI-säljassistent
+            </Link>
+            <button type="button" onClick={signOut} className="text-muted-foreground underline">
+              Logga ut
+            </button>
+          </nav>
+
         </div>
       </header>
       <main className="mx-auto w-full max-w-5xl px-5 py-10">

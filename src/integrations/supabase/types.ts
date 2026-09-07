@@ -14,6 +14,84 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_sales_assistant_runs: {
+        Row: {
+          action: string
+          confidence: number
+          contact_speed: string
+          created_at: string
+          customer_id: string
+          email_draft: string
+          followup_questions: Json
+          human_takeover: boolean
+          id: string
+          lead_id: string
+          model: string
+          prompt_version: string
+          review_status: string
+          reviewer_notes: string
+          safety_flags: Json
+          strategy_reason: string
+          subject: string
+          updated_at: string
+        }
+        Insert: {
+          action: string
+          confidence?: number
+          contact_speed: string
+          created_at?: string
+          customer_id: string
+          email_draft?: string
+          followup_questions?: Json
+          human_takeover?: boolean
+          id?: string
+          lead_id: string
+          model: string
+          prompt_version: string
+          review_status?: string
+          reviewer_notes?: string
+          safety_flags?: Json
+          strategy_reason?: string
+          subject?: string
+          updated_at?: string
+        }
+        Update: {
+          action?: string
+          confidence?: number
+          contact_speed?: string
+          created_at?: string
+          customer_id?: string
+          email_draft?: string
+          followup_questions?: Json
+          human_takeover?: boolean
+          id?: string
+          lead_id?: string
+          model?: string
+          prompt_version?: string
+          review_status?: string
+          reviewer_notes?: string
+          safety_flags?: Json
+          strategy_reason?: string
+          subject?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_sales_assistant_runs_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_sales_assistant_runs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           contact_email: string
