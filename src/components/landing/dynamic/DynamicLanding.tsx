@@ -18,12 +18,28 @@ export function DynamicLanding({ landing, preview = false }: Props) {
   const [status, setStatus] = useState<"idle" | "sending" | "done">("idle");
   const [message, setMessage] = useState("");
   const [honeypot, setHoneypot] = useState("");
-  const [delivered, setDelivered] = useState(true);
+  const [result, setResult] = useState<"delivered" | "sending" | "failed">("delivered");
+  const [retrying, setRetrying] = useState(false);
 
   const setValue = (key: string, value: string) =>
     setValues((prev) => ({ ...prev, [key]: value }));
 
   const disabled = preview || !landing.accepts_leads;
+
+  /** Skickar med samma submission_id och samma svar – servern skapar aldrig en ny förfrågan. */
+  async function send() {
+    if (!submissionId.current) submissionId.current = crypto.randomUUID();
+    const res = await submit({
+      data: {
+        slug: landing.slug,
+        submission_id: submissionId.current,
+        consent,
+        values,
+        company: honeypot,
+      },
+    });
+    return res;
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -33,20 +49,11 @@ export function DynamicLanding({ landing, preview = false }: Props) {
     if (Object.keys(found).length > 0) return;
     if (disabled) return;
 
-    if (!submissionId.current) submissionId.current = crypto.randomUUID();
     setStatus("sending");
     try {
-      const res = await submit({
-        data: {
-          slug: landing.slug,
-          submission_id: submissionId.current,
-          consent,
-          values,
-          company: honeypot,
-        },
-      });
+      const res = await send();
       if (res.ok) {
-        setDelivered(res.delivered !== false);
+        setResult(res.status);
         setStatus("done");
       } else {
         setStatus("idle");
@@ -56,6 +63,21 @@ export function DynamicLanding({ landing, preview = false }: Props) {
     } catch {
       setStatus("idle");
       setMessage("Förfrågan kunde inte skickas. Försök igen.");
+    }
+  }
+
+  async function onRetry() {
+    if (disabled || retrying) return;
+    setRetrying(true);
+    setMessage("");
+    try {
+      const res = await send();
+      if (res.ok) setResult(res.status);
+      else setMessage(res.message ?? "Det gick inte att skicka igen just nu.");
+    } catch {
+      setMessage("Det gick inte att skicka igen just nu. Försök om en stund.");
+    } finally {
+      setRetrying(false);
     }
   }
 
@@ -86,12 +108,43 @@ export function DynamicLanding({ landing, preview = false }: Props) {
 
         {status === "done" ? (
           <div className="mt-10 rounded-2xl border border-border bg-surface-2 p-6">
-            <h2 className="text-xl font-semibold">Tack! Din förfrågan är mottagen.</h2>
+            <h2 className="text-xl font-semibold">
+              {result === "delivered"
+                ? "Tack! Din förfrågan är mottagen."
+                : "Din förfrågan är sparad."}
+            </h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              {delivered
-                ? "Vi hör av oss till dig med nästa steg."
-                : "Din förfrågan är sparad. Vidarebefordringen till vårt system dröjer just nu, men inget behöver göras om – vi hör av oss."}
+              {result === "delivered" &&
+                "Vi hör av oss till dig med nästa steg. Ingen bekräftelse skickas automatiskt via e-post."}
+              {result === "sending" &&
+                "Vi håller just nu på att skicka vidare den. Du kan kontrollera om den gått fram – inget nytt formulär skapas."}
+              {result === "failed" &&
+                "Den kunde inte skickas vidare till oss just nu. Tryck på knappen nedan för att försöka igen – samma förfrågan används, den skapas inte på nytt."}
             </p>
+
+            {result !== "delivered" && (
+              <>
+                <button
+                  type="button"
+                  onClick={onRetry}
+                  disabled={retrying}
+                  className="mt-5 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                >
+                  {retrying
+                    ? "Försöker…"
+                    : result === "sending"
+                      ? "Kontrollera status"
+                      : "Försök skicka igen"}
+                </button>
+                {message && <p className="mt-3 text-sm text-destructive">{message}</p>}
+                {(landing.contact_email || landing.contact_phone) && (
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    Går det fortfarande inte? Kontakta oss direkt:{" "}
+                    {[landing.contact_email, landing.contact_phone].filter(Boolean).join(" · ")}
+                  </p>
+                )}
+              </>
+            )}
           </div>
         ) : (
           <form onSubmit={onSubmit} className="mt-10 space-y-5" noValidate>

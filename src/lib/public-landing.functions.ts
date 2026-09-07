@@ -2,7 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeader } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { validateAnswers, type PublicLanding, type PublicQuestion } from "./landing/schema";
-import { buildMakeFields, type MakeLeadFields } from "./landing/make-adapter";
+import { buildMakeFields, buildStoredPayload } from "./landing/make-adapter";
+import { pickDeliveryFields, resolveClaim } from "./landing/delivery";
 
 const slugInput = z.object({ slug: z.string().trim().min(1).max(60) });
 
@@ -86,22 +87,6 @@ export const submitPublicLead = createServerFn({ method: "POST" })
       return { ok: false as const, message: "Kontrollera fälten nedan.", errors };
     }
 
-    const ip =
-      (getRequestHeader("cf-connecting-ip") ??
-        getRequestHeader("x-forwarded-for")?.split(",")[0] ??
-        "okand").trim();
-    const ipHash = await hashIp(ip);
-
-    const since = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-    const { count } = await supabaseAdmin
-      .from("leads")
-      .select("id", { count: "exact", head: true })
-      .eq("source_ip_hash", ipHash)
-      .gte("created_at", since);
-    if ((count ?? 0) >= 5) {
-      return { ok: false as const, message: "För många förfrågningar. Försök igen om en stund." };
-    }
-
     // Endast fält som finns i kundens formulär sparas.
     const allowed = new Set(questions.map((q) => q.field_key));
     const answers: Record<string, string> = {};
@@ -117,7 +102,8 @@ export const submitPublicLead = createServerFn({ method: "POST" })
 
     const idempotencyKey = `${customer.id}:${data.submission_id}`;
 
-    // Finns förfrågan redan? Då återanvänds sparad payload, lead-id och tidsstämpel.
+    // Idempotensuppslaget sker FÖRE hastighetsspärren så att ett nytt
+    // leveransförsök på en redan sparad förfrågan aldrig blockeras.
     const { data: existing } = await supabaseAdmin
       .from("leads")
       .select("id, created_at, payload, delivery_status")
@@ -126,16 +112,32 @@ export const submitPublicLead = createServerFn({ method: "POST" })
 
     let leadId = existing?.id as string | undefined;
     let createdAt = existing?.created_at as string | undefined;
-    let storedFields = (existing?.payload ?? null) as MakeLeadFields | null;
+    let rawPayload: unknown = existing?.payload ?? null;
 
     if (!leadId) {
+      const ip =
+        (getRequestHeader("cf-connecting-ip") ??
+          getRequestHeader("x-forwarded-for")?.split(",")[0] ??
+          "okand").trim();
+      const ipHash = await hashIp(ip);
+
+      const since = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+      const { count } = await supabaseAdmin
+        .from("leads")
+        .select("id", { count: "exact", head: true })
+        .eq("source_ip_hash", ipHash)
+        .gte("created_at", since);
+      if ((count ?? 0) >= 5) {
+        return { ok: false as const, message: "För många förfrågningar. Försök igen om en stund." };
+      }
+
       const { data: inserted, error: insErr } = await supabaseAdmin
         .from("leads")
         .insert({
           customer_id: customer.id,
           industry: customer.industry,
           schema_version: customer.schema_version,
-          payload: makeFields as unknown as never,
+          payload: buildStoredPayload(answers, makeFields) as unknown as never,
           idempotency_key: idempotencyKey,
           source_ip_hash: ipHash,
         })
@@ -151,7 +153,7 @@ export const submitPublicLead = createServerFn({ method: "POST" })
             .maybeSingle();
           leadId = race?.id as string | undefined;
           createdAt = race?.created_at as string | undefined;
-          storedFields = (race?.payload ?? null) as MakeLeadFields | null;
+          rawPayload = race?.payload ?? null;
         }
         if (!leadId) {
           return { ok: false as const, message: "Förfrågan kunde inte sparas. Försök igen." };
@@ -159,24 +161,34 @@ export const submitPublicLead = createServerFn({ method: "POST" })
       } else {
         leadId = inserted.id as string;
         createdAt = inserted.created_at as string;
-        storedFields = makeFields;
+        rawPayload = inserted.payload ?? null;
       }
     }
 
     // Atomisk claim – parallella försök kan aldrig leverera samma lead två gånger.
-    const { data: claim } = await supabaseAdmin.rpc("claim_lead_delivery", {
+    const { data: claim, error: claimErr } = await supabaseAdmin.rpc("claim_lead_delivery", {
       p_lead_id: leadId!,
     });
 
-    if (claim !== "claimed") {
-      if (claim === "delivered") return { ok: true as const, duplicate: true, delivered: true };
-      // Pågående leverans i ett parallellt anrop.
-      return { ok: true as const, duplicate: true, delivered: true };
-    }
+    const outcome = resolveClaim({
+      claim: claim as string | null,
+      claimError: Boolean(claimErr),
+      existing: Boolean(existing),
+    });
+    if (outcome !== "proceed") return outcome;
+
+    // Vid nytt försök återanvänds sparad payload; äldre leads utan råsvar
+    // faller tillbaka på sina platta Make-fält.
+    const fields = pickDeliveryFields({
+      storedPayload: rawPayload,
+      industry: customer.industry,
+      questions,
+      fallback: makeFields,
+    });
 
     // Servermetadata sist så att inga dynamiska fältnycklar kan skriva över dem.
     const body = {
-      ...(storedFields ?? makeFields),
+      ...fields,
       kund_id: customer.id,
       kund_slug: customer.slug,
       lead_id: leadId,
@@ -194,14 +206,19 @@ export const submitPublicLead = createServerFn({ method: "POST" })
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(20000),
+        signal: AbortSignal.timeout(30000),
       });
       if (!res.ok) {
         await supabaseAdmin
           .from("leads")
           .update({ delivery_status: "failed", delivery_error: `HTTP ${res.status}` })
           .eq("id", leadId!);
-        return { ok: true as const, duplicate: false, delivered: false };
+        return {
+          ok: true as const,
+          duplicate: Boolean(existing),
+          delivered: false,
+          status: "failed" as const,
+        };
       }
       await supabaseAdmin
         .from("leads")
@@ -211,12 +228,22 @@ export const submitPublicLead = createServerFn({ method: "POST" })
           delivered_at: new Date().toISOString(),
         })
         .eq("id", leadId!);
-      return { ok: true as const, duplicate: false, delivered: true };
+      return {
+        ok: true as const,
+        duplicate: Boolean(existing),
+        delivered: true,
+        status: "delivered" as const,
+      };
     } catch {
       await supabaseAdmin
         .from("leads")
         .update({ delivery_status: "failed", delivery_error: "Nätverksfel eller timeout" })
         .eq("id", leadId!);
-      return { ok: true as const, duplicate: false, delivered: false };
+      return {
+        ok: true as const,
+        duplicate: Boolean(existing),
+        delivered: false,
+        status: "failed" as const,
+      };
     }
   });
