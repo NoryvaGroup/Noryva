@@ -2,7 +2,7 @@
 
 export const company = {
   name: "Noryva",
-  tagline: "Fler kunder. Utan att gissa vad som fungerar.",
+  tagline: "Fler rätt kunder. Mindre krångel.",
   description:
     "Noryva hjälper svenska tjänste- och B2B-företag med högt kundvärde att fånga, kvalificera och följa upp fler affärsmöjligheter genom digital annonsering, leadgenerering, AI-baserad kvalificering, automatiserad uppföljning och CRM-flöden.",
   email: "info@noryva.se",
