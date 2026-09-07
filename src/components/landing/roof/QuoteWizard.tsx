@@ -152,6 +152,7 @@ export function QuoteWizard({ config = clientConfig }: { config?: RoofClientConf
     const lead: Lead = res.data;
     const payload = {
       ...lead,
+      kund_id: config.customerId,
       submitted_at: new Date().toISOString(),
       source: "noryva_takoffert",
       page_url: typeof window !== "undefined" ? window.location.href : "",
