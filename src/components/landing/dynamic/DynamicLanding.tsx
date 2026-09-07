@@ -45,6 +45,7 @@ export function DynamicLanding({ landing, preview = false }: Props) {
         },
       });
       if (res.ok) {
+        setDelivered(res.delivered !== false);
         setStatus("done");
       } else {
         setStatus("idle");
