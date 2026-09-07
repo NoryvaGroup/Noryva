@@ -158,12 +158,20 @@ const vending: IndustryTemplate = {
       sort_order: 7,
     },
     {
+      field_key: "befintlig_automat",
+      label: "Har ni redan en varuautomat?",
+      field_type: "select",
+      options: ["Nej", "Ja, vill byta eller komplettera", "Ja, vill jämföra alternativ", "Vet inte"],
+      required: false,
+      sort_order: 8,
+    },
+    {
       field_key: "tidsram",
       label: "När vill ni komma igång?",
       field_type: "select",
       options: ["Så snart som möjligt", "Inom 1–3 månader", "Inom 3–6 månader", "Senare", "Vet inte"],
       required: true,
-      sort_order: 8,
+      sort_order: 9,
     },
     {
       field_key: "meddelande",
@@ -171,7 +179,7 @@ const vending: IndustryTemplate = {
       field_type: "textarea",
       options: [],
       required: false,
-      sort_order: 9,
+      sort_order: 10,
     },
   ],
 };
