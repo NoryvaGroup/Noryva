@@ -86,6 +86,7 @@ export function QuoteWizard({ config = clientConfig }: { config?: RoofClientConf
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const headingRef = useRef<HTMLHeadingElement | null>(null);
   const submitting = useRef(false);
+  const submissionIdRef = useRef<string | null>(null);
 
   const progress = Math.round(((step + 1) / TOTAL_STEPS) * 100);
 
@@ -146,6 +147,10 @@ export function QuoteWizard({ config = clientConfig }: { config?: RoofClientConf
       return;
     }
 
+    if (!submissionIdRef.current) {
+      submissionIdRef.current = crypto.randomUUID();
+    }
+
     submitting.current = true;
     setStatus("sending");
 
@@ -153,6 +158,7 @@ export function QuoteWizard({ config = clientConfig }: { config?: RoofClientConf
     const payload = {
       ...lead,
       kund_id: config.customerId,
+      submission_id: submissionIdRef.current,
       submitted_at: new Date().toISOString(),
       source: "noryva_takoffert",
       page_url: typeof window !== "undefined" ? window.location.href : "",
