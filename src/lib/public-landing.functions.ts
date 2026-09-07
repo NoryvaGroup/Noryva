@@ -103,7 +103,7 @@ export const submitPublicLead = createServerFn({ method: "POST" })
 
     // Endast fält som finns i kundens formulär sparas.
     const allowed = new Set(questions.map((q) => q.field_key));
-    const payload: Record<string, unknown> = {};
+    const payload: Record<string, string | boolean> = {};
     for (const [k, v] of Object.entries(data.values)) {
       if (allowed.has(k)) payload[k] = v.trim();
     }
@@ -117,7 +117,7 @@ export const submitPublicLead = createServerFn({ method: "POST" })
         customer_id: customer.id,
         industry: customer.industry,
         schema_version: customer.schema_version,
-        payload,
+        payload: payload as unknown as never,
         idempotency_key: idempotencyKey,
         source_ip_hash: ipHash,
       })
