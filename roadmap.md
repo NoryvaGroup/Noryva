@@ -12,3 +12,9 @@
 - [ ] Ange mottagare och integrationsadress per kund innan publicering
 - [x] Varuautomatformulär kopplat till Make via kompatibilitetsadapter (server-side)
 - [x] Återleverans av misslyckade förfrågningar med atomisk låsning
+- [x] Datamodell för säljåtgärder, kundprofiler och audit-logg (RLS, admin-only)
+- [x] Internt Lead-CRM med kvalificering, AI-bedömning och åtgärdsflöde i TEST/REVIEW
+- [x] Åtgärdsinterface (mail, uppföljning, komplettering, överlämning, CRM, bokning) som säkra no-ops
+- [x] Förberedd svarshantering med eskalering vid pris/förhandling/klagomål/juridik
+- [x] Arkitekturdokumentation i docs/ai-sales-architecture.md
+- [ ] Skarpt läge: mailkanal, inbox/svar, kalenderbokning och utfallsmätning (kräver separat godkännande)
