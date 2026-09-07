@@ -140,11 +140,11 @@ export function buildAiSalesContext(
 
   const need =
     BUSINESS_NEED_KEYS.map((k) => signals[k]).find(Boolean) ??
-    (make?.behov ? redactText(make.behov) : "");
+    (make?.behov ? clean(make.behov) : "");
   const timeline =
     BUSINESS_TIMELINE_KEYS.map((k) => signals[k]).find(Boolean) ??
-    (make?.planerad_tidpunkt ? redactText(make.planerad_tidpunkt) : "");
-  const description = redactText(
+    (make?.planerad_tidpunkt ? clean(make.planerad_tidpunkt) : "");
+  const description = clean(
     signals["projektbeskrivning"] ?? signals["meddelande"] ?? make?.projektbeskrivning ?? "",
   );
 
