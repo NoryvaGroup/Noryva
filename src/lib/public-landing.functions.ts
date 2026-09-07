@@ -2,8 +2,9 @@ import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeader } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { validateAnswers, type PublicLanding, type PublicQuestion } from "./landing/schema";
-import { buildMakeFields, buildStoredPayload } from "./landing/make-adapter";
+import { buildMakeFields, buildStoredPayload, readStoredPayload } from "./landing/make-adapter";
 import { pickDeliveryFields, resolveClaim } from "./landing/delivery";
+import { scoreVaruautomat } from "./landing/scoring";
 
 const slugInput = z.object({ slug: z.string().trim().min(1).max(60) });
 
@@ -186,9 +187,17 @@ export const submitPublicLead = createServerFn({ method: "POST" })
       fallback: makeFields,
     });
 
+    // Deterministisk scoring för varuautomats-leads, beräknad på samma
+    // råsvar som levereras (sparade svar vid nytt försök).
+    const scoring =
+      customer.industry === "varuautomater"
+        ? scoreVaruautomat(readStoredPayload(rawPayload).answers ?? answers)
+        : null;
+
     // Servermetadata sist så att inga dynamiska fältnycklar kan skriva över dem.
     const body = {
       ...fields,
+      ...(scoring ?? {}),
       kund_id: customer.id,
       kund_slug: customer.slug,
       lead_id: leadId,
