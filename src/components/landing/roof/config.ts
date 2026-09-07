@@ -19,6 +19,8 @@ export type RoofClientConfig = {
   webhookUrl: string;
   /** Visar badgen "Demoversion för takföretag" högst upp. */
   showDemoBadge: boolean;
+  /** Internt kund-id som skickas med leadet. */
+  customerId: string;
 };
 
 export const clientConfig: RoofClientConfig = {
@@ -27,8 +29,9 @@ export const clientConfig: RoofClientConfig = {
   phone: "",
   email: "",
   serviceArea: "",
-  webhookUrl: "",
-  showDemoBadge: true,
+  webhookUrl: "https://hook.eu1.make.com/62ty3f2h1o7ylrfrni67wkzy6cdme18r",
+  showDemoBadge: false,
+  customerId: "noryva",
 };
 
 export const isDemoMode = (config: RoofClientConfig) => config.webhookUrl.trim() === "";
