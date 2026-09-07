@@ -2,7 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeader } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { validateAnswers, type PublicLanding, type PublicQuestion } from "./landing/schema";
-import { buildMakeFields, buildStoredPayload, readStoredPayload } from "./landing/make-adapter";
+import { buildMakeFields, buildStoredPayload } from "./landing/make-adapter";
+import { pickDeliveryFields, resolveClaim } from "./landing/delivery";
 
 const slugInput = z.object({ slug: z.string().trim().min(1).max(60) });
 
@@ -111,7 +112,7 @@ export const submitPublicLead = createServerFn({ method: "POST" })
 
     let leadId = existing?.id as string | undefined;
     let createdAt = existing?.created_at as string | undefined;
-    let stored = readStoredPayload(existing?.payload ?? null);
+    let rawPayload: unknown = existing?.payload ?? null;
 
     if (!leadId) {
       const ip =
@@ -152,7 +153,7 @@ export const submitPublicLead = createServerFn({ method: "POST" })
             .maybeSingle();
           leadId = race?.id as string | undefined;
           createdAt = race?.created_at as string | undefined;
-          stored = readStoredPayload(race?.payload ?? null);
+          rawPayload = race?.payload ?? null;
         }
         if (!leadId) {
           return { ok: false as const, message: "Förfrågan kunde inte sparas. Försök igen." };
@@ -160,7 +161,7 @@ export const submitPublicLead = createServerFn({ method: "POST" })
       } else {
         leadId = inserted.id as string;
         createdAt = inserted.created_at as string;
-        stored = readStoredPayload(inserted.payload ?? null);
+        rawPayload = inserted.payload ?? null;
       }
     }
 
@@ -169,38 +170,21 @@ export const submitPublicLead = createServerFn({ method: "POST" })
       p_lead_id: leadId!,
     });
 
-    if (claimErr) {
-      // Förfrågan är sparad, men vi vet inte om den levererats.
-      return {
-        ok: true as const,
-        duplicate: Boolean(existing),
-        delivered: false,
-        status: "failed" as const,
-      };
-    }
-    if (claim === "delivered") {
-      return { ok: true as const, duplicate: true, delivered: true, status: "delivered" as const };
-    }
-    if (claim === "missing") {
-      return { ok: false as const, message: "Förfrågan kunde inte hittas. Försök igen." };
-    }
-    if (claim !== "claimed") {
-      // "sending": ett parallellt försök pågår – ingen bekräftad leverans ännu.
-      return {
-        ok: true as const,
-        duplicate: true,
-        delivered: false,
-        status: "sending" as const,
-      };
-    }
+    const outcome = resolveClaim({
+      claim: claim as string | null,
+      claimError: Boolean(claimErr),
+      existing: Boolean(existing),
+    });
+    if (outcome !== "proceed") return outcome;
 
     // Vid nytt försök återanvänds sparad payload; äldre leads utan råsvar
     // faller tillbaka på sina platta Make-fält.
-    const fields =
-      stored.make ??
-      (stored.answers
-        ? buildMakeFields({ industry: customer.industry, questions, values: stored.answers })
-        : makeFields);
+    const fields = pickDeliveryFields({
+      storedPayload: rawPayload,
+      industry: customer.industry,
+      questions,
+      fallback: makeFields,
+    });
 
     // Servermetadata sist så att inga dynamiska fältnycklar kan skriva över dem.
     const body = {
