@@ -23,6 +23,7 @@ import { Route as OffertSlugRouteImport } from './routes/offert.$slug'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin/index'
 import { Route as AuthenticatedAdminCustomerIdRouteImport } from './routes/_authenticated/admin/$customerId'
 import { Route as AuthenticatedAdminAiAssistentRouteImport } from './routes/_authenticated/admin/ai-assistent'
+import { Route as AuthenticatedAdminCrmRouteImport } from './routes/_authenticated/admin/crm'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -96,6 +97,11 @@ const AuthenticatedAdminAiAssistentRoute =
     path: '/admin/ai-assistent',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAdminCrmRoute = AuthenticatedAdminCrmRouteImport.update({
+  id: '/admin/crm',
+  path: '/admin/crm',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -110,6 +116,7 @@ export interface FileRoutesByFullPath {
   '/offert/$slug': typeof OffertSlugRoute
   '/admin/$customerId': typeof AuthenticatedAdminCustomerIdRoute
   '/admin/ai-assistent': typeof AuthenticatedAdminAiAssistentRoute
+  '/admin/crm': typeof AuthenticatedAdminCrmRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRoutesByTo {
@@ -125,6 +132,7 @@ export interface FileRoutesByTo {
   '/offert/$slug': typeof OffertSlugRoute
   '/admin/$customerId': typeof AuthenticatedAdminCustomerIdRoute
   '/admin/ai-assistent': typeof AuthenticatedAdminAiAssistentRoute
+  '/admin/crm': typeof AuthenticatedAdminCrmRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRoutesById {
@@ -142,6 +150,7 @@ export interface FileRoutesById {
   '/offert/$slug': typeof OffertSlugRoute
   '/_authenticated/admin/$customerId': typeof AuthenticatedAdminCustomerIdRoute
   '/_authenticated/admin/ai-assistent': typeof AuthenticatedAdminAiAssistentRoute
+  '/_authenticated/admin/crm': typeof AuthenticatedAdminCrmRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRouteTypes {
@@ -159,6 +168,7 @@ export interface FileRouteTypes {
     | '/offert/$slug'
     | '/admin/$customerId'
     | '/admin/ai-assistent'
+    | '/admin/crm'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -174,6 +184,7 @@ export interface FileRouteTypes {
     | '/offert/$slug'
     | '/admin/$customerId'
     | '/admin/ai-assistent'
+    | '/admin/crm'
     | '/admin'
   id:
     | '__root__'
@@ -190,6 +201,7 @@ export interface FileRouteTypes {
     | '/offert/$slug'
     | '/_authenticated/admin/$customerId'
     | '/_authenticated/admin/ai-assistent'
+    | '/_authenticated/admin/crm'
     | '/_authenticated/admin/'
   fileRoutesById: FileRoutesById
 }
@@ -307,18 +319,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminAiAssistentRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/admin/crm': {
+      id: '/_authenticated/admin/crm'
+      path: '/admin/crm'
+      fullPath: '/admin/crm'
+      preLoaderRoute: typeof AuthenticatedAdminCrmRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminCustomerIdRoute: typeof AuthenticatedAdminCustomerIdRoute
   AuthenticatedAdminAiAssistentRoute: typeof AuthenticatedAdminAiAssistentRoute
+  AuthenticatedAdminCrmRoute: typeof AuthenticatedAdminCrmRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminCustomerIdRoute: AuthenticatedAdminCustomerIdRoute,
   AuthenticatedAdminAiAssistentRoute: AuthenticatedAdminAiAssistentRoute,
+  AuthenticatedAdminCrmRoute: AuthenticatedAdminCrmRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
 }
 
