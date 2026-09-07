@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthRouteImport } from './routes/auth'
 import { Route as CookiesRouteImport } from './routes/cookies'
 import { Route as IntegritetspolicyRouteImport } from './routes/integritetspolicy'
 import { Route as McpRouteImport } from './routes/mcp'
@@ -22,6 +23,11 @@ import { Route as OffertSlugRouteImport } from './routes/offert.$slug'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CookiesRoute = CookiesRouteImport.update({
@@ -68,6 +74,7 @@ const OffertSlugRoute = OffertSlugRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/cookies': typeof CookiesRoute
   '/integritetspolicy': typeof IntegritetspolicyRoute
   '/mcp': typeof McpRoute
@@ -79,6 +86,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/cookies': typeof CookiesRoute
   '/integritetspolicy': typeof IntegritetspolicyRoute
   '/mcp': typeof McpRoute
@@ -91,6 +99,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/cookies': typeof CookiesRoute
   '/integritetspolicy': typeof IntegritetspolicyRoute
   '/mcp': typeof McpRoute
@@ -104,6 +113,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/auth'
     | '/cookies'
     | '/integritetspolicy'
     | '/mcp'
@@ -115,6 +125,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/auth'
     | '/cookies'
     | '/integritetspolicy'
     | '/mcp'
@@ -126,6 +137,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/auth'
     | '/cookies'
     | '/integritetspolicy'
     | '/mcp'
@@ -138,6 +150,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthRoute: typeof AuthRoute
   CookiesRoute: typeof CookiesRoute
   IntegritetspolicyRoute: typeof IntegritetspolicyRoute
   McpRoute: typeof McpRoute
@@ -155,6 +168,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/cookies': {
@@ -218,6 +238,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthRoute: AuthRoute,
   CookiesRoute: CookiesRoute,
   IntegritetspolicyRoute: IntegritetspolicyRoute,
   McpRoute: McpRoute,
