@@ -53,7 +53,7 @@ export function DynamicLanding({ landing, preview = false }: Props) {
     try {
       const res = await send();
       if (res.ok) {
-        setResult(res.status ?? (res.delivered ? "delivered" : "failed"));
+        setResult(res.status);
         setStatus("done");
       } else {
         setStatus("idle");
@@ -72,7 +72,7 @@ export function DynamicLanding({ landing, preview = false }: Props) {
     setMessage("");
     try {
       const res = await send();
-      if (res.ok) setResult(res.status ?? (res.delivered ? "delivered" : "failed"));
+      if (res.ok) setResult(res.status);
       else setMessage(res.message ?? "Det gick inte att skicka igen just nu.");
     } catch {
       setMessage("Det gick inte att skicka igen just nu. Försök om en stund.");
