@@ -10,6 +10,8 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as AuthRouteImport } from './routes/auth'
 import { Route as CookiesRouteImport } from './routes/cookies'
 import { Route as IntegritetspolicyRouteImport } from './routes/integritetspolicy'
 import { Route as McpRouteImport } from './routes/mcp'
@@ -17,10 +19,22 @@ import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as TakoffertRouteImport } from './routes/takoffert'
 import { Route as VillkorRouteImport } from './routes/villkor'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
+import { Route as OffertSlugRouteImport } from './routes/offert.$slug'
+import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin/index'
+import { Route as AuthenticatedAdminCustomerIdRouteImport } from './routes/_authenticated/admin/$customerId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CookiesRoute = CookiesRouteImport.update({
@@ -59,9 +73,26 @@ const Char91DotwellKnownChar93OauthProtectedResourceRoute =
     path: '/.well-known/oauth-protected-resource',
     getParentRoute: () => rootRouteImport,
   } as any)
+const OffertSlugRoute = OffertSlugRouteImport.update({
+  id: '/offert/$slug',
+  path: '/offert/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAdminCustomerIdRoute =
+  AuthenticatedAdminCustomerIdRouteImport.update({
+    id: '/admin/$customerId',
+    path: '/admin/$customerId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/cookies': typeof CookiesRoute
   '/integritetspolicy': typeof IntegritetspolicyRoute
   '/mcp': typeof McpRoute
@@ -69,9 +100,13 @@ export interface FileRoutesByFullPath {
   '/takoffert': typeof TakoffertRoute
   '/villkor': typeof VillkorRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/offert/$slug': typeof OffertSlugRoute
+  '/admin/$customerId': typeof AuthenticatedAdminCustomerIdRoute
+  '/admin/': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/cookies': typeof CookiesRoute
   '/integritetspolicy': typeof IntegritetspolicyRoute
   '/mcp': typeof McpRoute
@@ -79,10 +114,15 @@ export interface FileRoutesByTo {
   '/takoffert': typeof TakoffertRoute
   '/villkor': typeof VillkorRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/offert/$slug': typeof OffertSlugRoute
+  '/admin/$customerId': typeof AuthenticatedAdminCustomerIdRoute
+  '/admin': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/auth': typeof AuthRoute
   '/cookies': typeof CookiesRoute
   '/integritetspolicy': typeof IntegritetspolicyRoute
   '/mcp': typeof McpRoute
@@ -90,11 +130,15 @@ export interface FileRoutesById {
   '/takoffert': typeof TakoffertRoute
   '/villkor': typeof VillkorRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/offert/$slug': typeof OffertSlugRoute
+  '/_authenticated/admin/$customerId': typeof AuthenticatedAdminCustomerIdRoute
+  '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/auth'
     | '/cookies'
     | '/integritetspolicy'
     | '/mcp'
@@ -102,9 +146,13 @@ export interface FileRouteTypes {
     | '/takoffert'
     | '/villkor'
     | '/.well-known/oauth-protected-resource'
+    | '/offert/$slug'
+    | '/admin/$customerId'
+    | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/auth'
     | '/cookies'
     | '/integritetspolicy'
     | '/mcp'
@@ -112,9 +160,14 @@ export interface FileRouteTypes {
     | '/takoffert'
     | '/villkor'
     | '/.well-known/oauth-protected-resource'
+    | '/offert/$slug'
+    | '/admin/$customerId'
+    | '/admin'
   id:
     | '__root__'
     | '/'
+    | '/_authenticated'
+    | '/auth'
     | '/cookies'
     | '/integritetspolicy'
     | '/mcp'
@@ -122,10 +175,15 @@ export interface FileRouteTypes {
     | '/takoffert'
     | '/villkor'
     | '/.well-known/oauth-protected-resource'
+    | '/offert/$slug'
+    | '/_authenticated/admin/$customerId'
+    | '/_authenticated/admin/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  AuthRoute: typeof AuthRoute
   CookiesRoute: typeof CookiesRoute
   IntegritetspolicyRoute: typeof IntegritetspolicyRoute
   McpRoute: typeof McpRoute
@@ -133,6 +191,7 @@ export interface RootRouteChildren {
   TakoffertRoute: typeof TakoffertRoute
   VillkorRoute: typeof VillkorRoute
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  OffertSlugRoute: typeof OffertSlugRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -142,6 +201,20 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/cookies': {
@@ -193,11 +266,47 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/offert/$slug': {
+      id: '/offert/$slug'
+      path: '/offert/$slug'
+      fullPath: '/offert/$slug'
+      preLoaderRoute: typeof OffertSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/admin/': {
+      id: '/_authenticated/admin/'
+      path: '/admin'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/admin/$customerId': {
+      id: '/_authenticated/admin/$customerId'
+      path: '/admin/$customerId'
+      fullPath: '/admin/$customerId'
+      preLoaderRoute: typeof AuthenticatedAdminCustomerIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
+interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAdminCustomerIdRoute: typeof AuthenticatedAdminCustomerIdRoute
+  AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
+}
+
+const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAdminCustomerIdRoute: AuthenticatedAdminCustomerIdRoute,
+  AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
+}
+
+const AuthenticatedRouteRouteWithChildren =
+  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  AuthRoute: AuthRoute,
   CookiesRoute: CookiesRoute,
   IntegritetspolicyRoute: IntegritetspolicyRoute,
   McpRoute: McpRoute,
@@ -206,6 +315,7 @@ const rootRouteChildren: RootRouteChildren = {
   VillkorRoute: VillkorRoute,
   Char91DotwellKnownChar93OauthProtectedResourceRoute:
     Char91DotwellKnownChar93OauthProtectedResourceRoute,
+  OffertSlugRoute: OffertSlugRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
