@@ -92,6 +92,124 @@ export type Database = {
           },
         ]
       }
+      ai_sales_events: {
+        Row: {
+          action_id: string | null
+          actor: string
+          actor_user_id: string | null
+          created_at: string
+          customer_id: string | null
+          detail: Json
+          event_type: string
+          id: string
+          lead_id: string | null
+          run_id: string | null
+        }
+        Insert: {
+          action_id?: string | null
+          actor?: string
+          actor_user_id?: string | null
+          created_at?: string
+          customer_id?: string | null
+          detail?: Json
+          event_type: string
+          id?: string
+          lead_id?: string | null
+          run_id?: string | null
+        }
+        Update: {
+          action_id?: string | null
+          actor?: string
+          actor_user_id?: string | null
+          created_at?: string
+          customer_id?: string | null
+          detail?: Json
+          event_type?: string
+          id?: string
+          lead_id?: string | null
+          run_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_sales_events_action_id_fkey"
+            columns: ["action_id"]
+            isOneToOne: false
+            referencedRelation: "sales_actions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_sales_events_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_sales_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_sales_events_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "ai_sales_assistant_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_profiles: {
+        Row: {
+          ai_assistant_enabled: boolean
+          booking_rules: Json
+          created_at: string
+          customer_id: string
+          followup_rules: Json
+          language: string
+          lead_prefix: string
+          notify_recipients: string[]
+          qualification_profile: Json
+          tone: string
+          updated_at: string
+        }
+        Insert: {
+          ai_assistant_enabled?: boolean
+          booking_rules?: Json
+          created_at?: string
+          customer_id: string
+          followup_rules?: Json
+          language?: string
+          lead_prefix?: string
+          notify_recipients?: string[]
+          qualification_profile?: Json
+          tone?: string
+          updated_at?: string
+        }
+        Update: {
+          ai_assistant_enabled?: boolean
+          booking_rules?: Json
+          created_at?: string
+          customer_id?: string
+          followup_rules?: Json
+          language?: string
+          lead_prefix?: string
+          notify_recipients?: string[]
+          qualification_profile?: Json
+          tone?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_profiles_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: true
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           contact_email: string
@@ -248,6 +366,100 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_actions: {
+        Row: {
+          action_type: string
+          approved_at: string | null
+          approved_by: string | null
+          body: string
+          created_at: string
+          customer_id: string
+          executed_at: string | null
+          execution_mode: string
+          execution_result: Json
+          followup_questions: Json
+          human_takeover: boolean
+          id: string
+          idempotency_key: string
+          lead_id: string
+          params: Json
+          run_id: string | null
+          scheduled_for: string | null
+          status: string
+          strategy_reason: string
+          subject: string
+          updated_at: string
+        }
+        Insert: {
+          action_type: string
+          approved_at?: string | null
+          approved_by?: string | null
+          body?: string
+          created_at?: string
+          customer_id: string
+          executed_at?: string | null
+          execution_mode?: string
+          execution_result?: Json
+          followup_questions?: Json
+          human_takeover?: boolean
+          id?: string
+          idempotency_key: string
+          lead_id: string
+          params?: Json
+          run_id?: string | null
+          scheduled_for?: string | null
+          status?: string
+          strategy_reason?: string
+          subject?: string
+          updated_at?: string
+        }
+        Update: {
+          action_type?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          body?: string
+          created_at?: string
+          customer_id?: string
+          executed_at?: string | null
+          execution_mode?: string
+          execution_result?: Json
+          followup_questions?: Json
+          human_takeover?: boolean
+          id?: string
+          idempotency_key?: string
+          lead_id?: string
+          params?: Json
+          run_id?: string | null
+          scheduled_for?: string | null
+          status?: string
+          strategy_reason?: string
+          subject?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_actions_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_actions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_actions_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "ai_sales_assistant_runs"
             referencedColumns: ["id"]
           },
         ]
