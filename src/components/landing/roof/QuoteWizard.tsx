@@ -86,6 +86,7 @@ export function QuoteWizard({ config = clientConfig }: { config?: RoofClientConf
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const headingRef = useRef<HTMLHeadingElement | null>(null);
   const submitting = useRef(false);
+  const submissionIdRef = useRef<string | null>(null);
 
   const progress = Math.round(((step + 1) / TOTAL_STEPS) * 100);
 
