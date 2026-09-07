@@ -45,6 +45,38 @@ function isPiiKey(key: string): boolean {
   return PII_FIELD_KEYS.some((p) => k === p || k.includes(p));
 }
 
+function escapeRe(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Samlar konkreta PII-värden (namn, e-post, telefon) ur svaren. */
+export function collectKnownPii(
+  answers: Record<string, unknown>,
+  make: Record<string, unknown> | null,
+): string[] {
+  const values: string[] = [];
+  const push = (raw: unknown) => {
+    const v = String(raw ?? "").trim();
+    if (!v) return;
+    values.push(v);
+    // Personnamn förekommer ofta som enstaka förnamn i fritext.
+    for (const part of v.split(/[\s,]+/)) if (part.length >= 3) values.push(part);
+  };
+  for (const [key, raw] of Object.entries(answers)) if (isPiiKey(key)) push(raw);
+  for (const key of ["fullstandigt_namn", "epost", "telefonnummer"]) push(make?.[key]);
+  return Array.from(new Set(values)).sort((a, b) => b.length - a.length);
+}
+
+/** Stryker kända PII-värden ur fritext (personnamn fångas inte av mönster). */
+export function stripKnownPii(text: string, knownPii: string[]): string {
+  let out = text;
+  for (const value of knownPii) {
+    out = out.replace(new RegExp(escapeRe(value), "gi"), "[borttaget]");
+  }
+  return out;
+}
+
+
 export type AiLeadInput = {
   leadId: string;
   customerId: string;
