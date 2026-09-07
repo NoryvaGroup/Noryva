@@ -4,6 +4,7 @@ import { Hero } from "@/components/site/Hero";
 import { Problem } from "@/components/site/Problem";
 import { Process } from "@/components/site/Process";
 import { Services } from "@/components/site/Services";
+import { Adaptation } from "@/components/site/Adaptation";
 import { Dashboard } from "@/components/site/Dashboard";
 import { Results } from "@/components/site/Results";
 import { Why } from "@/components/site/Why";
@@ -15,9 +16,9 @@ import { BigCta } from "@/components/site/BigCta";
 import { Contact } from "@/components/site/Contact";
 import { Footer } from "@/components/site/Footer";
 
-const title = "Noryva | Digital annonsering som ger fler kunder";
+const title = "Noryva | Kvalificerade leads och automatiserad uppföljning";
 const description =
-  "Noryva hjälper svenska tjänsteföretag att få fler kvalificerade kunder genom digital annonsering, leadgenerering och automatiserad uppföljning.";
+  "Noryva hjälper tjänste- och B2B-företag med högt kundvärde att fånga, kvalificera och följa upp fler affärsmöjligheter automatiskt.";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -51,8 +52,9 @@ export const Route = createFileRoute("/")({
               serviceType: [
                 "Digital annonsering",
                 "Leadgenerering",
-                "Automatisering",
-                "Konverteringsoptimering",
+                "AI-baserad leadkvalificering",
+                "Automatiserad uppföljning",
+                "CRM- och processflöden",
               ],
             },
             {
@@ -79,6 +81,7 @@ function Index() {
         <Problem />
         <Process />
         <Services />
+        <Adaptation />
         <Dashboard />
         <Results />
         <Why />

@@ -1,27 +1,27 @@
-import { ArrowRight, Car, Hammer, Home, MapPin } from "lucide-react";
+import { ArrowRight, Building2, BriefcaseBusiness, KeyRound, Wrench } from "lucide-react";
 import { Reveal } from "./Reveal";
 import { CtaLink } from "./Button";
 
 const categories = [
   {
-    icon: Hammer,
-    title: "Bygg & hantverk",
-    text: "Tak • Måleri • VVS • Elektriker • Renovering",
+    icon: Wrench,
+    title: "Hantverk & installation",
+    text: "Installation, bygg, renovering och andra projektbaserade tjänster.",
   },
   {
-    icon: Home,
-    title: "Hem & tjänster",
-    text: "Städ • Flytt • Service",
+    icon: Building2,
+    title: "Fastighetsservice",
+    text: "Service, underhåll och återkommande uppdrag för fastigheter.",
   },
   {
-    icon: Car,
-    title: "Bil & fordon",
-    text: "Verkstäder • Bilvård • Däck",
+    icon: KeyRound,
+    title: "Uthyrning",
+    text: "Företag som behöver matcha rätt förfrågan med rätt objekt eller kapacitet.",
   },
   {
-    icon: MapPin,
-    title: "Lokala tjänsteföretag",
-    text: "Företag där kunderna finns inom ett specifikt geografiskt område.",
+    icon: BriefcaseBusiness,
+    title: "Företagsservice & lokal B2B",
+    text: "Specialiserade tjänster där varje ny kundrelation har ett tydligt värde.",
   },
 ];
 
@@ -32,11 +32,11 @@ export function Audience() {
         <Reveal>
           <span className="eyebrow">Vilka vi hjälper</span>
           <h2 className="mt-5 max-w-2xl text-3xl leading-tight font-semibold sm:text-[2.6rem]">
-            Byggt för företag där varje ny kund räknas.
+            För företag där varje rätt affärsmöjlighet räknas.
           </h2>
           <p className="mt-5 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-            Vi fokuserar på tjänsteföretag där en ny kund har ett tydligt värde och där ett stabilt
-            inflöde av förfrågningar kan göra verklig skillnad.
+            Vi fokuserar på svenska tjänste- och B2B-företag med högt kundvärde, en tydlig målgrupp
+            och kapacitet att ta hand om fler relevanta förfrågningar.
           </p>
         </Reveal>
 

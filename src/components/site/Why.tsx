@@ -10,17 +10,17 @@ const usps = [
   {
     icon: FlaskConical,
     title: "Vi testar istället för att gissa",
-    text: "Annonser, målgrupper och budskap förbättras utifrån faktisk data.",
+    text: "Målgrupper, budskap, kvalificering och uppföljning förbättras utifrån faktisk data.",
   },
   {
     icon: Layers,
     title: "Vi tar ansvar för helheten",
-    text: "Inte bara annonserna – utan vägen från första klick till bokad kund.",
+    text: "Inte bara annonserna – utan vägen från första intresse till kvalificerad dialog.",
   },
   {
     icon: TrendingUp,
-    title: "Vi bygger för långsiktig tillväxt",
-    text: "Målet är inte en bra kampanj. Målet är ett system som fortsätter fungera.",
+    title: "Vi anpassar efter affären",
+    text: "Kriterier, uppföljning och CRM-flöden formas efter er bransch och kundresa.",
   },
 ];
 

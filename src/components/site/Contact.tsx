@@ -21,10 +21,10 @@ const fieldClass =
   "w-full rounded-xl border border-input bg-surface/70 px-4 py-3.5 text-base text-foreground placeholder:text-muted-foreground/70 transition-colors focus:border-primary/50 focus:outline-none focus:ring-2 focus-visible:ring-ring";
 
 const goals = [
-  "Fler leads",
-  "Bättre kvalitet på leads",
-  "Lägre kostnad per lead",
-  "Snabbare uppföljning",
+  "Fler kvalificerade leads",
+  "AI-baserad leadkvalificering",
+  "Automatiserad uppföljning",
+  "CRM- och processflöden",
   "Komma igång med annonsering",
   "Annat",
 ];
@@ -81,7 +81,7 @@ export function Contact() {
             </h2>
             <p className="mt-5 text-sm leading-relaxed text-muted-foreground sm:text-base">
               Fyll i formuläret så återkommer vi med en kostnadsfri genomgång av din nuvarande
-              kundanskaffning och vilka möjligheter som finns.
+               leadflöde och vilka möjligheter som finns.
             </p>
             <div className="mt-8">
               <CtaLink href="mailto:info@noryva.se" variant="ghost" className="py-3.5">

@@ -3,18 +3,18 @@ import { Reveal } from "./Reveal";
 const problems = [
   {
     n: "01",
-    title: "För få förfrågningar",
-    text: "Bra företag kan fortfarande ha svårt att nå tillräckligt många potentiella kunder.",
+    title: "För få rätt affärsmöjligheter",
+    text: "Marknadsföringen når inte alltid de företag eller personer som har ett verkligt behov.",
   },
   {
     n: "02",
-    title: "Fel typ av leads",
-    text: "Mer trafik betyder inte automatiskt fler relevanta kunder.",
+    title: "Leads saknar sammanhang",
+    text: "Utan rätt frågor och kvalificering blir det svårt att veta vilka kontakter som bör prioriteras.",
   },
   {
     n: "03",
-    title: "Kunder tappas på vägen",
-    text: "Långsam uppföljning och ineffektiva processer gör att potentiella affärer försvinner.",
+    title: "Uppföljningen blir ojämn",
+    text: "Manuella överlämningar och sena svar gör att relevanta affärsmöjligheter riskerar att svalna.",
   },
 ];
 
@@ -25,11 +25,11 @@ export function Problem() {
         <Reveal>
           <span className="eyebrow">Utmaningen</span>
           <h2 className="mt-5 max-w-3xl text-3xl leading-tight font-semibold sm:text-[2.6rem]">
-            Bra företag ska inte behöva förlita sig på tur för att få nya kunder.
+            Ett värdefullt lead ska inte försvinna mellan annons, inkorg och uppföljning.
           </h2>
           <p className="mt-5 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-            Många företag gör rätt i sin verksamhet men har fortfarande svårt att skapa ett stabilt
-            inflöde av nya kunder.
+            För företag med högt kundvärde räcker det inte med fler klick. Hela vägen från första
+            intresse till kvalificerad dialog behöver fungera som ett sammanhängande system.
           </p>
         </Reveal>
 
@@ -47,7 +47,7 @@ export function Problem() {
 
         <Reveal delay={200}>
           <p className="mt-12 font-display text-lg font-semibold sm:text-2xl">
-            Noryva bygger systemet som kopplar ihop allt.
+            Noryva kopplar ihop inflöde, kvalificering, CRM och uppföljning.
           </p>
         </Reveal>
       </div>

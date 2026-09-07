@@ -1,33 +1,33 @@
-import { ArrowRight } from "lucide-react";
-import { CtaLink } from "./Button";
 import { Reveal } from "./Reveal";
 
-/**
- * Inga publicerade kundcase ännu. Sektionen är medvetet minimalistisk –
- * bygg ut med riktiga case (bransch, mål, strategi, resultat) när det finns
- * verklig data att visa. Hitta aldrig på siffror eller kunder.
- */
+const checkpoints = [
+  "Vilka kanaler som skapar relevanta leads",
+  "Vilka kriterier som signalerar hög potential",
+  "Hur snabbt och konsekvent varje lead följs upp",
+  "Var i kundresan möjligheter går vidare eller stannar",
+];
+
 export function Cases() {
   return (
     <section id="kundcase" className="border-t border-border py-20 sm:py-28">
       <div className="container-x">
         <Reveal>
           <div className="mx-auto max-w-2xl text-center">
-            <span className="eyebrow justify-center">Kundcase</span>
+            <span className="eyebrow justify-center">Transparens före löften</span>
             <h2 className="mt-5 text-3xl leading-tight font-semibold sm:text-[2.6rem]">
-              Resultat som går att mäta.
+              Vi mäter det som går att förbättra.
             </h2>
             <p className="mt-5 text-sm leading-relaxed text-muted-foreground sm:text-base">
-              Vi fyller på med riktiga kundcase när vi har data att visa.
+              Utan verifierade kundcase visar vi inga påhittade resultat. I stället följer vi
+              mätpunkter genom hela flödet och använder dem som underlag för nästa förbättring.
             </p>
-            <p className="mt-8 font-display text-lg font-semibold sm:text-xl">
-              Ditt företag kan bli vårt nästa case.
-            </p>
-            <div className="mt-7">
-              <CtaLink href="/#kontakt" className="py-4 sm:py-3.5">
-                Boka kostnadsfri genomgång <ArrowRight size={17} />
-              </CtaLink>
-            </div>
+            <ul className="mt-9 grid gap-3 text-left sm:grid-cols-2">
+              {checkpoints.map((checkpoint) => (
+                <li key={checkpoint} className="rounded-xl border border-border bg-surface/60 p-4 text-sm leading-relaxed text-muted-foreground">
+                  <span className="mr-2 text-primary">•</span>{checkpoint}
+                </li>
+              ))}
+            </ul>
           </div>
         </Reveal>
       </div>

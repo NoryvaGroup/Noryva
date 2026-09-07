@@ -10,7 +10,7 @@ export const faqItems = [
   },
   {
     q: "Behöver jag redan annonsera?",
-    a: "Nej. Vi kan hjälpa till från grunden, beroende på företagets förutsättningar och mål.",
+    a: "Nej. Vi kan bygga ett nytt inflöde eller förbättra ett befintligt upplägg, beroende på företagets förutsättningar och mål.",
   },
   {
     q: "Hur snabbt kan vi komma igång?",
@@ -18,11 +18,19 @@ export const faqItems = [
   },
   {
     q: "Vilka företag arbetar ni med?",
-    a: "Främst tjänsteföretag och lokala företag som vill öka inflödet av nya kunder.",
+    a: "Svenska tjänste- och B2B-företag med högt kundvärde och behov av fler kvalificerade affärsmöjligheter. Det kan vara hantverk och installation, fastighetsservice, uthyrning, företagsservice eller andra specialiserade tjänster.",
   },
   {
     q: "Sköter ni annonseringen åt oss?",
-    a: "Ja. Vi kan hantera strategi, skapande, testning och löpande optimering.",
+    a: "Ja. Vi kan hantera strategi, skapande, testning och löpande optimering samt koppla inflödet till kvalificering och uppföljning.",
+  },
+  {
+    q: "Hur fungerar AI-baserad leadkvalificering?",
+    a: "Vi sätter upp kriterier utifrån er affär, till exempel behov, område, tidplan eller företagsstorlek. AI kan sedan hjälpa till att strukturera och prioritera informationen, medan ni behåller kontrollen över beslut och kundkontakt.",
+  },
+  {
+    q: "Kan ni koppla flödet till vårt CRM?",
+    a: "Det beror på vilka system och arbetssätt ni använder. Under genomgången kartlägger vi vilka kopplingar, notifieringar och uppföljningssteg som är lämpliga.",
   },
   {
     q: "Betalar jag annonskostnaden till Noryva?",
