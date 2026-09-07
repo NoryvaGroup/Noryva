@@ -20,7 +20,6 @@ export const Route = createFileRoute("/auth")({
 
 function AuthPage() {
   const navigate = useNavigate();
-  const [mode, setMode] = useState<"in" | "up">("in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
@@ -30,21 +29,10 @@ function AuthPage() {
     e.preventDefault();
     setBusy(true);
     setMessage("");
-    const res =
-      mode === "in"
-        ? await supabase.auth.signInWithPassword({ email, password })
-        : await supabase.auth.signUp({
-            email,
-            password,
-            options: { emailRedirectTo: `${window.location.origin}/admin` },
-          });
+    const res = await supabase.auth.signInWithPassword({ email, password });
     setBusy(false);
     if (res.error) {
       setMessage(res.error.message);
-      return;
-    }
-    if (mode === "up" && !res.data.session) {
-      setMessage("Kontot är skapat. Bekräfta din e-post och logga sedan in.");
       return;
     }
     navigate({ to: "/admin", replace: true });
@@ -91,16 +79,9 @@ function AuthPage() {
             disabled={busy}
             className="w-full rounded-full bg-primary px-6 py-3.5 text-sm font-semibold text-primary-foreground disabled:opacity-60"
           >
-            {busy ? "Vänta…" : mode === "in" ? "Logga in" : "Skapa konto"}
+            {busy ? "Vänta…" : "Logga in"}
           </button>
         </form>
-        <button
-          type="button"
-          onClick={() => setMode(mode === "in" ? "up" : "in")}
-          className="mt-5 text-sm text-muted-foreground underline"
-        >
-          {mode === "in" ? "Skapa konto" : "Jag har redan ett konto"}
-        </button>
       </div>
     </div>
   );
