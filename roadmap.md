@@ -10,3 +10,5 @@
 - [x] Tilldela ägarkontot behörighet efter att första kontot skapats
 - [x] Stäng av nya registreringar så att endast befintligt ägarkonto kan logga in
 - [ ] Ange mottagare och integrationsadress per kund innan publicering
+- [x] Varuautomatformulär kopplat till Make via kompatibilitetsadapter (server-side)
+- [x] Återleverans av misslyckade förfrågningar med atomisk låsning
