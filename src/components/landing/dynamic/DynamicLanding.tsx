@@ -18,6 +18,7 @@ export function DynamicLanding({ landing, preview = false }: Props) {
   const [status, setStatus] = useState<"idle" | "sending" | "done">("idle");
   const [message, setMessage] = useState("");
   const [honeypot, setHoneypot] = useState("");
+  const [delivered, setDelivered] = useState(true);
 
   const setValue = (key: string, value: string) =>
     setValues((prev) => ({ ...prev, [key]: value }));
