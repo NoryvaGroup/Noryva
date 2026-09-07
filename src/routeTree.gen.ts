@@ -22,6 +22,7 @@ import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } fr
 import { Route as OffertSlugRouteImport } from './routes/offert.$slug'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin/index'
 import { Route as AuthenticatedAdminCustomerIdRouteImport } from './routes/_authenticated/admin/$customerId'
+import { Route as AuthenticatedAdminAiAssistentRouteImport } from './routes/_authenticated/admin/ai-assistent'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -89,6 +90,12 @@ const AuthenticatedAdminCustomerIdRoute =
     path: '/admin/$customerId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAdminAiAssistentRoute =
+  AuthenticatedAdminAiAssistentRouteImport.update({
+    id: '/admin/ai-assistent',
+    path: '/admin/ai-assistent',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -102,6 +109,7 @@ export interface FileRoutesByFullPath {
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/offert/$slug': typeof OffertSlugRoute
   '/admin/$customerId': typeof AuthenticatedAdminCustomerIdRoute
+  '/admin/ai-assistent': typeof AuthenticatedAdminAiAssistentRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRoutesByTo {
@@ -116,6 +124,7 @@ export interface FileRoutesByTo {
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/offert/$slug': typeof OffertSlugRoute
   '/admin/$customerId': typeof AuthenticatedAdminCustomerIdRoute
+  '/admin/ai-assistent': typeof AuthenticatedAdminAiAssistentRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRoutesById {
@@ -132,6 +141,7 @@ export interface FileRoutesById {
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/offert/$slug': typeof OffertSlugRoute
   '/_authenticated/admin/$customerId': typeof AuthenticatedAdminCustomerIdRoute
+  '/_authenticated/admin/ai-assistent': typeof AuthenticatedAdminAiAssistentRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRouteTypes {
@@ -148,6 +158,7 @@ export interface FileRouteTypes {
     | '/.well-known/oauth-protected-resource'
     | '/offert/$slug'
     | '/admin/$customerId'
+    | '/admin/ai-assistent'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -162,6 +173,7 @@ export interface FileRouteTypes {
     | '/.well-known/oauth-protected-resource'
     | '/offert/$slug'
     | '/admin/$customerId'
+    | '/admin/ai-assistent'
     | '/admin'
   id:
     | '__root__'
@@ -177,6 +189,7 @@ export interface FileRouteTypes {
     | '/.well-known/oauth-protected-resource'
     | '/offert/$slug'
     | '/_authenticated/admin/$customerId'
+    | '/_authenticated/admin/ai-assistent'
     | '/_authenticated/admin/'
   fileRoutesById: FileRoutesById
 }
@@ -287,16 +300,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminCustomerIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/admin/ai-assistent': {
+      id: '/_authenticated/admin/ai-assistent'
+      path: '/admin/ai-assistent'
+      fullPath: '/admin/ai-assistent'
+      preLoaderRoute: typeof AuthenticatedAdminAiAssistentRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminCustomerIdRoute: typeof AuthenticatedAdminCustomerIdRoute
+  AuthenticatedAdminAiAssistentRoute: typeof AuthenticatedAdminAiAssistentRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminCustomerIdRoute: AuthenticatedAdminCustomerIdRoute,
+  AuthenticatedAdminAiAssistentRoute: AuthenticatedAdminAiAssistentRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
 }
 
