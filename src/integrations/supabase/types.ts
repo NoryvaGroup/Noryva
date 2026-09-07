@@ -123,11 +123,13 @@ export type Database = {
           created_at: string
           customer_id: string
           delivered_at: string | null
+          delivery_attempts: number
           delivery_error: string
           delivery_status: string
           id: string
           idempotency_key: string
           industry: string
+          last_attempt_at: string | null
           payload: Json
           schema_version: number
           source_ip_hash: string
@@ -136,11 +138,13 @@ export type Database = {
           created_at?: string
           customer_id: string
           delivered_at?: string | null
+          delivery_attempts?: number
           delivery_error?: string
           delivery_status?: string
           id?: string
           idempotency_key: string
           industry: string
+          last_attempt_at?: string | null
           payload?: Json
           schema_version?: number
           source_ip_hash?: string
@@ -149,11 +153,13 @@ export type Database = {
           created_at?: string
           customer_id?: string
           delivered_at?: string | null
+          delivery_attempts?: number
           delivery_error?: string
           delivery_status?: string
           id?: string
           idempotency_key?: string
           industry?: string
+          last_attempt_at?: string | null
           payload?: Json
           schema_version?: number
           source_ip_hash?: string
@@ -194,6 +200,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_lead_delivery: {
+        Args: { p_lead_id: string; p_stale_seconds?: number }
+        Returns: string
+      }
       get_public_landing: { Args: { p_slug: string }; Returns: Json }
       has_role: {
         Args: {
