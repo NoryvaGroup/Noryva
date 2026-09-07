@@ -14,16 +14,197 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      customers: {
+        Row: {
+          contact_email: string
+          contact_phone: string
+          created_at: string
+          cta_label: string
+          delivery_webhook_url: string
+          description: string
+          headline: string
+          id: string
+          industry: string
+          name: string
+          recipient_email: string
+          schema_version: number
+          service_area: string
+          slug: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          contact_email?: string
+          contact_phone?: string
+          created_at?: string
+          cta_label?: string
+          delivery_webhook_url?: string
+          description?: string
+          headline?: string
+          id?: string
+          industry: string
+          name: string
+          recipient_email?: string
+          schema_version?: number
+          service_area?: string
+          slug: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          contact_email?: string
+          contact_phone?: string
+          created_at?: string
+          cta_label?: string
+          delivery_webhook_url?: string
+          description?: string
+          headline?: string
+          id?: string
+          industry?: string
+          name?: string
+          recipient_email?: string
+          schema_version?: number
+          service_area?: string
+          slug?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      form_questions: {
+        Row: {
+          created_at: string
+          customer_id: string
+          field_key: string
+          field_type: string
+          id: string
+          label: string
+          options: string[]
+          required: boolean
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id: string
+          field_key: string
+          field_type?: string
+          id?: string
+          label: string
+          options?: string[]
+          required?: boolean
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string
+          field_key?: string
+          field_type?: string
+          id?: string
+          label?: string
+          options?: string[]
+          required?: boolean
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "form_questions_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leads: {
+        Row: {
+          created_at: string
+          customer_id: string
+          delivered_at: string | null
+          delivery_error: string
+          delivery_status: string
+          id: string
+          idempotency_key: string
+          industry: string
+          payload: Json
+          schema_version: number
+          source_ip_hash: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id: string
+          delivered_at?: string | null
+          delivery_error?: string
+          delivery_status?: string
+          id?: string
+          idempotency_key: string
+          industry: string
+          payload?: Json
+          schema_version?: number
+          source_ip_hash?: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string
+          delivered_at?: string | null
+          delivery_error?: string
+          delivery_status?: string
+          id?: string
+          idempotency_key?: string
+          industry?: string
+          payload?: Json
+          schema_version?: number
+          source_ip_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_public_landing: { Args: { p_slug: string }; Returns: Json }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +331,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin"],
+    },
   },
 } as const
