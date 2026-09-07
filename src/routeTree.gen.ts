@@ -21,6 +21,7 @@ import { Route as VillkorRouteImport } from './routes/villkor'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as OffertSlugRouteImport } from './routes/offert.$slug'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin/index'
+import { Route as AuthenticatedAdminCustomerIdRouteImport } from './routes/_authenticated/admin/$customerId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -82,6 +83,12 @@ const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   path: '/admin/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAdminCustomerIdRoute =
+  AuthenticatedAdminCustomerIdRouteImport.update({
+    id: '/admin/$customerId',
+    path: '/admin/$customerId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -94,6 +101,7 @@ export interface FileRoutesByFullPath {
   '/villkor': typeof VillkorRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/offert/$slug': typeof OffertSlugRoute
+  '/admin/$customerId': typeof AuthenticatedAdminCustomerIdRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRoutesByTo {
@@ -107,6 +115,7 @@ export interface FileRoutesByTo {
   '/villkor': typeof VillkorRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/offert/$slug': typeof OffertSlugRoute
+  '/admin/$customerId': typeof AuthenticatedAdminCustomerIdRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRoutesById {
@@ -122,6 +131,7 @@ export interface FileRoutesById {
   '/villkor': typeof VillkorRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/offert/$slug': typeof OffertSlugRoute
+  '/_authenticated/admin/$customerId': typeof AuthenticatedAdminCustomerIdRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRouteTypes {
@@ -137,6 +147,7 @@ export interface FileRouteTypes {
     | '/villkor'
     | '/.well-known/oauth-protected-resource'
     | '/offert/$slug'
+    | '/admin/$customerId'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -150,6 +161,7 @@ export interface FileRouteTypes {
     | '/villkor'
     | '/.well-known/oauth-protected-resource'
     | '/offert/$slug'
+    | '/admin/$customerId'
     | '/admin'
   id:
     | '__root__'
@@ -164,6 +176,7 @@ export interface FileRouteTypes {
     | '/villkor'
     | '/.well-known/oauth-protected-resource'
     | '/offert/$slug'
+    | '/_authenticated/admin/$customerId'
     | '/_authenticated/admin/'
   fileRoutesById: FileRoutesById
 }
@@ -267,14 +280,23 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/admin/$customerId': {
+      id: '/_authenticated/admin/$customerId'
+      path: '/admin/$customerId'
+      fullPath: '/admin/$customerId'
+      preLoaderRoute: typeof AuthenticatedAdminCustomerIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAdminCustomerIdRoute: typeof AuthenticatedAdminCustomerIdRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAdminCustomerIdRoute: AuthenticatedAdminCustomerIdRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
 }
 
