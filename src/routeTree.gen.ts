@@ -17,6 +17,7 @@ import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as TakoffertRouteImport } from './routes/takoffert'
 import { Route as VillkorRouteImport } from './routes/villkor'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
+import { Route as OffertSlugRouteImport } from './routes/offert.$slug'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -59,6 +60,11 @@ const Char91DotwellKnownChar93OauthProtectedResourceRoute =
     path: '/.well-known/oauth-protected-resource',
     getParentRoute: () => rootRouteImport,
   } as any)
+const OffertSlugRoute = OffertSlugRouteImport.update({
+  id: '/offert/$slug',
+  path: '/offert/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -69,6 +75,7 @@ export interface FileRoutesByFullPath {
   '/takoffert': typeof TakoffertRoute
   '/villkor': typeof VillkorRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/offert/$slug': typeof OffertSlugRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -79,6 +86,7 @@ export interface FileRoutesByTo {
   '/takoffert': typeof TakoffertRoute
   '/villkor': typeof VillkorRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/offert/$slug': typeof OffertSlugRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -90,6 +98,7 @@ export interface FileRoutesById {
   '/takoffert': typeof TakoffertRoute
   '/villkor': typeof VillkorRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/offert/$slug': typeof OffertSlugRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -102,6 +111,7 @@ export interface FileRouteTypes {
     | '/takoffert'
     | '/villkor'
     | '/.well-known/oauth-protected-resource'
+    | '/offert/$slug'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -112,6 +122,7 @@ export interface FileRouteTypes {
     | '/takoffert'
     | '/villkor'
     | '/.well-known/oauth-protected-resource'
+    | '/offert/$slug'
   id:
     | '__root__'
     | '/'
@@ -122,6 +133,7 @@ export interface FileRouteTypes {
     | '/takoffert'
     | '/villkor'
     | '/.well-known/oauth-protected-resource'
+    | '/offert/$slug'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -133,6 +145,7 @@ export interface RootRouteChildren {
   TakoffertRoute: typeof TakoffertRoute
   VillkorRoute: typeof VillkorRoute
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  OffertSlugRoute: typeof OffertSlugRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -193,6 +206,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/offert/$slug': {
+      id: '/offert/$slug'
+      path: '/offert/$slug'
+      fullPath: '/offert/$slug'
+      preLoaderRoute: typeof OffertSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -206,6 +226,7 @@ const rootRouteChildren: RootRouteChildren = {
   VillkorRoute: VillkorRoute,
   Char91DotwellKnownChar93OauthProtectedResourceRoute:
     Char91DotwellKnownChar93OauthProtectedResourceRoute,
+  OffertSlugRoute: OffertSlugRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
