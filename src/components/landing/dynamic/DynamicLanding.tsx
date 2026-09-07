@@ -88,7 +88,9 @@ export function DynamicLanding({ landing, preview = false }: Props) {
           <div className="mt-10 rounded-2xl border border-border bg-surface-2 p-6">
             <h2 className="text-xl font-semibold">Tack! Din förfrågan är mottagen.</h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              Vi hör av oss till dig med nästa steg.
+              {delivered
+                ? "Vi hör av oss till dig med nästa steg."
+                : "Din förfrågan är sparad. Vidarebefordringen till vårt system dröjer just nu, men inget behöver göras om – vi hör av oss."}
             </p>
           </div>
         ) : (
