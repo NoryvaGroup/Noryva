@@ -2,9 +2,9 @@
 
 export const company = {
   name: "Noryva",
-  tagline: "Fler kunder. Utan att gissa vad som fungerar.",
+  tagline: "Fler rätt kunder. Mindre krångel.",
   description:
-    "Noryva är en svensk digital tillväxtbyrå som hjälper företag att få fler kvalificerade kunder genom digital annonsering, leadgenerering, automatisering och konverteringsoptimering.",
+    "Noryva hjälper svenska tjänste- och B2B-företag med högt kundvärde att fånga, kvalificera och följa upp fler affärsmöjligheter genom digital annonsering, leadgenerering, AI-baserad kvalificering, automatiserad uppföljning och CRM-flöden.",
   email: "info@noryva.se",
   website: "https://noryva.se",
   bookingUrl: "https://noryva.se/#kontakt",
@@ -20,23 +20,23 @@ export const services = [
     points: ["Målgrupp", "Budskap", "Kreativt material", "Kampanjstruktur", "Löpande optimering"],
   },
   {
-    title: "Leadgenerering",
-    heading: "Gör intresse till konkreta förfrågningar.",
+    title: "Leadgenerering och AI-kvalificering",
+    heading: "Gör intresse till prioriterade affärsmöjligheter.",
     summary:
-      "Vi bygger landningssidor och leadflöden som gör det enkelt för potentiella kunder att ta nästa steg.",
+      "Vi bygger leadflöden som fångar rätt information och hjälper till att strukturera vilka kontakter som bör följas upp först.",
     points: [
       "Landningssidor",
-      "Kontaktformulär",
-      "Lead funnels",
+      "Dynamiska formulär",
+      "AI-baserad kvalificering",
       "Bokningsflöden",
       "Konverteringsoptimering",
     ],
   },
   {
-    title: "Automatisering",
-    heading: "Följ upp innan kunden hinner försvinna.",
+    title: "Automatiserad uppföljning",
+    heading: "Följ upp medan intresset är aktuellt.",
     summary:
-      "Vi automatiserar delar av processen från första kontakt till uppföljning och bokning.",
+      "Vi automatiserar bekräftelser, påminnelser och nästa steg utan att ta bort den personliga dialogen.",
     points: [
       "Automatiska svar",
       "Lead-notifieringar",
@@ -46,10 +46,10 @@ export const services = [
     ],
   },
   {
-    title: "Konverteringsoptimering",
-    heading: "Få mer ut av trafiken du redan betalar för.",
+    title: "CRM och processflöden",
+    heading: "Skapa struktur från nytt lead till nästa steg.",
     summary:
-      "Vi analyserar kundresan och förbättrar stegen från första klick till faktisk förfrågan.",
+      "Vi kopplar ihop kanaler, formulär och CRM så att rätt information når rätt person och går att följa upp.",
     points: [],
   },
 ];
@@ -58,12 +58,12 @@ export const process = [
   {
     step: 1,
     title: "Vi analyserar",
-    text: "Vi börjar med att förstå företaget, målgruppen, erbjudandet och den nuvarande kundanskaffningen.",
+    text: "Vi kartlägger erbjudandet, kundvärdet, målgruppen och hur en affär går från första kontakt till beslut.",
   },
   {
     step: 2,
     title: "Vi bygger",
-    text: "Vi skapar annonser, landningssidor och leadflöden anpassade efter företagets mål.",
+    text: "Vi bygger annonser, landningssidor, kvalificeringsfrågor och kopplingar anpassade efter företagets mål.",
   },
   {
     step: 3,
@@ -72,8 +72,8 @@ export const process = [
   },
   {
     step: 4,
-    title: "Vi skalar det som fungerar",
-    text: "När vi hittar det som ger resultat lägger vi mer fokus på det som fungerar och mindre på det som inte gör det.",
+    title: "Vi utvecklar flödet",
+    text: "När data visar vad som fungerar prioriterar vi rätt kanaler, kriterier och uppföljningssteg.",
   },
 ];
 
@@ -92,7 +92,7 @@ export const faq = [
   },
   {
     q: "Vilka företag arbetar ni med?",
-    a: "Främst tjänsteföretag och lokala företag som vill öka inflödet av nya kunder.",
+    a: "Främst svenska tjänste- och B2B-företag med högt kundvärde som behöver fler kvalificerade affärsmöjligheter och bättre uppföljning.",
   },
   {
     q: "Sköter ni annonseringen åt oss?",
@@ -110,12 +110,13 @@ export const faq = [
 
 export const audience = {
   summary:
-    "Noryva passar främst tjänsteföretag och lokala företag där varje ny kund har ett tydligt värde.",
+    "Noryva passar svenska tjänste- och B2B-företag där varje ny kundrelation har ett tydligt värde.",
   segments: [
-    "Bygg och hantverk (takläggare, byggfirmor, VVS, el)",
-    "Hem och fastighet (renovering, städ, trädgård)",
-    "Fordon och verkstad",
-    "Lokala tjänsteföretag som vill växa",
+    "Hantverk och installation",
+    "Fastighetsservice",
+    "Uthyrning",
+    "Företagsservice och lokala B2B-tjänster",
+    "Andra tjänsteföretag med högt kundvärde",
   ],
   goodFit: [
     "Vill ha fler och mer relevanta förfrågningar",

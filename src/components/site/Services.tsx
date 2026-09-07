@@ -10,39 +10,39 @@ const services = [
     title: "Digital annonsering",
     heading: "Få rätt personer att upptäcka ditt företag.",
     summary:
-      "Vi skapar och optimerar digital annonsering för att nå människor som faktiskt kan bli dina kunder.",
-    points: ["Målgrupp", "Budskap", "Kreativt material", "Kampanjstruktur", "Löpande optimering"],
+      "Vi skapar och optimerar kampanjer för att nå rätt beslutsfattare eller köpare när behovet finns.",
+    points: ["Målgrupper", "Budskap", "Kreativt material", "Kampanjstruktur", "Löpande optimering"],
   },
   {
     icon: Filter,
     n: "02",
-    title: "Leadgenerering",
-    heading: "Gör intresse till konkreta förfrågningar.",
+    title: "Leadgenerering & AI-kvalificering",
+    heading: "Gör intresse till prioriterade affärsmöjligheter.",
     summary:
-      "Vi bygger landningssidor och leadflöden som gör det enkelt för potentiella kunder att ta nästa steg.",
-    points: ["Landningssidor", "Kontaktformulär", "Lead funnels", "Bokningsflöden", "Konverteringsoptimering"],
+      "Vi bygger leadflöden som fångar rätt information och hjälper till att strukturera vilka kontakter som bör följas upp först.",
+    points: ["Landningssidor", "Dynamiska formulär", "AI-baserad kvalificering", "Lead routing", "Bokningsflöden"],
   },
   {
     icon: Workflow,
     n: "03",
-    title: "Automatisering",
-    heading: "Följ upp innan kunden hinner försvinna.",
+    title: "Automatiserad uppföljning",
+    heading: "Följ upp medan intresset är aktuellt.",
     summary:
-      "Vi automatiserar delar av processen från första kontakt till uppföljning och bokning.",
-    points: ["Automatiska svar", "Lead-notifieringar", "Uppföljningar", "Bokningsflöden", "CRM-integrationer"],
+      "Vi automatiserar bekräftelser, påminnelser och nästa steg utan att ta bort den personliga dialogen.",
+    points: ["Automatiska svar", "Lead-notifieringar", "Påminnelser", "Bokningsflöden", "Personliga överlämningar"],
   },
   {
     icon: BarChart3,
     n: "04",
-    title: "Konverteringsoptimering",
-    heading: "Få mer ut av trafiken du redan betalar för.",
+    title: "CRM & processflöden",
+    heading: "Skapa struktur från nytt lead till nästa steg.",
     summary:
-      "Vi analyserar kundresan och förbättrar stegen från första klick till faktisk förfrågan.",
+      "Vi kopplar ihop kanaler, formulär och CRM så att rätt information når rätt person och går att följa upp.",
     points: [],
   },
 ];
 
-const conversionFlow = ["Klick", "Besök", "Lead", "Bokning", "Kund"];
+const conversionFlow = ["Klick", "Lead", "Kvalificering", "Dialog", "Affär"];
 
 export function Services() {
   const [open, setOpen] = useState<number | null>(null);
@@ -53,11 +53,11 @@ export function Services() {
         <Reveal>
           <span className="eyebrow">Tjänster</span>
           <h2 className="mt-5 max-w-2xl text-3xl leading-tight font-semibold sm:text-[2.6rem]">
-            Vi bygger systemet bakom din kundanskaffning.
+            En sammanhängande motor för fler kvalificerade affärsmöjligheter.
           </h2>
           <p className="mt-5 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-            Från den första annonsen till den färdiga kunden – vi hjälper till att optimera hela
-            vägen.
+            Vi kombinerar annonsering, leadgenerering, AI-baserad kvalificering, automatiserad
+            uppföljning och CRM-flöden.
           </p>
         </Reveal>
 
@@ -86,7 +86,7 @@ export function Services() {
                   <p className="mt-1.5 text-sm font-semibold text-primary">{s.heading}</p>
                   <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{s.summary}</p>
 
-                  {s.title === "Konverteringsoptimering" && (
+                  {s.title === "CRM & processflöden" && (
                     <p className="mt-5 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-xs text-muted-foreground">
                       {conversionFlow.map((s2, j, arr) => (
                         <span key={s2} className="inline-flex items-center gap-2">

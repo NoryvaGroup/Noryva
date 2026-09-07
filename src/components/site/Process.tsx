@@ -6,22 +6,22 @@ const steps = [
   {
     n: "01",
     title: "Vi analyserar",
-    text: "Vi börjar med att förstå företaget, målgruppen, erbjudandet och den nuvarande kundanskaffningen.",
+    text: "Vi kartlägger erbjudandet, kundvärdet, målgruppen och hur en affär går från första kontakt till beslut.",
   },
   {
     n: "02",
     title: "Vi bygger",
-    text: "Vi skapar annonser, landningssidor och leadflöden anpassade efter företagets mål.",
+    text: "Vi bygger annonser, landningssidor, kvalificeringsfrågor och kopplingar till era befintliga arbetssätt.",
   },
   {
     n: "03",
     title: "Vi optimerar",
-    text: "Vi analyserar data och förbättrar kampanjerna löpande för att hitta det som fungerar bäst.",
+    text: "Vi följer upp kvalitet, svarstider och konvertering för att förbättra både inflöde och hantering.",
   },
   {
     n: "04",
-    title: "Vi skalar det som fungerar",
-    text: "När vi hittar det som ger resultat lägger vi mer fokus på det som fungerar och mindre på det som inte gör det.",
+    title: "Vi utvecklar flödet",
+    text: "När data visar vad som fungerar prioriterar vi rätt kanaler, kriterier och uppföljningssteg.",
   },
 ];
 
@@ -32,7 +32,7 @@ export function Process() {
         <Reveal>
           <span className="eyebrow">Så fungerar det</span>
           <h2 className="mt-5 max-w-2xl text-3xl leading-tight font-semibold sm:text-[2.6rem]">
-            Från första klick till ny kund.
+            Från första intresse till kvalificerad dialog.
           </h2>
         </Reveal>
 

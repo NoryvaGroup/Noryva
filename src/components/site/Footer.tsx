@@ -17,7 +17,7 @@ export function Footer() {
         <div className="lg:col-span-2">
           <Logo />
           <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted-foreground">
-            Digital tillväxt för företag som vill framåt.
+            Fler kvalificerade affärsmöjligheter för företag med högt kundvärde.
           </p>
         </div>
 

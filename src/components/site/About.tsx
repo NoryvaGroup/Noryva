@@ -16,11 +16,11 @@ export function About() {
         <Reveal delay={120}>
           <div className="space-y-5 lg:pt-16">
             <p className="font-display text-xl leading-snug font-semibold sm:text-2xl">
-              Företag ska inte behöva kasta pengar på marknadsföring och hoppas att det fungerar.
+              Värdefulla affärsmöjligheter ska inte tappas bort i osammanhängande system.
             </p>
             <p className="text-sm leading-relaxed text-muted-foreground sm:text-base">
-              Noryva kombinerar annonsering, leadgenerering, automatisering och
-              konverteringsoptimering för att skapa en tydligare väg från första klick till ny kund.
+              Noryva kombinerar digital annonsering, leadgenerering, AI-baserad kvalificering,
+              automatiserad uppföljning och CRM-flöden i en tydligare kundresa.
             </p>
             <p className="text-sm leading-relaxed text-muted-foreground sm:text-base">
               Vi är ett ungt och ambitiöst företag. Därför bygger vi långsiktigt, arbetar

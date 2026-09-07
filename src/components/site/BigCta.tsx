@@ -14,11 +14,11 @@ export function BigCta() {
         <Reveal>
           <div className="mx-auto max-w-3xl text-center">
             <h2 className="text-4xl leading-[1.08] font-semibold sm:text-6xl">
-              Är det dags att få ordning på <span className="text-primary">kundinflödet?</span>
+              Är det dags att få ordning på <span className="text-primary">leadflödet?</span>
             </h2>
             <p className="mx-auto mt-6 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-              Boka en kostnadsfri genomgång. Vi tittar på din nuvarande situation och identifierar
-              var det finns möjlighet att få fler kvalificerade kunder.
+              Boka en kostnadsfri genomgång. Vi tittar på hur ni fångar, kvalificerar och följer upp
+              affärsmöjligheter i dag – och var flödet kan förbättras.
             </p>
             <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <CtaLink href="/#formular" className="px-8 py-4 text-base">

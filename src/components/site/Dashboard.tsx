@@ -5,10 +5,10 @@ import { Reveal } from "./Reveal";
  * arbetar datadrivet – de är inte Noryvas eller någon kunds faktiska resultat.
  */
 const stats = [
-  { label: "Leads", value: "128", delta: "+18%" },
-  { label: "Kostnad per lead", value: "214 kr", delta: "-12%" },
-  { label: "Konverteringsgrad", value: "6,4%", delta: "+0,9 pp" },
-  { label: "Bokningar", value: "23", delta: "+7" },
+  { label: "Nya leads", value: "128", delta: "+18%" },
+  { label: "Kvalificerade", value: "46", delta: "+9" },
+  { label: "Svarstid", value: "8 min", delta: "-11 min" },
+  { label: "Bokade dialoger", value: "23", delta: "+7" },
 ];
 
 const bars = [34, 42, 38, 55, 48, 66, 60, 74, 70, 86, 80, 96];
@@ -25,8 +25,8 @@ export function Dashboard() {
               Vi gissar inte. Vi mäter.
             </h2>
             <p className="mt-5 max-w-lg text-sm leading-relaxed text-muted-foreground sm:text-base">
-              Varje kampanj ger ny data. Den datan används för att förbättra målgrupper, annonser,
-              landningssidor och konvertering.
+              Vi följer hela flödet för att förbättra målgrupper, kvalificering, svarstider,
+              uppföljning och vägen vidare till dialog.
             </p>
           </div>
         </Reveal>
@@ -35,7 +35,7 @@ export function Dashboard() {
           <div className="rounded-2xl border border-border bg-surface/70 p-5 shadow-[var(--shadow-elevated)] sm:p-7">
             <div className="flex items-center justify-between">
               <span className="text-[0.7rem] tracking-[0.18em] text-muted-foreground uppercase">
-                Campaign overview
+                Översikt över leadflödet
               </span>
               <span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-[0.65rem] tracking-wider text-primary uppercase">
                 Exempeldata

@@ -2,19 +2,19 @@ import { ArrowDown, ArrowRight } from "lucide-react";
 import { CtaLink } from "./Button";
 import { Reveal } from "./Reveal";
 
-const flowSteps = ["Annons", "Besökare", "Lead", "Bokning", "Kund"];
+const flowSteps = ["Annons", "Lead", "Kvalificering", "Uppföljning", "Affär"];
 
 /**
- * Abstrakt visualisering av kundflödet ANNONS → BESÖKARE → LEAD → BOKNING → KUND.
+ * Abstrakt visualisering av kundflödet ANNONS → LEAD → KVALIFICERING → UPPFÖLJNING → AFFÄR.
  * Illustrerar principen bakom arbetssättet – inte faktiska kunddata.
  */
 function FlowVisual() {
   const nodes: Array<{ x: number; y: number; label: string }> = [
     { x: 40, y: 78, label: "Annons" },
-    { x: 175, y: 62, label: "Besökare" },
-    { x: 310, y: 48, label: "Lead" },
-    { x: 445, y: 34, label: "Bokning" },
-    { x: 580, y: 20, label: "Kund" },
+    { x: 175, y: 62, label: "Lead" },
+    { x: 310, y: 48, label: "Kvalificering" },
+    { x: 445, y: 34, label: "Uppföljning" },
+    { x: 580, y: 20, label: "Affär" },
   ];
   const path = "M40 78 C 100 74, 120 66, 175 62 C 230 58, 255 52, 310 48 C 365 44, 390 38, 445 34 C 500 30, 525 24, 580 20";
 
@@ -25,7 +25,7 @@ function FlowVisual() {
         <span className="text-primary">Live-princip</span>
       </div>
 
-      <svg viewBox="0 0 620 130" className="mt-8 w-full" role="img" aria-label="Illustration av kundflödet från annons till kund">
+      <svg viewBox="0 0 620 130" className="mt-8 w-full" role="img" aria-label="Illustration av flödet från annons till affärsmöjlighet">
         <defs>
           <linearGradient id="flowLine" x1="0" x2="1">
             <stop offset="0%" stopColor="oklch(0.74 0.16 268)" stopOpacity="0.12" />
@@ -112,22 +112,22 @@ export function Hero() {
           <Reveal>
             <span className="eyebrow">
               <span className="size-1.5 rounded-full bg-primary" />
-              Digital tillväxtbyrå
+              Tillväxtsystem för företag med högt kundvärde
             </span>
           </Reveal>
 
           <Reveal delay={60}>
             <h1 className="mt-5 text-[2.75rem] leading-[1.04] font-semibold sm:text-6xl lg:text-[4.4rem]">
-              Fler kunder.
+              Fler rätt kunder.
               <br />
-              <span className="text-primary">Utan att gissa vad som fungerar.</span>
+              <span className="text-primary">Mindre krångel.</span>
             </h1>
           </Reveal>
 
           <Reveal delay={120}>
             <p className="mt-6 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-              Noryva hjälper tjänsteföretag att skapa ett stabilt inflöde av nya kunder genom
-              digital annonsering, leadgenerering och automatiserad uppföljning.
+              Noryva hjälper företag med högt kundvärde att fånga, kvalificera och följa upp fler
+              affärsmöjligheter automatiskt.
             </p>
           </Reveal>
 
@@ -144,7 +144,7 @@ export function Hero() {
 
           <Reveal delay={240}>
             <p className="mt-7 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
-              {["Annonsering", "Leads", "Bokningar", "Kunder"].map((s, i, arr) => (
+              {["Annonsering", "Leadgenerering", "AI-kvalificering", "CRM & uppföljning"].map((s, i, arr) => (
                 <span key={s} className="inline-flex items-center gap-2">
                   {s}
                   {i < arr.length - 1 && <ArrowRight size={13} className="text-primary" aria-hidden="true" />}

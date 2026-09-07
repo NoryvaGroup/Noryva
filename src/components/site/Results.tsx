@@ -6,16 +6,16 @@ const kpis = [
     text: "Fler relevanta förfrågningar från rätt målgrupp.",
   },
   {
-    title: "Lägre kostnad per lead",
-    text: "Mer effekt av varje krona i annonsbudgeten.",
+    title: "Tydligare leadkvalitet",
+    text: "Bättre underlag för att prioritera rätt kontakter.",
   },
   {
-    title: "Högre konvertering",
-    text: "Fler besökare som faktiskt tar nästa steg.",
+    title: "Snabbare uppföljning",
+    text: "Kortare tid från inskickat intresse till relevant återkoppling.",
   },
   {
-    title: "Kortare väg till kund",
-    text: "Snabbare uppföljning från första kontakt till bokning.",
+    title: "Bättre flöde till affär",
+    text: "Färre manuella glapp mellan marknadsföring, CRM och säljprocess.",
   },
 ];
 
