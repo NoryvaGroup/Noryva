@@ -7,5 +7,6 @@
 - [x] Kundpanel: inloggning, kundlista, skapa/redigera kund, branschmallar (Tak, Varuautomater)
 - [x] Publika kundsidor på /offert/{slug} med utkast/publicerad, förhandsgranskning och kopiera länk
 - [x] Serverskyddad inskickning med validering, honeypot, hastighetsspärr och dubblettskydd
-- [ ] Tilldela ägarkontot behörighet efter att första kontot skapats
+- [x] Tilldela ägarkontot behörighet efter att första kontot skapats
+- [x] Stäng av nya registreringar så att endast befintligt ägarkonto kan logga in
 - [ ] Ange mottagare och integrationsadress per kund innan publicering
