@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeader } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { validateAnswers, type PublicLanding, type PublicQuestion } from "./landing/schema";
-import { buildMakeFields, type MakeLeadFields } from "./landing/make-adapter";
+import { buildMakeFields, buildStoredPayload, readStoredPayload } from "./landing/make-adapter";
 
 const slugInput = z.object({ slug: z.string().trim().min(1).max(60) });
 
