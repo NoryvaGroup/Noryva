@@ -147,6 +147,10 @@ export function QuoteWizard({ config = clientConfig }: { config?: RoofClientConf
       return;
     }
 
+    if (!submissionIdRef.current) {
+      submissionIdRef.current = crypto.randomUUID();
+    }
+
     submitting.current = true;
     setStatus("sending");
 
@@ -154,6 +158,7 @@ export function QuoteWizard({ config = clientConfig }: { config?: RoofClientConf
     const payload = {
       ...lead,
       kund_id: config.customerId,
+      submission_id: submissionIdRef.current,
       submitted_at: new Date().toISOString(),
       source: "noryva_takoffert",
       page_url: typeof window !== "undefined" ? window.location.href : "",
