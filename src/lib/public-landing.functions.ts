@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeader } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { validateAnswers, type PublicLanding, type PublicQuestion } from "./landing/schema";
+import { buildMakeFields, type MakeLeadFields } from "./landing/make-adapter";
 
 const slugInput = z.object({ slug: z.string().trim().min(1).max(60) });
 
@@ -103,67 +104,119 @@ export const submitPublicLead = createServerFn({ method: "POST" })
 
     // Endast fält som finns i kundens formulär sparas.
     const allowed = new Set(questions.map((q) => q.field_key));
-    const payload: Record<string, string | boolean> = {};
+    const answers: Record<string, string> = {};
     for (const [k, v] of Object.entries(data.values)) {
-      if (allowed.has(k)) payload[k] = v.trim();
+      if (allowed.has(k)) answers[k] = v.trim();
     }
-    payload["samtycke"] = true;
+
+    const makeFields = buildMakeFields({
+      industry: customer.industry,
+      questions,
+      values: answers,
+    });
 
     const idempotencyKey = `${customer.id}:${data.submission_id}`;
 
-    const { data: inserted, error: insErr } = await supabaseAdmin
+    // Finns förfrågan redan? Då återanvänds sparad payload, lead-id och tidsstämpel.
+    const { data: existing } = await supabaseAdmin
       .from("leads")
-      .insert({
-        customer_id: customer.id,
-        industry: customer.industry,
-        schema_version: customer.schema_version,
-        payload: payload as unknown as never,
-        idempotency_key: idempotencyKey,
-        source_ip_hash: ipHash,
-      })
-      .select("id")
+      .select("id, created_at, payload, delivery_status")
+      .eq("idempotency_key", idempotencyKey)
       .maybeSingle();
 
-    if (insErr) {
-      // Dubblett = redan mottagen, visa samma kvitto utan ny leverans.
-      if (insErr.code === "23505") return { ok: true as const, duplicate: true };
-      return { ok: false as const, message: "Förfrågan kunde inte sparas. Försök igen." };
+    let leadId = existing?.id as string | undefined;
+    let createdAt = existing?.created_at as string | undefined;
+    let storedFields = (existing?.payload ?? null) as MakeLeadFields | null;
+
+    if (!leadId) {
+      const { data: inserted, error: insErr } = await supabaseAdmin
+        .from("leads")
+        .insert({
+          customer_id: customer.id,
+          industry: customer.industry,
+          schema_version: customer.schema_version,
+          payload: makeFields as unknown as never,
+          idempotency_key: idempotencyKey,
+          source_ip_hash: ipHash,
+        })
+        .select("id, created_at, payload")
+        .maybeSingle();
+
+      if (insErr || !inserted) {
+        if (insErr?.code === "23505") {
+          const { data: race } = await supabaseAdmin
+            .from("leads")
+            .select("id, created_at, payload")
+            .eq("idempotency_key", idempotencyKey)
+            .maybeSingle();
+          leadId = race?.id as string | undefined;
+          createdAt = race?.created_at as string | undefined;
+          storedFields = (race?.payload ?? null) as MakeLeadFields | null;
+        }
+        if (!leadId) {
+          return { ok: false as const, message: "Förfrågan kunde inte sparas. Försök igen." };
+        }
+      } else {
+        leadId = inserted.id as string;
+        createdAt = inserted.created_at as string;
+        storedFields = makeFields;
+      }
     }
 
-    const leadId = inserted?.id as string;
+    // Atomisk claim – parallella försök kan aldrig leverera samma lead två gånger.
+    const { data: claim } = await supabaseAdmin.rpc("claim_lead_delivery", {
+      p_lead_id: leadId!,
+    });
 
-    // Leverans sker server-side till kundens konfigurerade adress. Klienten kan
-    // aldrig ange en egen adress.
+    if (claim !== "claimed") {
+      if (claim === "delivered") return { ok: true as const, duplicate: true, delivered: true };
+      // Pågående leverans i ett parallellt anrop.
+      return { ok: true as const, duplicate: true, delivered: true };
+    }
+
+    // Servermetadata sist så att inga dynamiska fältnycklar kan skriva över dem.
+    const body = {
+      ...(storedFields ?? makeFields),
+      kund_id: customer.id,
+      kund_slug: customer.slug,
+      lead_id: leadId,
+      submission_id: data.submission_id,
+      idempotency_key: idempotencyKey,
+      bransch: customer.industry,
+      schema_version: customer.schema_version,
+      mottagare: customer.recipient_email,
+      submitted_at: createdAt ?? new Date().toISOString(),
+      source: `noryva_offert_${customer.industry}`,
+    };
+
     try {
       const res = await fetch(customer.delivery_webhook_url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          kund_id: customer.id,
-          kund_slug: customer.slug,
-          lead_id: leadId,
-          bransch: customer.industry,
-          schema_version: customer.schema_version,
-          mottagare: customer.recipient_email,
-          submitted_at: new Date().toISOString(),
-          source: `noryva_offert_${customer.industry}`,
-          ...payload,
-        }),
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(20000),
       });
+      if (!res.ok) {
+        await supabaseAdmin
+          .from("leads")
+          .update({ delivery_status: "failed", delivery_error: `HTTP ${res.status}` })
+          .eq("id", leadId!);
+        return { ok: true as const, duplicate: false, delivered: false };
+      }
       await supabaseAdmin
         .from("leads")
-        .update(
-          res.ok
-            ? { delivery_status: "delivered", delivered_at: new Date().toISOString() }
-            : { delivery_status: "failed", delivery_error: `HTTP ${res.status}` },
-        )
-        .eq("id", leadId);
+        .update({
+          delivery_status: "delivered",
+          delivery_error: "",
+          delivered_at: new Date().toISOString(),
+        })
+        .eq("id", leadId!);
+      return { ok: true as const, duplicate: false, delivered: true };
     } catch {
       await supabaseAdmin
         .from("leads")
-        .update({ delivery_status: "failed", delivery_error: "Nätverksfel" })
-        .eq("id", leadId);
+        .update({ delivery_status: "failed", delivery_error: "Nätverksfel eller timeout" })
+        .eq("id", leadId!);
+      return { ok: true as const, duplicate: false, delivered: false };
     }
-
-    return { ok: true as const, duplicate: false };
   });
