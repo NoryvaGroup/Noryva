@@ -18,12 +18,28 @@ export function DynamicLanding({ landing, preview = false }: Props) {
   const [status, setStatus] = useState<"idle" | "sending" | "done">("idle");
   const [message, setMessage] = useState("");
   const [honeypot, setHoneypot] = useState("");
-  const [delivered, setDelivered] = useState(true);
+  const [result, setResult] = useState<"delivered" | "sending" | "failed">("delivered");
+  const [retrying, setRetrying] = useState(false);
 
   const setValue = (key: string, value: string) =>
     setValues((prev) => ({ ...prev, [key]: value }));
 
   const disabled = preview || !landing.accepts_leads;
+
+  /** Skickar med samma submission_id och samma svar – servern skapar aldrig en ny förfrågan. */
+  async function send() {
+    if (!submissionId.current) submissionId.current = crypto.randomUUID();
+    const res = await submit({
+      data: {
+        slug: landing.slug,
+        submission_id: submissionId.current,
+        consent,
+        values,
+        company: honeypot,
+      },
+    });
+    return res;
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -33,20 +49,11 @@ export function DynamicLanding({ landing, preview = false }: Props) {
     if (Object.keys(found).length > 0) return;
     if (disabled) return;
 
-    if (!submissionId.current) submissionId.current = crypto.randomUUID();
     setStatus("sending");
     try {
-      const res = await submit({
-        data: {
-          slug: landing.slug,
-          submission_id: submissionId.current,
-          consent,
-          values,
-          company: honeypot,
-        },
-      });
+      const res = await send();
       if (res.ok) {
-        setDelivered(res.delivered !== false);
+        setResult(res.status ?? (res.delivered ? "delivered" : "failed"));
         setStatus("done");
       } else {
         setStatus("idle");
@@ -56,6 +63,21 @@ export function DynamicLanding({ landing, preview = false }: Props) {
     } catch {
       setStatus("idle");
       setMessage("Förfrågan kunde inte skickas. Försök igen.");
+    }
+  }
+
+  async function onRetry() {
+    if (disabled || retrying) return;
+    setRetrying(true);
+    setMessage("");
+    try {
+      const res = await send();
+      if (res.ok) setResult(res.status ?? (res.delivered ? "delivered" : "failed"));
+      else setMessage(res.message ?? "Det gick inte att skicka igen just nu.");
+    } catch {
+      setMessage("Det gick inte att skicka igen just nu. Försök om en stund.");
+    } finally {
+      setRetrying(false);
     }
   }
 
