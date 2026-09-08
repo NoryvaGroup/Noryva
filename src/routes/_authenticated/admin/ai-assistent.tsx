@@ -1,8 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { AdminShell } from "@/components/admin/AdminShell";
+import { ReadinessPanel } from "@/components/admin/ReadinessPanel";
 import {
   generateAssistantRun,
   getAiSalesFlags,
@@ -12,6 +13,10 @@ import {
 } from "@/lib/ai-sales.functions";
 
 export const Route = createFileRoute("/_authenticated/admin/ai-assistent")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    lead: typeof search["lead"] === "string" ? (search["lead"] as string) : undefined,
+  }),
+
   head: () => ({
     meta: [
       { title: "AI-säljassistent (test) – Noryva" },
