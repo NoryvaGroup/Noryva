@@ -159,13 +159,33 @@ export const generateAssistantRun = createServerFn({ method: "POST" })
       throw new Error(error.message);
     }
 
+    const policy = resolvePolicyPath(aiContext);
+    await logEvent(context as AdminContext, {
+      eventType: "ai_run_generated",
+      actor: "ai",
+      leadId: lead.id,
+      customerId: lead.customer_id,
+      runId: saved?.id ?? null,
+      detail: {
+        action: result.output.action,
+        contactSpeed: result.output.contactSpeed,
+        humanTakeover: result.output.humanTakeover,
+        confidence: result.output.confidence,
+        usedFallback: result.usedFallback,
+        model: result.model,
+        promptVersion: result.promptVersion,
+        policy,
+      },
+    });
+
     return {
       ok: true as const,
       run: saved,
       usedFallback: result.usedFallback,
       generationError: result.error ?? "",
-      policy: resolvePolicyPath(aiContext),
+      policy,
     };
+
   });
 
 /**
