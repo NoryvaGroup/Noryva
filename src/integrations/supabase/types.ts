@@ -741,6 +741,75 @@ export type Database = {
           },
         ]
       }
+      growth_nurture_state: {
+        Row: {
+          created_at: string
+          customer_id: string
+          execution_mode: string
+          human_takeover: boolean
+          intent_level: string
+          last_reply_intent: string
+          lead_id: string
+          next_step_at: string | null
+          questions: Json
+          reason: string
+          status: string
+          steps_taken: number
+          stopped_reason: string
+          updated_at: string
+          upgrade_signal: boolean
+        }
+        Insert: {
+          created_at?: string
+          customer_id: string
+          execution_mode?: string
+          human_takeover?: boolean
+          intent_level?: string
+          last_reply_intent?: string
+          lead_id: string
+          next_step_at?: string | null
+          questions?: Json
+          reason?: string
+          status?: string
+          steps_taken?: number
+          stopped_reason?: string
+          updated_at?: string
+          upgrade_signal?: boolean
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string
+          execution_mode?: string
+          human_takeover?: boolean
+          intent_level?: string
+          last_reply_intent?: string
+          lead_id?: string
+          next_step_at?: string | null
+          questions?: Json
+          reason?: string
+          status?: string
+          steps_taken?: number
+          stopped_reason?: string
+          updated_at?: string
+          upgrade_signal?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "growth_nurture_state_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "growth_nurture_state_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       growth_outcomes: {
         Row: {
           created_at: string
