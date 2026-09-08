@@ -580,8 +580,9 @@ export async function growthDashboardCore(ctx: GrowthContext) {
       budgetState: budgetState({ spentTodayUsd: spentToday, spentMonthUsd: spentMonth }, DEFAULT_BUDGET),
     },
     experiments: experiments ?? [],
+    leadStates,
     reports,
-    recommendations: recs ?? [],
+
     flags: {
       aiEnabled: flags.enabled,
       autoSend: flags.autoSend,
