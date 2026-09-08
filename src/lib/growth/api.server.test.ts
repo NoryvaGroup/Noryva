@@ -831,6 +831,7 @@ describe("makeContext-kontraktet", () => {
         depsNoSecret(state),
       );
       const body = (await res.json()) as any;
+      if (res.status !== 200) throw new Error(res.status + JSON.stringify(body));
       expect(stub.calls.count).toBe(0);
       expect(body.llmCalls).toBe(0);
       expect(body.normalized.reused).toBe(true);
