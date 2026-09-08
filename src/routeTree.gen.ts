@@ -27,6 +27,11 @@ import { Route as AuthenticatedAdminCrmRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedAdminGrowthRouteImport } from './routes/_authenticated/admin/growth'
 import { Route as AuthenticatedAdminKonversationerRouteImport } from './routes/_authenticated/admin/konversationer'
 import { Route as AuthenticatedAdminProfilerRouteImport } from './routes/_authenticated/admin/profiler'
+import { Route as ApiPublicGrowthAnalyzeLeadRouteImport } from './routes/api/public/growth/analyze-lead'
+import { Route as ApiPublicGrowthAssignVariantRouteImport } from './routes/api/public/growth/assign-variant'
+import { Route as ApiPublicGrowthGrowthRecommendationRouteImport } from './routes/api/public/growth/growth-recommendation'
+import { Route as ApiPublicGrowthRegisterOutcomeRouteImport } from './routes/api/public/growth/register-outcome'
+import { Route as ApiPublicGrowthRouteLeadRouteImport } from './routes/api/public/growth/route-lead'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -123,6 +128,36 @@ const AuthenticatedAdminProfilerRoute =
     path: '/admin/profiler',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const ApiPublicGrowthAnalyzeLeadRoute =
+  ApiPublicGrowthAnalyzeLeadRouteImport.update({
+    id: '/api/public/growth/analyze-lead',
+    path: '/api/public/growth/analyze-lead',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicGrowthAssignVariantRoute =
+  ApiPublicGrowthAssignVariantRouteImport.update({
+    id: '/api/public/growth/assign-variant',
+    path: '/api/public/growth/assign-variant',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicGrowthGrowthRecommendationRoute =
+  ApiPublicGrowthGrowthRecommendationRouteImport.update({
+    id: '/api/public/growth/growth-recommendation',
+    path: '/api/public/growth/growth-recommendation',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicGrowthRegisterOutcomeRoute =
+  ApiPublicGrowthRegisterOutcomeRouteImport.update({
+    id: '/api/public/growth/register-outcome',
+    path: '/api/public/growth/register-outcome',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicGrowthRouteLeadRoute =
+  ApiPublicGrowthRouteLeadRouteImport.update({
+    id: '/api/public/growth/route-lead',
+    path: '/api/public/growth/route-lead',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -142,6 +177,11 @@ export interface FileRoutesByFullPath {
   '/admin/konversationer': typeof AuthenticatedAdminKonversationerRoute
   '/admin/profiler': typeof AuthenticatedAdminProfilerRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
+  '/api/public/growth/analyze-lead': typeof ApiPublicGrowthAnalyzeLeadRoute
+  '/api/public/growth/assign-variant': typeof ApiPublicGrowthAssignVariantRoute
+  '/api/public/growth/growth-recommendation': typeof ApiPublicGrowthGrowthRecommendationRoute
+  '/api/public/growth/register-outcome': typeof ApiPublicGrowthRegisterOutcomeRoute
+  '/api/public/growth/route-lead': typeof ApiPublicGrowthRouteLeadRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -161,6 +201,11 @@ export interface FileRoutesByTo {
   '/admin/konversationer': typeof AuthenticatedAdminKonversationerRoute
   '/admin/profiler': typeof AuthenticatedAdminProfilerRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
+  '/api/public/growth/analyze-lead': typeof ApiPublicGrowthAnalyzeLeadRoute
+  '/api/public/growth/assign-variant': typeof ApiPublicGrowthAssignVariantRoute
+  '/api/public/growth/growth-recommendation': typeof ApiPublicGrowthGrowthRecommendationRoute
+  '/api/public/growth/register-outcome': typeof ApiPublicGrowthRegisterOutcomeRoute
+  '/api/public/growth/route-lead': typeof ApiPublicGrowthRouteLeadRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -182,6 +227,11 @@ export interface FileRoutesById {
   '/_authenticated/admin/konversationer': typeof AuthenticatedAdminKonversationerRoute
   '/_authenticated/admin/profiler': typeof AuthenticatedAdminProfilerRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
+  '/api/public/growth/analyze-lead': typeof ApiPublicGrowthAnalyzeLeadRoute
+  '/api/public/growth/assign-variant': typeof ApiPublicGrowthAssignVariantRoute
+  '/api/public/growth/growth-recommendation': typeof ApiPublicGrowthGrowthRecommendationRoute
+  '/api/public/growth/register-outcome': typeof ApiPublicGrowthRegisterOutcomeRoute
+  '/api/public/growth/route-lead': typeof ApiPublicGrowthRouteLeadRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -203,6 +253,11 @@ export interface FileRouteTypes {
     | '/admin/konversationer'
     | '/admin/profiler'
     | '/admin/'
+    | '/api/public/growth/analyze-lead'
+    | '/api/public/growth/assign-variant'
+    | '/api/public/growth/growth-recommendation'
+    | '/api/public/growth/register-outcome'
+    | '/api/public/growth/route-lead'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -222,6 +277,11 @@ export interface FileRouteTypes {
     | '/admin/konversationer'
     | '/admin/profiler'
     | '/admin'
+    | '/api/public/growth/analyze-lead'
+    | '/api/public/growth/assign-variant'
+    | '/api/public/growth/growth-recommendation'
+    | '/api/public/growth/register-outcome'
+    | '/api/public/growth/route-lead'
   id:
     | '__root__'
     | '/'
@@ -242,6 +302,11 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/konversationer'
     | '/_authenticated/admin/profiler'
     | '/_authenticated/admin/'
+    | '/api/public/growth/analyze-lead'
+    | '/api/public/growth/assign-variant'
+    | '/api/public/growth/growth-recommendation'
+    | '/api/public/growth/register-outcome'
+    | '/api/public/growth/route-lead'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -256,6 +321,11 @@ export interface RootRouteChildren {
   VillkorRoute: typeof VillkorRoute
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   OffertSlugRoute: typeof OffertSlugRoute
+  ApiPublicGrowthAnalyzeLeadRoute: typeof ApiPublicGrowthAnalyzeLeadRoute
+  ApiPublicGrowthAssignVariantRoute: typeof ApiPublicGrowthAssignVariantRoute
+  ApiPublicGrowthGrowthRecommendationRoute: typeof ApiPublicGrowthGrowthRecommendationRoute
+  ApiPublicGrowthRegisterOutcomeRoute: typeof ApiPublicGrowthRegisterOutcomeRoute
+  ApiPublicGrowthRouteLeadRoute: typeof ApiPublicGrowthRouteLeadRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -386,6 +456,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminProfilerRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/growth/analyze-lead': {
+      id: '/api/public/growth/analyze-lead'
+      path: '/api/public/growth/analyze-lead'
+      fullPath: '/api/public/growth/analyze-lead'
+      preLoaderRoute: typeof ApiPublicGrowthAnalyzeLeadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/growth/assign-variant': {
+      id: '/api/public/growth/assign-variant'
+      path: '/api/public/growth/assign-variant'
+      fullPath: '/api/public/growth/assign-variant'
+      preLoaderRoute: typeof ApiPublicGrowthAssignVariantRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/growth/growth-recommendation': {
+      id: '/api/public/growth/growth-recommendation'
+      path: '/api/public/growth/growth-recommendation'
+      fullPath: '/api/public/growth/growth-recommendation'
+      preLoaderRoute: typeof ApiPublicGrowthGrowthRecommendationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/growth/register-outcome': {
+      id: '/api/public/growth/register-outcome'
+      path: '/api/public/growth/register-outcome'
+      fullPath: '/api/public/growth/register-outcome'
+      preLoaderRoute: typeof ApiPublicGrowthRegisterOutcomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/growth/route-lead': {
+      id: '/api/public/growth/route-lead'
+      path: '/api/public/growth/route-lead'
+      fullPath: '/api/public/growth/route-lead'
+      preLoaderRoute: typeof ApiPublicGrowthRouteLeadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -425,6 +530,12 @@ const rootRouteChildren: RootRouteChildren = {
   Char91DotwellKnownChar93OauthProtectedResourceRoute:
     Char91DotwellKnownChar93OauthProtectedResourceRoute,
   OffertSlugRoute: OffertSlugRoute,
+  ApiPublicGrowthAnalyzeLeadRoute: ApiPublicGrowthAnalyzeLeadRoute,
+  ApiPublicGrowthAssignVariantRoute: ApiPublicGrowthAssignVariantRoute,
+  ApiPublicGrowthGrowthRecommendationRoute:
+    ApiPublicGrowthGrowthRecommendationRoute,
+  ApiPublicGrowthRegisterOutcomeRoute: ApiPublicGrowthRegisterOutcomeRoute,
+  ApiPublicGrowthRouteLeadRoute: ApiPublicGrowthRouteLeadRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
