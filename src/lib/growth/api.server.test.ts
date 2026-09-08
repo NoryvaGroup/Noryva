@@ -634,3 +634,61 @@ describe("claim: högst ett modellanrop per lead", () => {
     }
   });
 });
+
+/* ------------------------------------------------------------------ *
+ * Kill switch: route-lead och analyze-lead måste alltid vara överens
+ * ------------------------------------------------------------------ */
+
+const AI_OFF_ENV = { NORYVA_GROWTH_API_SECRET: SECRET, LOVABLE_API_KEY: "test-key" };
+
+async function routeOf(state: Record<string, Row[]>, env: Record<string, string>) {
+  const res = await handleGrowthApi(
+    "route-lead",
+    withEnv(signedRequest("route-lead", { leadId: LEAD_ID }), env),
+    depsNoSecret(state),
+  );
+  return (await res.json()) as any;
+}
+
+describe("global AI-kill switch", () => {
+  it("global AI av: både route och analyze blir deterministic utan modellanrop", async () => {
+    const stub = stubFetch(okResponse);
+    try {
+      // Lead som annars skulle bli ai_light (kundens AI är påslagen).
+      const routeBody = await routeOf(stateWithOutcomes(["replied", "meeting_booked"]), AI_OFF_ENV);
+      const { body: analyzeBody } = await analyze(
+        stateWithOutcomes(["replied", "meeting_booked"]),
+        AI_OFF_ENV,
+      );
+
+      expect(routeBody.route).toBe("deterministic");
+      expect(routeBody.llmCalls).toBe(0);
+      expect(analyzeBody.route).toBe("deterministic");
+      expect(analyzeBody.llmCalls).toBe(0);
+      expect(routeBody.route).toBe(analyzeBody.route);
+      expect(stub.calls.count).toBe(0);
+      // Riskfyllda funktioner förblir avstängda.
+      expect(analyzeBody.normalized.review_required).toBe(true);
+    } finally {
+      stub.restore();
+    }
+  });
+
+  it("global AI på + kundens AI på: samma route i båda, exakt ett AI-anrop", async () => {
+    const stub = stubFetch(okResponse);
+    try {
+      const routeBody = await routeOf(stateWithOutcomes(["replied", "meeting_booked"]), AI_ENV);
+      const { body: analyzeBody } = await analyze(stateWithOutcomes(["replied", "meeting_booked"]));
+
+      expect(routeBody.route).toBe("ai_light");
+      expect(analyzeBody.route).toBe("ai_light");
+      expect(routeBody.route).toBe(analyzeBody.route);
+      expect(routeBody.llmCalls).toBe(1);
+      expect(analyzeBody.llmCalls).toBe(1);
+      // route-lead gör aldrig ett eget anrop – endast analyze-lead anropar modellen.
+      expect(stub.calls.count).toBe(1);
+    } finally {
+      stub.restore();
+    }
+  });
+});
