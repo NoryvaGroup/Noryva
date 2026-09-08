@@ -696,3 +696,151 @@ describe("global AI-kill switch", () => {
     }
   });
 });
+
+/* ------------------------------------------------------------------ *
+ * Opt-in Make-migrationskontrakt (makeContext)
+ * ------------------------------------------------------------------ */
+
+const MAKE_CONTEXT = {
+  customerId: CUSTOMER_ID,
+  serviceArea: "Skaraborg",
+  localPostalPrefix: "50",
+  regionalPostalPrefix: "51",
+};
+
+function migrationState() {
+  const state = baseState({ ...COMPLETE_ANSWERS, postnummer: "503 30", ager_fastigheten: "Ja" });
+  state["customer_profiles"] = [
+    { customer_id: CUSTOMER_ID, ai_assistant_enabled: true, execution_mode: "test" },
+  ];
+  return state;
+}
+
+describe("makeContext-kontraktet", () => {
+  it("avvisar fel kundbindning med 403 innan något modellanrop", async () => {
+    const stub = stubFetch(okResponse);
+    try {
+      const res = await handleGrowthApi(
+        "analyze-lead",
+        withEnv(
+          signedRequest("analyze-lead", {
+            leadId: LEAD_ID,
+            makeContext: { ...MAKE_CONTEXT, customerId: "33333333-3333-4333-8333-333333333333" },
+          }),
+        ),
+        depsNoSecret(migrationState()),
+      );
+      expect(res.status).toBe(403);
+      expect(stub.calls.count).toBe(0);
+    } finally {
+      stub.restore();
+    }
+  });
+
+  it("avvisar okända fält och klientstyrd scoring", async () => {
+    const res = await handleGrowthApi(
+      "route-lead",
+      withEnv(
+        signedRequest("route-lead", {
+          leadId: LEAD_ID,
+          makeContext: { ...MAKE_CONTEXT, score: 99 },
+        }),
+      ),
+      depsNoSecret(migrationState()),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("ger migrationsscoring, geografi och manuell granskning utan postnummer i svaret", async () => {
+    const res = await handleGrowthApi(
+      "route-lead",
+      withEnv(signedRequest("route-lead", { leadId: LEAD_ID, makeContext: MAKE_CONTEXT })),
+      depsNoSecret(migrationState()),
+    );
+    const n = ((await res.json()) as any).normalized;
+    expect(n.migration_contract).toBe("noryva.make.migration.v1");
+    expect(n.qualification.source).toBe("make-migration-tak");
+    expect(n.qualification.geography.verdict).toBe("local");
+    expect(n.qualification.geography.service_area).toBe("Skaraborg");
+    expect(typeof n.qualification.manual_review).toBe("boolean");
+    // Exakt postnummer får aldrig lämna servern.
+    expect(JSON.stringify(n)).not.toContain("50330");
+    expect(JSON.stringify(n)).not.toContain("503 30");
+  });
+
+  it("befintliga anropare utan makeContext påverkas inte", async () => {
+    const res = await handleGrowthApi(
+      "route-lead",
+      withEnv(signedRequest("route-lead", { leadId: LEAD_ID })),
+      depsNoSecret(migrationState()),
+    );
+    const n = ((await res.json()) as any).normalized;
+    expect(n.migration_contract).toBe(null);
+    expect(n.qualification.source).not.toContain("make-migration");
+  });
+
+  it("kundutkastet riktar sig till kunden och signeras med företagsnamnet", async () => {
+    const res = await handleGrowthApi(
+      "route-lead",
+      withEnv(signedRequest("route-lead", { leadId: LEAD_ID, makeContext: MAKE_CONTEXT })),
+      depsNoSecret(migrationState()),
+    );
+    const n = ((await res.json()) as any).normalized;
+    expect(n.draft_contract).toBe("noryva.customer-draft.v1");
+    expect(n.sales.email_draft.startsWith("Hej")).toBe(true);
+    expect(n.sales.email_draft).toContain("Testkund");
+    expect(n.sales.email_draft.split(/\s+/).length).toBeLessThanOrEqual(80);
+    expect(n.sales.followup_questions.length).toBeLessThanOrEqual(2);
+    // Inga tekniska fält i kundtexten.
+    for (const word of ["ai_light", "ai_full", "deterministic", "tier", "LLM"]) {
+      expect(n.sales.email_draft).not.toContain(word);
+    }
+  });
+
+  it("cachat äldre svar transformeras utan nytt modellanrop", async () => {
+    const stub = stubFetch(okResponse);
+    try {
+      const state = stateWithOutcomes(["replied", "meeting_booked"]);
+      state["growth_analysis_claims"] = [
+        {
+          lead_id: LEAD_ID,
+          analysis_version: "growth-analysis-v1",
+          status: "done",
+          result: {
+            schema_version: "noryva.growth.normalized.v1",
+            analysis_version: "growth-analysis-v1",
+            sales: {
+              action: "Ring",
+              contact_speed: "Idag",
+              subject: "Internt",
+              email_draft: "Säljare: ring leadet och pusha på offert.",
+              followup_questions: [],
+              human_takeover: false,
+              strategy_reason: "gammalt",
+            },
+            qualification: { score: 1, qualification: "Låg", priority: "LÅG", source: "legacy" },
+            safety_flags: [],
+          },
+        },
+      ];
+      const res = await handleGrowthApi(
+        "analyze-lead",
+        withEnv(
+          signedRequest("analyze-lead", { leadId: LEAD_ID, makeContext: MAKE_CONTEXT }),
+        ),
+        depsNoSecret(state),
+      );
+      const body = (await res.json()) as any;
+      expect(stub.calls.count).toBe(0);
+      expect(body.llmCalls).toBe(0);
+      expect(body.normalized.reused).toBe(true);
+      expect(body.normalized.draft_contract).toBe("noryva.customer-draft.v1");
+      // Det interna utkastet ersätts av ett säkert kundutkast.
+      expect(body.normalized.sales.email_draft.startsWith("Hej")).toBe(true);
+      expect(body.normalized.safety_flags).toContain("migration:stale_draft_replaced");
+      expect(body.normalized.qualification.source).toBe("make-migration-tak");
+    } finally {
+      stub.restore();
+    }
+  });
+});

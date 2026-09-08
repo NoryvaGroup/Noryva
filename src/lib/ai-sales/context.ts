@@ -96,6 +96,13 @@ export type AiCustomerProfile = {
   serviceArea: string;
 };
 
+/** PII-fri geografibedömning. Exakt postnummer förekommer aldrig här. */
+export type AiContextGeography = {
+  verdict: string;
+  serviceArea: string;
+  configured: boolean;
+};
+
 export type AiSalesContext = {
   leadId: string;
   customerId: string;
@@ -112,6 +119,17 @@ export type AiSalesContext = {
   qualification: string | null;
   priority: string | null;
   missingInformation: string[];
+  /** Serververifierad geografi. null = ingen bedömning gjord. */
+  geography: AiContextGeography | null;
+};
+
+/**
+ * Auktoritativa värden från anroparen. När `qualification` skickas in räknas
+ * INGEN egen score ut här – modellen får alltid samma siffra som API-svaret.
+ */
+export type AiSalesContextOverrides = {
+  qualification?: { score: number; qualification: string; priority: string } | null;
+  geography?: AiContextGeography | null;
 };
 
 const BUSINESS_TIMELINE_KEYS = ["tidsram", "planerad_tidpunkt"];
@@ -124,6 +142,7 @@ const BUSINESS_NEED_KEYS = ["behov", "onskad_automat"];
 export function buildAiSalesContext(
   lead: AiLeadInput,
   customer: AiCustomerProfile,
+  overrides: AiSalesContextOverrides = {},
 ): AiSalesContext {
   const stored = readStoredPayload(lead.payload);
   const answers = stored.answers ?? {};
@@ -152,8 +171,13 @@ export function buildAiSalesContext(
     signals["projektbeskrivning"] ?? signals["meddelande"] ?? make?.projektbeskrivning ?? "",
   );
 
+  // Auktoritativ kvalificering vinner alltid. Endast när ingen skickas in
+  // används den inbyggda varuautomatmodellen (bakåtkompatibelt beteende).
+  const authoritative = overrides.qualification ?? null;
   const scoring =
-    lead.industry === "varuautomater" ? scoreVaruautomat(answers as Record<string, string>) : null;
+    authoritative === null && lead.industry === "varuautomater"
+      ? scoreVaruautomat(answers as Record<string, string>)
+      : null;
 
   const missingInformation: string[] = [];
   if (!need) missingInformation.push("behov");
@@ -171,10 +195,11 @@ export function buildAiSalesContext(
     need,
     timeline,
     description,
-    score: scoring?.deterministic_score ?? null,
-    qualification: scoring?.deterministic_kvalificering ?? null,
-    priority: scoring?.deterministic_prioritet ?? null,
+    score: authoritative?.score ?? scoring?.deterministic_score ?? null,
+    qualification: authoritative?.qualification ?? scoring?.deterministic_kvalificering ?? null,
+    priority: authoritative?.priority ?? scoring?.deterministic_prioritet ?? null,
     missingInformation,
+    geography: overrides.geography ?? null,
   };
 }
 

@@ -141,25 +141,44 @@ export function applyPolicyGuardrails(
 }
 
 
-/** Säkert reservutkast utan modellanrop. */
+/**
+ * Säkert reservutkast utan modellanrop.
+ *
+ * MOTTAGARE: kunden som skickat förfrågan – aldrig en intern instruktion till
+ * säljaren. Interna råd hör hemma i `strategyReason`. Texten hålls under ~70
+ * ord, har max två följdfrågor och signeras med företagsnamnet.
+ */
 export function fallbackOutput(context: AiSalesContext): AssistantOutput {
   const policy = resolvePolicyPath(context);
-  const questions = context.missingInformation.map((m) => `Kan du beskriva ${m} lite närmare?`);
+  const geographyVerified =
+    context.geography?.configured === true &&
+    (context.geography.verdict === "local" || context.geography.verdict === "regional");
+
+  const questions = context.missingInformation
+    // Ingen platsfråga när servern redan verifierat geografin.
+    .filter((m) => !(geographyVerified && /plats|ort|omr[åa]de/i.test(m)))
+    .map((m) => `Kan du beskriva ${m} lite närmare?`)
+    .slice(0, 2);
+
+  const signature = context.companyName?.trim() || "Kundteamet";
+
   return {
     action: policy.action,
     contactSpeed: policy.contactSpeed,
-    subject: "Din förfrågan till oss",
+    subject: "Tack för din förfrågan",
     emailDraft: [
       "Hej!",
       "",
-      "Tack för din förfrågan. Vi har tagit emot den och återkommer med nästa steg.",
+      "Tack för din förfrågan – vi har tagit emot den och återkommer med nästa steg.",
       questions.length > 0
-        ? "För att kunna ge dig ett bra svar behöver vi några kompletterande uppgifter."
+        ? "För att kunna hjälpa dig rätt behöver vi veta lite mer:"
         : "Hör gärna av dig om du har frågor under tiden.",
+      ...questions.map((q) => `- ${q}`),
       "",
       "Vänliga hälsningar",
+      signature,
     ].join("\n"),
-    followupQuestions: questions.slice(0, 3),
+    followupQuestions: questions,
     humanTakeover: policy.humanTakeover,
     strategyReason: `Reservutkast utan modellanrop. ${policy.reason}`,
     confidence: 0.3,

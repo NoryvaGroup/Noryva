@@ -24,6 +24,7 @@ import {
   type GrowthContext,
 } from "./service.server";
 import { runtimeEnvFromRequest, type RuntimeEnv } from "./runtime-env";
+import { LeadBindingError } from "./make-contract";
 
 
 const throttle = createThrottle(60, 60_000);
@@ -94,6 +95,7 @@ async function runOperation(
     case "route-lead": {
       const { decision, qualification, intent, normalized } = await routeLeadCore(ctx, data.leadId, {
         env,
+        makeContext: data.makeContext ?? null,
       });
       return {
         leadId: data.leadId,
@@ -119,6 +121,7 @@ async function runOperation(
         forceTier: null,
         actor: "system",
         env,
+        makeContext: data.makeContext ?? null,
       });
       return {
         ok: true,
@@ -207,6 +210,9 @@ export async function handleGrowthApi(
     const result = await runOperation(operation, ctx, parsed.data, runtimeEnvFromRequest(request));
     return json(200, result);
   } catch (error) {
+    // Fel kundbindning är ett klientfel, inte ett serverfel – och inträffar
+    // alltid innan något modellanrop kan göras.
+    if (error instanceof LeadBindingError) return json(403, { error: error.message });
     console.error(`[growth-api:${operation}]`, error);
     return json(500, { error: "Operationen kunde inte slutföras." });
   }
