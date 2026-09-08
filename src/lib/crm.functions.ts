@@ -453,3 +453,71 @@ export const listAuditEvents = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     return { events: rows ?? [] };
   });
+
+/** Alla kundprofiler (för admin-UI). Skapar defaults för kunder utan rad. */
+export const listCustomerProfiles = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const ctx = context as AdminContext;
+    await assertAdmin(ctx);
+    const { data: customers, error } = await ctx.supabase
+      .from("customers")
+      .select("id, name, industry, slug, status")
+      .order("name");
+    if (error) throw new Error(error.message);
+    const { data: rows } = await ctx.supabase.from("customer_profiles").select(PROFILE_COLUMNS);
+    const byId = new Map<string, any>((rows ?? []).map((r: any) => [r.customer_id, r]));
+    return {
+      customers: (customers ?? []).map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        industry: c.industry,
+        slug: c.slug,
+        status: c.status,
+        saved: byId.has(c.id),
+        profile: byId.has(c.id) ? rowToProfile(byId.get(c.id)) : defaultProfile(c.id, c.industry),
+      })),
+    };
+  });
+
+/**
+ * Systemstatus för admin: vilka delar som är aktiva respektive avstängda.
+ * Returnerar aldrig nycklar eller hemligheter – endast av/på.
+ */
+export const getSystemReadiness = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const ctx = context as AdminContext;
+    await assertAdmin(ctx);
+    const flags = serverAiSalesFlags();
+    assertNoExternalSend(flags);
+
+    const { count: customerCount } = await ctx.supabase
+      .from("customers")
+      .select("id", { count: "exact", head: true });
+    const { data: enabledRows } = await ctx.supabase
+      .from("customer_profiles")
+      .select("customer_id")
+      .eq("ai_assistant_enabled", true);
+    const { count: pendingReview } = await ctx.supabase
+      .from("ai_sales_assistant_runs")
+      .select("id", { count: "exact", head: true })
+      .eq("review_status", "draft");
+    const { count: pendingActions } = await ctx.supabase
+      .from("sales_actions")
+      .select("id", { count: "exact", head: true })
+      .in("status", ["draft", "review"]);
+
+    return {
+      mode: "TEST/REVIEW" as const,
+      flags,
+      externalSendAllowed: false as const,
+      modelKeyConfigured: Boolean(process.env["LOVABLE_API_KEY"]),
+      counts: {
+        customers: customerCount ?? 0,
+        aiEnabledCustomers: (enabledRows ?? []).length,
+        runsAwaitingReview: pendingReview ?? 0,
+        actionsAwaitingDecision: pendingActions ?? 0,
+      },
+    };
+  });
