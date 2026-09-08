@@ -231,7 +231,7 @@ function ProfilesPage() {
       ) : null}
 
       <div className="space-y-4">
-        {(data?.customers ?? []).map((c) => (
+        {(data?.customers ?? []).map((c: any) => (
           <article key={c.id} className="rounded-xl border border-border p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
