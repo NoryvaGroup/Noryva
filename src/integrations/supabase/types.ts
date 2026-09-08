@@ -14,6 +14,73 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_cost_events: {
+        Row: {
+          assumed: boolean
+          created_at: string
+          customer_id: string | null
+          estimated_cost: number
+          id: string
+          input_tokens: number | null
+          lead_id: string | null
+          model: string | null
+          output_tokens: number | null
+          route: string
+          tier: string
+          variant_id: string | null
+        }
+        Insert: {
+          assumed?: boolean
+          created_at?: string
+          customer_id?: string | null
+          estimated_cost?: number
+          id?: string
+          input_tokens?: number | null
+          lead_id?: string | null
+          model?: string | null
+          output_tokens?: number | null
+          route?: string
+          tier: string
+          variant_id?: string | null
+        }
+        Update: {
+          assumed?: boolean
+          created_at?: string
+          customer_id?: string | null
+          estimated_cost?: number
+          id?: string
+          input_tokens?: number | null
+          lead_id?: string | null
+          model?: string | null
+          output_tokens?: number | null
+          route?: string
+          tier?: string
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_cost_events_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_cost_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_cost_events_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "growth_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_sales_assistant_runs: {
         Row: {
           action: string
@@ -297,6 +364,8 @@ export type Database = {
       customer_profiles: {
         Row: {
           ai_assistant_enabled: boolean
+          ai_daily_budget_usd: number
+          ai_monthly_budget_usd: number
           booking_rules: Json
           created_at: string
           customer_id: string
@@ -311,6 +380,8 @@ export type Database = {
         }
         Insert: {
           ai_assistant_enabled?: boolean
+          ai_daily_budget_usd?: number
+          ai_monthly_budget_usd?: number
           booking_rules?: Json
           created_at?: string
           customer_id: string
@@ -325,6 +396,8 @@ export type Database = {
         }
         Update: {
           ai_assistant_enabled?: boolean
+          ai_daily_budget_usd?: number
+          ai_monthly_budget_usd?: number
           booking_rules?: Json
           created_at?: string
           customer_id?: string
@@ -447,6 +520,291 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      growth_assignments: {
+        Row: {
+          assigned_at: string
+          created_at: string
+          customer_id: string
+          experiment_id: string
+          id: string
+          lead_id: string
+          variant_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          created_at?: string
+          customer_id: string
+          experiment_id: string
+          id?: string
+          lead_id: string
+          variant_id: string
+        }
+        Update: {
+          assigned_at?: string
+          created_at?: string
+          customer_id?: string
+          experiment_id?: string
+          id?: string
+          lead_id?: string
+          variant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "growth_assignments_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "growth_assignments_experiment_id_fkey"
+            columns: ["experiment_id"]
+            isOneToOne: false
+            referencedRelation: "growth_experiments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "growth_assignments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "growth_assignments_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "growth_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      growth_experiments: {
+        Row: {
+          created_at: string
+          customer_id: string
+          experiment_type: string
+          exploration_floor: number
+          id: string
+          industry: string
+          min_sample_size: number
+          name: string
+          notes: string
+          started_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id: string
+          experiment_type: string
+          exploration_floor?: number
+          id?: string
+          industry?: string
+          min_sample_size?: number
+          name: string
+          notes?: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string
+          experiment_type?: string
+          exploration_floor?: number
+          id?: string
+          industry?: string
+          min_sample_size?: number
+          name?: string
+          notes?: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "growth_experiments_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      growth_outcomes: {
+        Row: {
+          created_at: string
+          customer_id: string
+          experiment_id: string | null
+          id: string
+          idempotency_key: string
+          lead_id: string
+          outcome_type: string
+          outcome_value: number | null
+          revenue_value: number | null
+          source: string
+          variant_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          customer_id: string
+          experiment_id?: string | null
+          id?: string
+          idempotency_key: string
+          lead_id: string
+          outcome_type: string
+          outcome_value?: number | null
+          revenue_value?: number | null
+          source?: string
+          variant_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string
+          experiment_id?: string | null
+          id?: string
+          idempotency_key?: string
+          lead_id?: string
+          outcome_type?: string
+          outcome_value?: number | null
+          revenue_value?: number | null
+          source?: string
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "growth_outcomes_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "growth_outcomes_experiment_id_fkey"
+            columns: ["experiment_id"]
+            isOneToOne: false
+            referencedRelation: "growth_experiments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "growth_outcomes_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "growth_outcomes_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "growth_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      growth_recommendations: {
+        Row: {
+          allocations: Json
+          confidence: number
+          created_at: string
+          customer_id: string
+          experiment_id: string
+          id: string
+          metric: string
+          needs_more_data: boolean
+          reason: string
+          winner_variant_id: string | null
+        }
+        Insert: {
+          allocations?: Json
+          confidence?: number
+          created_at?: string
+          customer_id: string
+          experiment_id: string
+          id?: string
+          metric?: string
+          needs_more_data?: boolean
+          reason?: string
+          winner_variant_id?: string | null
+        }
+        Update: {
+          allocations?: Json
+          confidence?: number
+          created_at?: string
+          customer_id?: string
+          experiment_id?: string
+          id?: string
+          metric?: string
+          needs_more_data?: boolean
+          reason?: string
+          winner_variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "growth_recommendations_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "growth_recommendations_experiment_id_fkey"
+            columns: ["experiment_id"]
+            isOneToOne: false
+            referencedRelation: "growth_experiments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "growth_recommendations_winner_variant_id_fkey"
+            columns: ["winner_variant_id"]
+            isOneToOne: false
+            referencedRelation: "growth_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      growth_variants: {
+        Row: {
+          created_at: string
+          experiment_id: string
+          id: string
+          instruction: string
+          is_control: boolean
+          name: string
+          updated_at: string
+          weight: number
+        }
+        Insert: {
+          created_at?: string
+          experiment_id: string
+          id?: string
+          instruction?: string
+          is_control?: boolean
+          name: string
+          updated_at?: string
+          weight?: number
+        }
+        Update: {
+          created_at?: string
+          experiment_id?: string
+          id?: string
+          instruction?: string
+          is_control?: boolean
+          name?: string
+          updated_at?: string
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "growth_variants_experiment_id_fkey"
+            columns: ["experiment_id"]
+            isOneToOne: false
+            referencedRelation: "growth_experiments"
             referencedColumns: ["id"]
           },
         ]
