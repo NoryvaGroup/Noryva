@@ -114,7 +114,7 @@ Alla ligger under `/api/public/growth/*`, tar `POST` med JSON och kräver
 
 | Path | Body | Svar |
 | --- | --- | --- |
-| `/api/public/growth/route-lead` | `{ leadId }` | `{ leadId, route, requestedRoute, reason, requiresHuman, llmCalls, budgetState, qualification }` |
+| `/api/public/growth/route-lead` | `{ leadId }` | `{ leadId, route, requestedRoute, reason, requiresHuman, llmCalls, budgetState, qualification, intent: { score, level, reason } }` |
 | `/api/public/growth/analyze-lead` | `{ leadId }` | `{ ok, leadId, route, tier, model, llmCalls, estimatedCost, usedFallback, runId, requiresHuman }` |
 | `/api/public/growth/assign-variant` | `{ leadId, experimentId? }` | `{ assigned, experimentId, variantId, variantName, reused }` |
 | `/api/public/growth/register-outcome` | `{ leadId, outcomeType, outcomeValue?, revenueValue? }` | `{ ok, created, idempotencyKey }` |
