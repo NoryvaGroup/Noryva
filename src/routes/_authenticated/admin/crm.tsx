@@ -1,8 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { AdminShell } from "@/components/admin/AdminShell";
+import { ReadinessPanel } from "@/components/admin/ReadinessPanel";
 import {
   createSalesAction,
   executeSalesActionTest,
@@ -10,7 +11,9 @@ import {
   listLeadOverview,
   transitionSalesAction,
 } from "@/lib/crm.functions";
+import { generateAssistantRun } from "@/lib/ai-sales.functions";
 import { ACTION_STATUS_LABEL, ACTION_TYPE_LABEL, type ActionType } from "@/lib/ai-sales/actions";
+
 
 export const Route = createFileRoute("/_authenticated/admin/crm")({
   head: () => ({
@@ -60,6 +63,8 @@ function CrmPage() {
   const create = useServerFn(createSalesAction);
   const transition = useServerFn(transitionSalesAction);
   const executeTest = useServerFn(executeSalesActionTest);
+  const generateRun = useServerFn(generateAssistantRun);
+
   const queryClient = useQueryClient();
 
   const [openLead, setOpenLead] = useState<string | null>(null);
@@ -96,10 +101,12 @@ function CrmPage() {
 
   return (
     <AdminShell title="Lead-CRM">
+      <ReadinessPanel />
       <div className="mb-6 rounded-xl border border-amber-500/40 bg-amber-500/5 px-4 py-3 text-sm">
         <strong>TEST / REVIEW-läge.</strong> Inga mail, SMS eller bokningar lämnar systemet. Alla
         AI-förslag måste godkännas av en människa och utförs endast som testkörning som loggas.
       </div>
+
 
       {message ? (
         <p className="mb-5 rounded-lg border border-border px-4 py-2 text-sm">{message}</p>
@@ -153,7 +160,37 @@ function CrmPage() {
               {open ? (
                 <div className="mt-5 space-y-6 border-t border-border pt-5">
                   <section>
-                    <h2 className="mb-2 text-sm font-semibold">AI-bedömning</h2>
+                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                      <h2 className="text-sm font-semibold">AI-bedömning</h2>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          disabled={busy}
+                          className="rounded-lg border border-primary px-3 py-1 text-sm text-primary disabled:opacity-50"
+                          onClick={() =>
+                            run(async () => {
+                              const res: any = await generateRun({ data: { leadId: lead.id } });
+                              if (res?.ok === false) return res;
+                              setMessage(
+                                res?.usedFallback
+                                  ? "Utkast skapat med reservlogik. Inget mail skickades."
+                                  : "AI-utkast skapat. Inget mail skickades.",
+                              );
+                              return { ok: true };
+                            })
+                          }
+                        >
+                          {lead.run ? "Generera nytt AI-utkast" : "Generera AI-utkast"}
+                        </button>
+                        <Link
+                          to="/admin/ai-assistent"
+                          search={{ lead: lead.id }}
+                          className="rounded-lg border border-border px-3 py-1 text-sm"
+                        >
+                          Öppna i granskningskön
+                        </Link>
+                      </div>
+                    </div>
                     {lead.run ? (
                       <div className="space-y-2 text-sm">
                         <div className="flex flex-wrap gap-2">
@@ -179,10 +216,11 @@ function CrmPage() {
                       </div>
                     ) : (
                       <p className="text-sm text-muted-foreground">
-                        Ingen AI-bedömning ännu. Skapa en i AI-säljassistenten.
+                        Ingen AI-bedömning ännu – generera ett utkast direkt härifrån.
                       </p>
                     )}
                   </section>
+
 
                   <section>
                     <h2 className="mb-2 text-sm font-semibold">Skapa åtgärd (utkast)</h2>

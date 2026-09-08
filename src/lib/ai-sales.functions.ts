@@ -24,6 +24,37 @@ function missingTable(message: string): boolean {
   return /relation .* does not exist|schema cache|42P01/i.test(message);
 }
 
+/**
+ * Audit-logg. Endast metadata och beslut – aldrig personuppgifter eller
+ * mailtext. Loggen får aldrig stoppa huvudflödet.
+ */
+async function logEvent(
+  context: AdminContext,
+  event: {
+    eventType: string;
+    actor: "ai" | "human" | "system";
+    leadId?: string | null;
+    customerId?: string | null;
+    runId?: string | null;
+    detail?: Record<string, unknown>;
+  },
+) {
+  try {
+    await context.supabase.from("ai_sales_events").insert({
+      event_type: event.eventType,
+      actor: event.actor,
+      actor_user_id: context.userId,
+      lead_id: event.leadId ?? null,
+      customer_id: event.customerId ?? null,
+      run_id: event.runId ?? null,
+      detail: event.detail ?? {},
+    });
+  } catch {
+    /* audit får aldrig blockera */
+  }
+}
+
+
 export const getAiSalesFlags = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -36,8 +67,13 @@ export const getAiSalesFlags = createServerFn({ method: "GET" })
 /** Listar review-kön (senaste körningen per lead visas i UI:t). */
 export const listAssistantRuns = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { customerId?: string }) =>
-    z.object({ customerId: z.string().uuid().optional() }).parse(input ?? {}),
+  .inputValidator((input: { customerId?: string; leadId?: string }) =>
+    z
+      .object({
+        customerId: z.string().uuid().optional(),
+        leadId: z.string().uuid().optional(),
+      })
+      .parse(input ?? {}),
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context as AdminContext);
@@ -48,6 +84,8 @@ export const listAssistantRuns = createServerFn({ method: "GET" })
       .order("created_at", { ascending: false })
       .limit(100);
     if (data.customerId) query = query.eq("customer_id", data.customerId);
+    if (data.leadId) query = query.eq("lead_id", data.leadId);
+
     const { data: rows, error } = await query;
     if (error) {
       if (missingTable(error.message)) return { runs: [], tableMissing: true as const };
@@ -128,13 +166,33 @@ export const generateAssistantRun = createServerFn({ method: "POST" })
       throw new Error(error.message);
     }
 
+    const policy = resolvePolicyPath(aiContext);
+    await logEvent(context as AdminContext, {
+      eventType: "ai_run_generated",
+      actor: "ai",
+      leadId: lead.id,
+      customerId: lead.customer_id,
+      runId: saved?.id ?? null,
+      detail: {
+        action: result.output.action,
+        contactSpeed: result.output.contactSpeed,
+        humanTakeover: result.output.humanTakeover,
+        confidence: result.output.confidence,
+        usedFallback: result.usedFallback,
+        model: result.model,
+        promptVersion: result.promptVersion,
+        policy,
+      },
+    });
+
     return {
       ok: true as const,
       run: saved,
       usedFallback: result.usedFallback,
       generationError: result.error ?? "",
-      policy: resolvePolicyPath(aiContext),
+      policy,
     };
+
   });
 
 /**
@@ -161,7 +219,16 @@ export const setAssistantReviewStatus = createServerFn({ method: "POST" })
       .select(RUN_COLUMNS)
       .maybeSingle();
     if (error) throw new Error(error.message);
+    await logEvent(context as AdminContext, {
+      eventType: `ai_run_${data.reviewStatus}`,
+      actor: "human",
+      leadId: updated?.lead_id ?? null,
+      customerId: updated?.customer_id ?? null,
+      runId: data.id,
+      detail: { reviewStatus: data.reviewStatus, hasNotes: data.reviewerNotes.length > 0 },
+    });
     return { ok: true as const, run: updated };
+
   });
 
 /** Sparar en redigerad ämnesrad/mailtext. Skickar inget. */
@@ -185,5 +252,15 @@ export const updateAssistantDraft = createServerFn({ method: "POST" })
       .select(RUN_COLUMNS)
       .maybeSingle();
     if (error) throw new Error(error.message);
+    await logEvent(context as AdminContext, {
+      eventType: "ai_draft_edited",
+      actor: "human",
+      leadId: updated?.lead_id ?? null,
+      customerId: updated?.customer_id ?? null,
+      runId: data.id,
+      // Ingen mailtext loggas – endast att en redigering skett och dess längd.
+      detail: { subjectLength: data.subject.length, bodyLength: data.emailDraft.length },
+    });
     return { ok: true as const, run: updated };
+
   });

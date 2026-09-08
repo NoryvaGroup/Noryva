@@ -80,3 +80,43 @@ resultatobjekt (`performed: false`, `mode: "test"`) och en audit-händelse.
 3. Kalender-/bokningsadapter med kundens regler.
 4. Skarpt läge bakom explicit godkännande per kund (`customer_profiles`).
 5. Utfallsmätning (kontaktad → svar → möte → affär) som återkoppling till scoring.
+
+## Fas 2 (denna build)
+
+- **CRM ↔ granskningskö:** varje lead i Lead-CRM har knappen "Generera AI-utkast"
+  och länken "Öppna i granskningskön" (`/admin/ai-assistent?lead=<uuid>`). Inga
+  UUID behöver kopieras manuellt. Granskningskön filtrerar på `lead`-parametern
+  och länkar tillbaka till CRM.
+- **Kundprofiler i UI:** `/admin/profiler` läser `listCustomerProfiles` och
+  sparar via `saveCustomerProfile` med `customerProfileSchema`-validering
+  (ton, språk, lead-prefix, uppföljningstimmar per prioritet, max uppföljningar,
+  bokningsregler, AI på/av). Kunder utan sparad rad visas med branschens
+  defaults.
+- **Readiness-block:** `ReadinessPanel` (CRM + granskningskö) visar läge,
+  AI-generering, review-krav, auto-send, reply-agent, bokning, v1-spärren för
+  extern sändning, om modellnyckel finns (endast ja/nej) samt antal kunder,
+  AI-påslagna kunder, utkast att granska och åtgärder att besluta. Inga
+  hemligheter, adresser eller personuppgifter visas.
+- **Audit:** `logEvent` skriver `ai_run_generated`, `ai_run_approved`,
+  `ai_run_rejected`, `ai_draft_edited` samt åtgärdernas statusövergångar till
+  `ai_sales_events`. Endast metadata loggas (längd på ämne/brödtext, modell,
+  promptversion, policy) – aldrig mailtext eller PII.
+- **PII:** företagsnamn räknas som affärskontext och behålls; personnamn,
+  e-post, telefon, adress och postnummer tas bort både som fältnycklar och som
+  värden i fritext (`src/lib/ai-sales/pii.test.ts`).
+
+## Medvetet avstängt
+
+Auto-send, inkorg/svarsagent, kalenderbokning och all extern kommunikation.
+`V1_EXTERNAL_SEND_ALLOWED = false` blockerar auto-send i kod oavsett miljövariabler.
+
+## Nästa steg för riktig extern exekvering (ej implementerat)
+
+1. **Mailkanal:** verifierad avsändardomän (SPF/DKIM/DMARC), avregistreringslänk,
+   bounce-/klagomålshantering och loggning av leveransstatus per åtgärd.
+2. **Inkorg/svar:** inkommande mail till en server-route, intent-klassificering
+   via `ReplyClassifier`, eskalering vid pris/offert/förhandling/klagomål/juridik.
+3. **Kalender:** `MeetingBookingAdapter` mot riktig kalender med dubbelbokningsskydd.
+4. **Skarpt läge per kund:** `ai_assistant_enabled` + separat `execution_mode`
+   (`test` → `live`) med explicit godkännande och möjlighet till omedelbar kill switch.
+5. **Utfallsmätning:** svarsfrekvens och vunna affärer tillbaka till scoringen.

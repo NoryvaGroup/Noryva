@@ -40,8 +40,12 @@ export function redactText(value: string): string {
     .trim();
 }
 
+/** Företagsnamn är affärskontext, inte personuppgift – de får följa med. */
+const BUSINESS_NAME_KEYS = ["foretagsnamn", "företagsnamn", "bolagsnamn", "foretag", "företag"];
+
 function isPiiKey(key: string): boolean {
   const k = key.toLowerCase();
+  if (BUSINESS_NAME_KEYS.some((b) => k === b || k.includes(b))) return false;
   return PII_FIELD_KEYS.some((p) => k === p || k.includes(p));
 }
 

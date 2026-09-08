@@ -24,6 +24,7 @@ import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAdminCustomerIdRouteImport } from './routes/_authenticated/admin/$customerId'
 import { Route as AuthenticatedAdminAiAssistentRouteImport } from './routes/_authenticated/admin/ai-assistent'
 import { Route as AuthenticatedAdminCrmRouteImport } from './routes/_authenticated/admin/crm'
+import { Route as AuthenticatedAdminProfilerRouteImport } from './routes/_authenticated/admin/profiler'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -102,6 +103,12 @@ const AuthenticatedAdminCrmRoute = AuthenticatedAdminCrmRouteImport.update({
   path: '/admin/crm',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAdminProfilerRoute =
+  AuthenticatedAdminProfilerRouteImport.update({
+    id: '/admin/profiler',
+    path: '/admin/profiler',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -117,6 +124,7 @@ export interface FileRoutesByFullPath {
   '/admin/$customerId': typeof AuthenticatedAdminCustomerIdRoute
   '/admin/ai-assistent': typeof AuthenticatedAdminAiAssistentRoute
   '/admin/crm': typeof AuthenticatedAdminCrmRoute
+  '/admin/profiler': typeof AuthenticatedAdminProfilerRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRoutesByTo {
@@ -133,6 +141,7 @@ export interface FileRoutesByTo {
   '/admin/$customerId': typeof AuthenticatedAdminCustomerIdRoute
   '/admin/ai-assistent': typeof AuthenticatedAdminAiAssistentRoute
   '/admin/crm': typeof AuthenticatedAdminCrmRoute
+  '/admin/profiler': typeof AuthenticatedAdminProfilerRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRoutesById {
@@ -151,6 +160,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/$customerId': typeof AuthenticatedAdminCustomerIdRoute
   '/_authenticated/admin/ai-assistent': typeof AuthenticatedAdminAiAssistentRoute
   '/_authenticated/admin/crm': typeof AuthenticatedAdminCrmRoute
+  '/_authenticated/admin/profiler': typeof AuthenticatedAdminProfilerRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRouteTypes {
@@ -169,6 +179,7 @@ export interface FileRouteTypes {
     | '/admin/$customerId'
     | '/admin/ai-assistent'
     | '/admin/crm'
+    | '/admin/profiler'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -185,6 +196,7 @@ export interface FileRouteTypes {
     | '/admin/$customerId'
     | '/admin/ai-assistent'
     | '/admin/crm'
+    | '/admin/profiler'
     | '/admin'
   id:
     | '__root__'
@@ -202,6 +214,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/$customerId'
     | '/_authenticated/admin/ai-assistent'
     | '/_authenticated/admin/crm'
+    | '/_authenticated/admin/profiler'
     | '/_authenticated/admin/'
   fileRoutesById: FileRoutesById
 }
@@ -326,6 +339,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminCrmRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/admin/profiler': {
+      id: '/_authenticated/admin/profiler'
+      path: '/admin/profiler'
+      fullPath: '/admin/profiler'
+      preLoaderRoute: typeof AuthenticatedAdminProfilerRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
@@ -333,6 +353,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminCustomerIdRoute: typeof AuthenticatedAdminCustomerIdRoute
   AuthenticatedAdminAiAssistentRoute: typeof AuthenticatedAdminAiAssistentRoute
   AuthenticatedAdminCrmRoute: typeof AuthenticatedAdminCrmRoute
+  AuthenticatedAdminProfilerRoute: typeof AuthenticatedAdminProfilerRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
 }
 
@@ -340,6 +361,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminCustomerIdRoute: AuthenticatedAdminCustomerIdRoute,
   AuthenticatedAdminAiAssistentRoute: AuthenticatedAdminAiAssistentRoute,
   AuthenticatedAdminCrmRoute: AuthenticatedAdminCrmRoute,
+  AuthenticatedAdminProfilerRoute: AuthenticatedAdminProfilerRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
 }
 
