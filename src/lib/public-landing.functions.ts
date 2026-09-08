@@ -34,12 +34,16 @@ export const getPublicLanding = createServerFn({ method: "GET" })
     return { landing };
   });
 
+/** UAT: endast test-routerna sätter test=true. Live-flödet är oförändrat. */
+export const TEST_WEBHOOK_URL = "https://hook.eu1.make.com/h23e3fet88f3wq6jz22c6r4l3dat3xgc";
+
 const submitInput = z.object({
   slug: z.string().trim().min(1).max(60),
   submission_id: z.string().uuid(),
   consent: z.boolean(),
   values: z.record(z.string(), z.string().max(1000)),
   company: z.string().max(200).optional().default(""), // honeypot
+  test: z.boolean().optional().default(false),
 });
 
 async function hashIp(ip: string): Promise<string> {
