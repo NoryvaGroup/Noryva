@@ -5,7 +5,7 @@ import { classifyReplyDeterministic } from "@/lib/ai-sales/reply";
 import { runAction } from "@/lib/ai-sales/orchestrator";
 import { readAiSalesFlags, assertNoExternalSend } from "@/lib/ai-sales/flags";
 import { assertExecutableMode, assertStorableMode } from "@/lib/ai-sales/execution-mode";
-import { verifyWebhook } from "@/lib/ai-sales/webhook-security";
+import { createHmacVerifier, computeSignature, decideInbound, buildInboundEventKey } from "@/lib/ai-sales/webhook-security";
 
 const flags = readAiSalesFlags({ AI_SALES_ASSISTANT_ENABLED: "true" });
 const cust = { name: "Borås Varuautomater AB", industry: "varuautomater", serviceArea: "Borås" };
@@ -31,7 +31,7 @@ for (const t of ["Vad kostar en automat?","Kan ni ge rabatt?","Jag är mycket mi
   const r = classifyReplyDeterministic(t);
   console.log(`reply "${t}" -> intent=${r.intent} escalate=${r.escalate} next=${r.suggestedAction}`);
 }
-console.log("takeover pris:", needsHumanTakeover("Vad kostar det och vilken garanti ger ni?"));
+console.log("takeover pris:", needsHumanTakeover(mk("varuautomater", { onskad_automat: "Vet ej", meddelande: "Vad kostar det och vilken garanti ger ni?" })));
 const fb = fallbackOutput(mk("varuautomater", fixtures["VA saknat"]!) as any);
 console.log("fallback:", JSON.stringify(fb).slice(0,200));
 const guard = applyPolicyGuardrails({ ...fb, email_draft: "Hej! Jag har nu skickat mailet och bokat ett möte kl 14. Priset är 4900 kr med 5 års garanti." } as any, mk("varuautomater", fixtures["VA HÖG"]!) as any);
@@ -47,12 +47,15 @@ for (const [label, fn] of [["live storable", () => assertStorableMode("live")], 
 }
 // webhook
 const secret = "s3cret"; const body = JSON.stringify({ a: 1 });
-const enc = new TextEncoder();
-const key = await crypto.subtle.importKey("raw", enc.encode(secret), { name:"HMAC", hash:"SHA-256" }, false, ["sign"]);
-const sigBuf = await crypto.subtle.sign("HMAC", key, enc.encode(body));
-const sig = Array.from(new Uint8Array(sigBuf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+const v = createHmacVerifier({ source: "test", secret });
+const ts = String(Math.floor(Date.now()/1000));
+const sig = computeSignature(secret, ts, body);
 const seen = new Set<string>();
-const o1 = await verifyWebhook({ body, signature: sig, secret, externalId: "evt1", seen } as any);
-const o2 = await verifyWebhook({ body, signature: "deadbeef", secret, externalId: "evt2", seen } as any);
-const o3 = await verifyWebhook({ body, signature: sig, secret, externalId: "evt1", seen } as any);
-console.log("webhook giltig:", JSON.stringify(o1), "ogiltig:", JSON.stringify(o2), "replay:", JSON.stringify(o3));
+const key = buildInboundEventKey("test", "evt1");
+const ok = v.verify(body, { "x-signature": sig, "x-timestamp": ts });
+const bad = v.verify(body, { "x-signature": "deadbeef", "x-timestamp": ts });
+const old = v.verify(body, { "x-signature": computeSignature(secret, "1000", body), "x-timestamp": "1000" });
+const d1 = decideInbound(ok, seen.has(key)); seen.add(key);
+const d2 = decideInbound(ok, seen.has(key));
+console.log("webhook giltig:", JSON.stringify(ok), "ogiltig:", JSON.stringify(bad), "gammal:", JSON.stringify(old));
+console.log("replay:", JSON.stringify(d1), JSON.stringify(d2));
