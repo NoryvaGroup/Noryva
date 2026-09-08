@@ -160,12 +160,147 @@ export type Database = {
           },
         ]
       }
+      conversation_messages: {
+        Row: {
+          action_id: string | null
+          channel: string
+          confidence: number
+          conversation_id: string
+          created_at: string
+          customer_id: string
+          direction: string
+          escalate: boolean
+          escalation_reason: string
+          id: string
+          intent: string
+          lead_id: string
+          received_at: string
+          redacted_body: string
+          source_ref: string
+          suggested_action: string
+        }
+        Insert: {
+          action_id?: string | null
+          channel?: string
+          confidence?: number
+          conversation_id: string
+          created_at?: string
+          customer_id: string
+          direction?: string
+          escalate?: boolean
+          escalation_reason?: string
+          id?: string
+          intent?: string
+          lead_id: string
+          received_at?: string
+          redacted_body?: string
+          source_ref?: string
+          suggested_action?: string
+        }
+        Update: {
+          action_id?: string | null
+          channel?: string
+          confidence?: number
+          conversation_id?: string
+          created_at?: string
+          customer_id?: string
+          direction?: string
+          escalate?: boolean
+          escalation_reason?: string
+          id?: string
+          intent?: string
+          lead_id?: string
+          received_at?: string
+          redacted_body?: string
+          source_ref?: string
+          suggested_action?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_messages_action_id_fkey"
+            columns: ["action_id"]
+            isOneToOne: false
+            referencedRelation: "sales_actions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_messages_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_messages_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversations: {
+        Row: {
+          created_at: string
+          customer_id: string
+          human_owner: string | null
+          id: string
+          last_event_at: string
+          lead_id: string
+          stage: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id: string
+          human_owner?: string | null
+          id?: string
+          last_event_at?: string
+          lead_id: string
+          stage?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string
+          human_owner?: string | null
+          id?: string
+          last_event_at?: string
+          lead_id?: string
+          stage?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customer_profiles: {
         Row: {
           ai_assistant_enabled: boolean
           booking_rules: Json
           created_at: string
           customer_id: string
+          execution_mode: string
           followup_rules: Json
           language: string
           lead_prefix: string
@@ -179,6 +314,7 @@ export type Database = {
           booking_rules?: Json
           created_at?: string
           customer_id: string
+          execution_mode?: string
           followup_rules?: Json
           language?: string
           lead_prefix?: string
@@ -192,6 +328,7 @@ export type Database = {
           booking_rules?: Json
           created_at?: string
           customer_id?: string
+          execution_mode?: string
           followup_rules?: Json
           language?: string
           lead_prefix?: string
@@ -310,6 +447,87 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inbound_webhook_events: {
+        Row: {
+          created_at: string
+          external_id: string
+          id: string
+          payload_hash: string
+          received_at: string
+          signature_verified: boolean
+          source: string
+        }
+        Insert: {
+          created_at?: string
+          external_id: string
+          id?: string
+          payload_hash?: string
+          received_at?: string
+          signature_verified?: boolean
+          source: string
+        }
+        Update: {
+          created_at?: string
+          external_id?: string
+          id?: string
+          payload_hash?: string
+          received_at?: string
+          signature_verified?: boolean
+          source?: string
+        }
+        Relationships: []
+      }
+      lead_outcomes: {
+        Row: {
+          channel: string
+          created_at: string
+          customer_id: string
+          id: string
+          lead_id: string
+          note: string
+          occurred_at: string
+          score_band: string
+          stage: string
+        }
+        Insert: {
+          channel?: string
+          created_at?: string
+          customer_id: string
+          id?: string
+          lead_id: string
+          note?: string
+          occurred_at?: string
+          score_band?: string
+          stage: string
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          customer_id?: string
+          id?: string
+          lead_id?: string
+          note?: string
+          occurred_at?: string
+          score_band?: string
+          stage?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_outcomes_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_outcomes_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
             referencedColumns: ["id"]
           },
         ]

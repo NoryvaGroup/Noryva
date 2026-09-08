@@ -106,7 +106,7 @@ export type SalesAction = {
   params: Record<string, unknown>;
   scheduledFor?: string | null;
   idempotencyKey: string;
-  executionMode: "test" | "live";
+  executionMode: "test" | "review" | "live";
   executionResult: Record<string, unknown>;
   executedAt?: string | null;
 };

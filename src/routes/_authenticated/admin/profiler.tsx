@@ -71,7 +71,7 @@ function ProfileForm({
 
   return (
     <form onSubmit={onSubmit} className="mt-4 space-y-5">
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2">
         <label className="text-sm">
           <span className="mb-1 block text-xs text-muted-foreground">Ton</span>
           <input className={field} value={profile.tone} onChange={(e) => patch({ tone: e.target.value })} />
@@ -85,6 +85,22 @@ function ProfileForm({
           >
             <option value="sv">Svenska</option>
             <option value="en">Engelska</option>
+          </select>
+        </label>
+        <label className="text-sm">
+          <span className="mb-1 block text-xs text-muted-foreground">Körläge</span>
+          <select
+            className={field}
+            value={profile.executionMode}
+            onChange={(e) =>
+              patch({ executionMode: e.target.value === "review" ? "review" : "test" })
+            }
+          >
+            <option value="test">Testläge (inget lämnar systemet)</option>
+            <option value="review">Granskningsläge (kräver godkännande)</option>
+            <option value="live" disabled>
+              Skarpt läge (ej tillgängligt)
+            </option>
           </select>
         </label>
         <label className="text-sm">

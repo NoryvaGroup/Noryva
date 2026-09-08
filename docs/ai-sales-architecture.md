@@ -120,3 +120,46 @@ Auto-send, inkorg/svarsagent, kalenderbokning och all extern kommunikation.
 4. **Skarpt läge per kund:** `ai_assistant_enabled` + separat `execution_mode`
    (`test` → `live`) med explicit godkännande och möjlighet till omedelbar kill switch.
 5. **Utfallsmätning:** svarsfrekvens och vunna affärer tillbaka till scoringen.
+
+## Fas 3 (byggd i preview, inte publicerad)
+
+Kedjan: Lead → kvalificering → AI-utkast → granskning → åtgärd → **mockad
+körning via orkestrerare** → konversation/svar → utfall (funnel) → audit.
+
+### Nytt i databasen
+- `customer_profiles.execution_mode` – `test` eller `review`. `live` är spärrat
+  av CHECK-villkoret `customer_profiles_execution_mode_chk`.
+- `conversations` – ett samtal per lead, steg `new … closed`, RLS admin-only.
+- `conversation_messages` – endast `redacted_body`, avsikt, säkerhet,
+  eskalering, föreslagen åtgärd. Ingen rå PII lagras.
+- `lead_outcomes` – trappan lead → contacted → replied → meeting → won/lost,
+  unikt per (lead, steg), med poängband och kanal.
+- `inbound_webhook_events` – unikt (source, external_id) för replay-skydd.
+
+### Ny kod
+- `src/lib/ai-sales/execution-mode.ts` – tre lager av spärr mot live.
+- `src/lib/ai-sales/channels.ts` – interfaces + **mockar** för e-post, inkorg
+  och kalender. Ingen av dem gör ett nätverksanrop.
+- `src/lib/ai-sales/orchestrator.ts` – enda vägen till "utförande"; validerar
+  läge och status och kör endast mockade kanaler.
+- `src/lib/ai-sales/webhook-security.ts` – HMAC-verifiering (tidsstämpel +
+  toleransfönster) och dubblettbeslut. Ingen route är kopplad.
+- `src/lib/ai-sales/funnel.ts` – utfallstrappa och funnelsammanfattning utan
+  påhittade siffror (null när data saknas).
+- `src/lib/ai-sales/reply-redact.ts` – maskering av inkommande svar.
+- `src/lib/conversations.functions.ts` – admin-only serverfunktioner för svar,
+  åtgärdsutkast från svar, utfall och funnel.
+- `src/routes/_authenticated/admin/konversationer.tsx` – intern testvy.
+
+### Medvetet avstängt
+Skarpt läge, riktig e-postkanal, inkorgskoppling, kalenderbokning och externa
+callbacks. Befintlig Make-webhook och lead-inlämning är orörda.
+
+### Kvar för riktig live-execution
+1. Avsändardomän + e-postleverantör med avregistreringslänk.
+2. Inkorg/IMAP eller inbound-webhook som använder `webhook-security.ts` och
+   `inbound_webhook_events`.
+3. Kalender-API för `book_meeting`.
+4. Öppna live-läget: ta bort CHECK-spärren, `LIVE_MODE_AVAILABLE` och
+   `V1_EXTERNAL_SEND_ALLOWED` – ett medvetet, granskat beslut per kund.
+5. Utfallsmätning tillbaka till scoringen.

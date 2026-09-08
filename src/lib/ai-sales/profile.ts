@@ -4,6 +4,7 @@
  * allt kundspecifikt bor i data, inte i kod.
  */
 import { z } from "zod";
+import { assertStorableMode, readExecutionMode, storableExecutionModeSchema } from "./execution-mode";
 
 export const qualificationRuleSchema = z.object({
   /** Fältnyckel i formulärsvaren. */
@@ -63,6 +64,8 @@ export const customerProfileSchema = z.object({
   }),
   notifyRecipients: z.array(z.string()).default([]),
   aiAssistantEnabled: z.boolean().default(false),
+  /** Live saknas medvetet – skarpt läge är hårdspärrat i den här fasen. */
+  executionMode: storableExecutionModeSchema.default("test"),
 });
 export type CustomerProfile = z.infer<typeof customerProfileSchema>;
 
@@ -90,6 +93,7 @@ export function rowToProfile(row: Record<string, unknown>): CustomerProfile {
     bookingRules: emptyToUndefined(row["booking_rules"]),
     notifyRecipients: (row["notify_recipients"] as string[] | null) ?? [],
     aiAssistantEnabled: row["ai_assistant_enabled"] ?? false,
+    executionMode: readExecutionMode(row["execution_mode"]),
   });
 }
 
@@ -104,6 +108,7 @@ export function profileToRow(profile: CustomerProfile): Record<string, unknown> 
     booking_rules: profile.bookingRules,
     notify_recipients: profile.notifyRecipients,
     ai_assistant_enabled: profile.aiAssistantEnabled,
+    execution_mode: assertStorableMode(profile.executionMode),
   };
 }
 
