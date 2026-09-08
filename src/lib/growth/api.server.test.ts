@@ -93,6 +93,19 @@ function deps(state: Record<string, Row[]>, now?: Date) {
   };
 }
 
+function depsNoSecret(state: Record<string, Row[]>, now?: Date) {
+  fake = makeSupabase(state);
+  return {
+    getClient: async () => ({ supabase: fake.supabase, userId: null }),
+    markEvent: async (_ctx: any, eventId: string) => {
+      if (seenEvents.has(eventId)) return false;
+      seenEvents.add(eventId);
+      return true;
+    },
+    ...(now ? { now } : {}),
+  };
+}
+
 function signedRequest(
   operation: GrowthOperation,
   body: unknown,
@@ -304,5 +317,20 @@ describe("register-outcome", () => {
     expect(secondBody.created).toBe(false);
     expect(secondBody.idempotencyKey).toBe(firstBody.idempotencyKey);
     expect(state["growth_outcomes"]!.length).toBe(1);
+  });
+});
+
+describe("Cloudflare Worker env-binding", () => {
+  it("läser NORYVA_GROWTH_API_SECRET från request.env när override saknas", async () => {
+    const state = baseState(COMPLETE_ANSWERS);
+    const d = depsNoSecret(state);
+    const req = signedRequest("route-lead", { leadId: LEAD_ID });
+    (req as Request & { env?: Record<string, unknown> }).env = {
+      NORYVA_GROWTH_API_SECRET: SECRET,
+    };
+    const res = await handleGrowthApi("route-lead", req, d);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as any;
+    expect(body.leadId).toBe(LEAD_ID);
   });
 });

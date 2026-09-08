@@ -49,9 +49,19 @@ async function sha256Hex(value: string): Promise<string> {
     .join("");
 }
 
-async function defaultDeps(): Promise<GrowthApiDeps> {
+/** Read the Growth API secret from the Cloudflare Worker env binding attached
+ *  to the request by src/server.ts, falling back to process.env for local dev/tests. */
+function getGrowthApiSecret(request?: Request): string | undefined {
+  const fromBinding = (request as Request & { env?: Record<string, unknown> })?.env?.[
+    "NORYVA_GROWTH_API_SECRET"
+  ];
+  if (typeof fromBinding === "string") return fromBinding;
+  return process.env["NORYVA_GROWTH_API_SECRET"];
+}
+
+async function defaultDeps(request?: Request): Promise<GrowthApiDeps> {
   return {
-    secret: process.env["NORYVA_GROWTH_API_SECRET"],
+    secret: getGrowthApiSecret(request),
     getClient: async () => {
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
       return { supabase: supabaseAdmin, userId: null };
@@ -140,7 +150,7 @@ export async function handleGrowthApi(
   request: Request,
   overrides?: Partial<GrowthApiDeps>,
 ): Promise<Response> {
-  const deps = { ...(await defaultDeps()), ...(overrides ?? {}) };
+  const deps = { ...(await defaultDeps(request)), ...(overrides ?? {}) };
 
   if (request.method !== "POST") return json(405, { error: "Endast POST." });
 
