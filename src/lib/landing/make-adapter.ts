@@ -54,11 +54,17 @@ export function readStoredPayload(payload: unknown): {
     return { answers, make: (p["make"] as MakeLeadFields) ?? null };
   }
 
+  // Poster som bara innehåller råsvar (t.ex. testfixturer eller tidiga leads).
+  if (p["answers"] && typeof p["answers"] === "object") {
+    return { answers: p["answers"] as Record<string, string>, make: null };
+  }
+
   // Äldre lead: platta Make-fält utan sparade råsvar.
   if ("behov" in p || "fullstandigt_namn" in p) {
     return { answers: null, make: p as unknown as MakeLeadFields };
   }
   return { answers: null, make: null };
+
 }
 
 const get = (values: Record<string, string>, key: string) => (values[key] ?? "").trim();

@@ -19,8 +19,10 @@ export const HUMAN_TAKEOVER_TERMS = [
   "offert",
   "pris",
   "prisuppgift",
+  "kostar",
   "kostnad",
   "rabatt",
+  "garanti",
   "förhandling",
   "avtal",
   "juridik",
@@ -28,9 +30,40 @@ export const HUMAN_TAKEOVER_TERMS = [
   "advokat",
   "tvist",
   "klagomål",
+  "missnöjd",
   "reklamation",
+  "skadestånd",
   "försäkring",
 ];
+
+/**
+ * Påståenden som modellen aldrig får göra: att något redan skickats/bokats,
+ * eller konkreta priser, garantier och leveranstider. Upptäcks i utkastet
+ * som skyddsnät, oavsett vad systemprompten säger.
+ */
+const FABRICATION_PATTERNS: { flag: string; re: RegExp }[] = [
+  {
+    flag: "claim:already_sent",
+    re: /(har|är|vi har)\s+(nu\s+)?(skickat|skickats|mailat|utskickat)/i,
+  },
+  {
+    flag: "claim:already_booked",
+    re: /(har|är|vi har)\s+(nu\s+)?(bokat|bokats|inbokat|reserverat)/i,
+  },
+  { flag: "claim:price", re: /\d[\d\s.,]*\s*(kr|sek|kronor)\b/i },
+  { flag: "claim:guarantee", re: /\d+\s*(års|åriga|år)\s*garanti/i },
+  {
+    flag: "claim:delivery_time",
+    re: /(leverans|leveransen|montering|monteringen|installation|installationen)\s+(sker\s+)?(inom|om|på)\s+\d/i,
+  },
+];
+
+
+/** Returnerar flaggor för påhittade påståenden i en text. */
+export function detectFabricatedClaims(text: string): string[] {
+  return FABRICATION_PATTERNS.filter((p) => p.re.test(text)).map((p) => p.flag);
+}
+
 
 export function needsHumanTakeover(context: AiSalesContext): boolean {
   const haystack = [context.need, context.description, ...Object.values(context.signals)]
@@ -82,21 +115,31 @@ export function resolvePolicyPath(context: AiSalesContext): PolicyPath {
 
 /**
  * Applicerar policyn som skyddsnät på modellens svar: mänsklig handläggning
- * kan aldrig tas bort av modellen, bara läggas till.
+ * kan aldrig tas bort av modellen, bara läggas till. Dessutom eskaleras
+ * utkast som påstår att något redan skickats/bokats eller innehåller pris,
+ * garanti eller leveranstid som saknar täckning i underlaget.
  */
 export function applyPolicyGuardrails(
   output: AssistantOutput,
   context: AiSalesContext,
 ): AssistantOutput {
   const policy = resolvePolicyPath(context);
-  if (!policy.humanTakeover) return output;
+  const claims = detectFabricatedClaims(`${output.subject}\n${output.emailDraft}`);
+  if (!policy.humanTakeover && claims.length === 0) return output;
   return {
     ...output,
     action: "Mänsklig handläggning",
     humanTakeover: true,
-    safetyFlags: Array.from(new Set([...output.safetyFlags, "policy:human_takeover"])),
+    safetyFlags: Array.from(
+      new Set([
+        ...output.safetyFlags,
+        ...(policy.humanTakeover ? ["policy:human_takeover"] : []),
+        ...claims,
+      ]),
+    ),
   };
 }
+
 
 /** Säkert reservutkast utan modellanrop. */
 export function fallbackOutput(context: AiSalesContext): AssistantOutput {
