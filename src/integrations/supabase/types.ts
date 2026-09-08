@@ -524,6 +524,60 @@ export type Database = {
           },
         ]
       }
+      growth_analysis_claims: {
+        Row: {
+          analysis_version: string
+          attempts: number
+          created_at: string
+          customer_id: string | null
+          id: string
+          lead_id: string
+          result: Json
+          run_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          analysis_version: string
+          attempts?: number
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          lead_id: string
+          result?: Json
+          run_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          analysis_version?: string
+          attempts?: number
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          lead_id?: string
+          result?: Json
+          run_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "growth_analysis_claims_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "growth_analysis_claims_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       growth_assignments: {
         Row: {
           assigned_at: string
@@ -1117,6 +1171,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_growth_analysis: {
+        Args: { p_analysis_version: string; p_lead_id: string }
+        Returns: string
+      }
       claim_lead_delivery: {
         Args: { p_lead_id: string; p_stale_seconds?: number }
         Returns: string

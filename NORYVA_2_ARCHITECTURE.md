@@ -208,3 +208,42 @@ kopplas om är att sätta `NORYVA_GROWTH_API_SECRET` och publicera – ingen
 
 Auto-send, riktig e-postkanal, inkorg, kalenderbokning, live-läge och
 automatisk viktjustering utifrån optimizerns förslag.
+
+## Normaliserat API-kontrakt (v1)
+
+`POST /api/public/growth/route-lead` och `POST /api/public/growth/analyze-lead`
+returnerar båda ett identiskt `normalized`-objekt (utöver befintliga fält), så att
+Make kan skriva över sin egen fallback atomiskt.
+
+- `schema_version: "noryva.growth.normalized.v1"`, `analysis_version: "growth-analysis-v1"`
+- Alltid komplett: `sales.{action, contact_speed, subject, email_draft,
+  followup_questions, human_takeover, strategy_reason}` (svenska strängar) fylls även
+  för `human`- och `deterministic`-vägar. `review_required` är alltid `true`.
+- `qualification`, `intent`, `context.{need, timeline, description,
+  missing_information, signals, roof}`, `research`, `cost`.
+- Ingen kontakt-PII: objektet byggs enbart ur den redan maskerade AI-kontexten.
+
+### Faktiska modellförsök
+
+`llm_attempts` / `llmCalls` räknar verkliga försök (0 eller 1) och härleds inte ur
+`tier`. Ett påbörjat men misslyckat anrop rapporteras som `1` med
+`attempted_tier`/`attempted_model` bevarade och en konservativ schablonkostnad
+(`cost.assumed = true`). Fallbacken är alltid deterministisk – aldrig ett nytt anrop.
+
+### Ett modellanrop per lead (Make-retries)
+
+`analyze-lead` reserverar analysen atomiskt via `claim_growth_analysis(lead_id,
+analysis_version)` innan modellen anropas. Retries från Make har nya event-id:n, så
+replayskyddet räcker inte. Vid `done` återanvänds sparat resultat (`reused: true`,
+`llmCalls: 0`); vid `in_progress`/`failed` görs inget nytt anrop. Admin-omanalys i
+adminvyn kringgår claim medvetet (`claim: false`).
+
+### Flaggor och nycklar i Worker-runtime
+
+`routeLeadCore` och `analyzeLeadCore` läser samma runtime-env
+(`src/lib/growth/runtime-env.ts`): Cloudflare Workers per-request `env`-binding
+ovanpå `process.env`. Det gäller både `AI_SALES_ASSISTANT_*`-flaggorna och
+`LOVABLE_API_KEY`, så route och analys aldrig kan glida isär. Människo-termer
+(pris/offert/avtal/klagomål/juridik) har fortsatt företräde, budgettak nedgraderar
+`ai_full -> ai_light -> deterministic`, och `requiresHuman: true` på en AI-väg
+betyder granskningskrav – inte att AI stängs av.
