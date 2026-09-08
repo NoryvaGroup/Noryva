@@ -133,6 +133,19 @@ describe("HMAC-verifiering", () => {
     expect(["deterministic", "ai_light", "ai_full", "human"]).toContain(body.route);
   });
 
+  it("route-lead innehåller aktuell intent-data", async () => {
+    const res = await handleGrowthApi(
+      "route-lead",
+      signedRequest("route-lead", { leadId: LEAD_ID }),
+      deps(baseState(COMPLETE_ANSWERS)),
+    );
+    const body = (await res.json()) as any;
+    expect(typeof body.intent.score).toBe("number");
+    expect(["LÅG", "NORMAL", "HÖG", "AKUT"]).toContain(body.intent.level);
+    expect(typeof body.intent.reason).toBe("string");
+  });
+
+
   it("avvisar saknad signatur", async () => {
     const res = await handleGrowthApi(
       "route-lead",
