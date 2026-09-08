@@ -1,8 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { AdminShell } from "@/components/admin/AdminShell";
+import { ReadinessPanel } from "@/components/admin/ReadinessPanel";
 import {
   createSalesAction,
   executeSalesActionTest,
@@ -10,7 +11,9 @@ import {
   listLeadOverview,
   transitionSalesAction,
 } from "@/lib/crm.functions";
+import { generateAssistantRun } from "@/lib/ai-sales.functions";
 import { ACTION_STATUS_LABEL, ACTION_TYPE_LABEL, type ActionType } from "@/lib/ai-sales/actions";
+
 
 export const Route = createFileRoute("/_authenticated/admin/crm")({
   head: () => ({
