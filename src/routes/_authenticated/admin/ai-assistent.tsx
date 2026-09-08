@@ -121,6 +121,7 @@ function AiAssistantQueue() {
 
   return (
     <AdminShell title="AI-säljassistent">
+      <ReadinessPanel />
       <div className="mb-8 rounded-lg border border-border bg-card p-5">
         <div className="flex flex-wrap items-center gap-2">
           <Badge tone="accent">TEST / REVIEW-läge</Badge>
@@ -133,6 +134,22 @@ function AiAssistantQueue() {
           inga personuppgifter skickas till modellen.
         </p>
       </div>
+
+      {search.lead ? (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/40 px-4 py-3 text-sm">
+          <span>Visar endast utkast för förfrågan {search.lead.slice(0, 8)}.</span>
+          <span className="flex gap-3">
+            <Link to="/admin/ai-assistent" className="underline">
+              Visa alla
+            </Link>
+            <Link to="/admin/crm" className="underline">
+              Tillbaka till Lead-CRM
+            </Link>
+          </span>
+        </div>
+      ) : null}
+
+
 
       <div className="mb-8 rounded-lg border border-border p-5">
         <h2 className="mb-3 text-sm font-semibold">Skapa utkast för en förfrågan</h2>
