@@ -1,17 +1,19 @@
-# Bredda Noryvas positionering
+# Lägg till NORYVA_GROWTH_API_SECRET
 
 ## Mål
-Positionera startsidan för svenska tjänste- och B2B-företag med högt kundvärde, utan att ändra den visuella identiteten eller `/takoffert`.
+Säkerställa att Growth Engine:s publika Make-endpoints (`/api/public/growth/*`) kan verifiera HMAC-signaturer från Make.
 
-## Ändringar
-- Uppdatera hero och kundflöde så kärnbudskapet omfattar annonsering, leadgenerering, AI-baserad kvalificering, automatiserad uppföljning och CRM/processflöden.
-- Skriva om problem, tjänster, process, mätpunkter, målgrupp, om-text, FAQ och CTA-copy för kvalificerade affärsmöjligheter snarare än en smal hantverksinriktning.
-- Ersätta kundcase-placeholdern med en saklig sektion om vad som mäts och förbättras, utan påhittade resultat.
-- Lägga till sektionen “Samma motor. Anpassad efter din affär.” med konkreta, breda branschexempel och olika kvalificeringskriterier.
-- Uppdatera formulärets val, sidfotens beskrivning, SEO/meta, strukturerad data och det publika AI-innehållet så positioneringen är konsekvent.
-- Behålla design, layoutprinciper, formulärfunktioner, navigation och `/takoffert` oförändrade.
+## Åtgärder
+1. Öppna det säkra secret-formuläret för `NORYVA_GROWTH_API_SECRET`.
+2. Användaren anger ett starkt slumpmässigt värde (minst 32 tecken, t.ex. genererat i en lösenordshanterare eller med `openssl rand -hex 32`).
+3. Efter sparning bekräftar jag att secret finns konfigurerat.
+4. Påminn användaren att samma värde måste läggas in i Make-scenariot som signeringsnyckel för HMAC-SHA256.
 
-## Kontroll
-- Kontrollera TypeScript och appens automatiska byggkontroll.
-- Testa startsidan på mobil och desktop, inklusive navigation, expanderbara tjänster, FAQ och kontaktformulär.
-- Kontrollera att `/takoffert` fortfarande fungerar och ser oförändrad ut.
+## Vad som INTE görs
+- Ingen ändring av befintligt Make-scenario.
+- Ingen publicering/deploy.
+- Inga destruktiva ändringar i kod eller databas.
+
+## Nästa steg efter secret
+- Endpointerna behöver publiceras för att vara åtkomliga utifrån (Make).
+- Make-scenariot konfigureras med samma secret, timestamp- och signaturheaders enligt `NORYVA_2_ARCHITECTURE.md`.
