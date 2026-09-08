@@ -9,7 +9,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { readStoredPayload } from "./landing/make-adapter";
-import { redactText, collectKnownPii, stripKnownPii } from "./ai-sales/context";
+import { redactReplyBody } from "./ai-sales/reply-redact";
 import { classifyReplyDeterministic } from "./ai-sales/reply";
 import { assertAdvance, outcomeStageSchema, scoreBandFor, summarizeFunnel, type OutcomeStage } from "./ai-sales/funnel";
 import { buildActionKey, actionTypeSchema } from "./ai-sales/actions";
@@ -53,16 +53,6 @@ async function logEvent(
   } catch {
     // Loggning får aldrig blockera flödet.
   }
-}
-
-/** Maskerar all känd PII i en fritext innan den lagras eller klassificeras. */
-export function redactReplyBody(body: string, payload: unknown): string {
-  const stored = readStoredPayload(payload);
-  const known = collectKnownPii(
-    stored.answers ?? {},
-    (stored.make ?? null) as Record<string, unknown> | null,
-  );
-  return redactText(stripKnownPii(body, known));
 }
 
 async function loadLead(ctx: AdminContext, leadId: string) {
