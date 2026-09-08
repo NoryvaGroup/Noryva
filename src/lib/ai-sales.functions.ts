@@ -67,8 +67,13 @@ export const getAiSalesFlags = createServerFn({ method: "GET" })
 /** Listar review-kön (senaste körningen per lead visas i UI:t). */
 export const listAssistantRuns = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { customerId?: string }) =>
-    z.object({ customerId: z.string().uuid().optional() }).parse(input ?? {}),
+  .inputValidator((input: { customerId?: string; leadId?: string }) =>
+    z
+      .object({
+        customerId: z.string().uuid().optional(),
+        leadId: z.string().uuid().optional(),
+      })
+      .parse(input ?? {}),
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context as AdminContext);
@@ -79,6 +84,8 @@ export const listAssistantRuns = createServerFn({ method: "GET" })
       .order("created_at", { ascending: false })
       .limit(100);
     if (data.customerId) query = query.eq("customer_id", data.customerId);
+    if (data.leadId) query = query.eq("lead_id", data.leadId);
+
     const { data: rows, error } = await query;
     if (error) {
       if (missingTable(error.message)) return { runs: [], tableMissing: true as const };
