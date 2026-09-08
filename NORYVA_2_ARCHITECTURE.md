@@ -247,3 +247,45 @@ ovanpå `process.env`. Det gäller både `AI_SALES_ASSISTANT_*`-flaggorna och
 (pris/offert/avtal/klagomål/juridik) har fortsatt företräde, budgettak nedgraderar
 `ai_full -> ai_light -> deterministic`, och `requiresHuman: true` på en AI-väg
 betyder granskningskrav – inte att AI stängs av.
+
+## Opt-in migrationskontrakt för Make (scenario 7309535)
+
+`route-lead` och `analyze-lead` accepterar ett HELT frivilligt fält `makeContext`.
+Utan det är beteendet exakt som tidigare – befintliga anropare påverkas inte.
+
+```json
+{
+  "leadId": "11111111-1111-4111-8111-111111111111",
+  "makeContext": {
+    "customerId": "22222222-2222-4222-8222-222222222222",
+    "serviceArea": "Skaraborg",
+    "localPostalPrefix": "50",
+    "regionalPostalPrefix": "51"
+  }
+}
+```
+
+- Schemat är `strict`: score, route, tier, modell eller ersatta lead-svar avvisas (400).
+- `customerId` måste matcha lagrat `lead.customer_id`, annars `403` – kontrollen sker
+  före allt annat, så ett felbundet lead kan aldrig utlösa ett modellanrop.
+- Postnummer läses från lagrat lead på servern, normaliseras (`503 30` -> `50330`) och
+  matchas med `startsWith`. Endast verdict (`local` / `regional` / `outside` /
+  `unknown` / `not_configured`) och konfigurerat område lämnar servern; exakt
+  postnummer skickas aldrig till modellen eller i svaret.
+- Scoringen följer live-Make: varuautomater (typ 25/15, anställda 5–20, tidsram 25/20/10/5,
+  geografi 20/10/0, intent 10/5; trösklar 80/45) och tak (behov 30/25/20, ägare 20 – behov
+  och ägarpoäng nollas vid `Nej`, ålder 25/20/15, tidsram 20/15/10/5, ifyllt behov 5;
+  trösklar 70/40). AKUT sätts enbart vid genuint pågående läckage/stormskada.
+- Saknat underlag markeras i `normalized.qualification.manual_review` /
+  `manual_review_reasons` i stället för att tyst tolkas som noll.
+- `normalized.qualification.geography` bär geografiutfallet.
+  `normalized.migration_contract` sätts till `noryva.make.migration.v1` när kontraktet används.
+
+### Kundriktat utkast
+
+`sales.email_draft` är ett färdigt förstasvar TILL kunden (`draft_contract:
+"noryva.customer-draft.v1"`): inleds med "Hej!", max ~70 ord, 0–2 följdfrågor,
+signeras med kundens företagsnamn. Interna råd ligger i `strategy_reason` och
+`research`. Cachade äldre analyser transformeras deterministiskt – inget nytt
+modellanrop – och gamla interna utkast ersätts med ett säkert kundutkast som
+flaggas med `migration:stale_draft_replaced`.
