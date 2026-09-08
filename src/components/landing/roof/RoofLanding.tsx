@@ -1,5 +1,5 @@
 import { ArrowRight, ClipboardList, Phone, PhoneCall, ShieldCheck, Wrench } from "lucide-react";
-import { clientConfig, isDemoMode } from "./config";
+import { clientConfig, isDemoMode, type RoofClientConfig } from "./config";
 import { QuoteWizard } from "./QuoteWizard";
 
 const trustPoints = [
@@ -38,8 +38,7 @@ const steps = [
   },
 ];
 
-export function RoofLanding() {
-  const config = clientConfig;
+export function RoofLanding({ config = clientConfig }: { config?: RoofClientConfig } = {}) {
   const demo = isDemoMode(config);
   const accentStyle = config.accent ? ({ ["--primary" as string]: config.accent } as React.CSSProperties) : undefined;
 
