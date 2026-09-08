@@ -22,6 +22,8 @@ import {
 import { serverAiSalesFlags, assertNoExternalSend } from "./ai-sales/flags";
 import { defaultProfile, profileToRow, rowToProfile, customerProfileSchema } from "./ai-sales/profile";
 import { qualifyLead } from "./ai-sales/qualify";
+import { runAction } from "./ai-sales/orchestrator";
+import { LIVE_MODE_AVAILABLE, readExecutionMode } from "./ai-sales/execution-mode";
 
 type AdminContext = { supabase: any; userId: string };
 
@@ -29,7 +31,7 @@ const ACTION_COLUMNS =
   "id, lead_id, customer_id, run_id, action_type, status, human_takeover, subject, body, followup_questions, strategy_reason, params, scheduled_for, idempotency_key, execution_mode, execution_result, executed_at, approved_at, created_at, updated_at";
 
 const PROFILE_COLUMNS =
-  "customer_id, tone, language, lead_prefix, qualification_profile, followup_rules, booking_rules, notify_recipients, ai_assistant_enabled, created_at, updated_at";
+  "customer_id, tone, language, lead_prefix, qualification_profile, followup_rules, booking_rules, notify_recipients, ai_assistant_enabled, execution_mode, created_at, updated_at";
 
 async function assertAdmin(context: AdminContext) {
   const { data, error } = await context.supabase.rpc("has_role", {
@@ -399,11 +401,15 @@ export const executeSalesActionTest = createServerFn({ method: "POST" })
       };
     }
 
-    const outcome = executeActionInTestMode(
+    // Orkestreraren validerar körläget och kör endast mockade kanaler.
+    const outcome = await runAction(
       {
         actionType: action.action_type as ActionType,
         status: "approved",
-        executionMode: action.execution_mode as "test" | "live",
+        executionMode: readExecutionMode(action.execution_mode),
+        subject: action.subject ?? "",
+        body: action.body ?? "",
+        recipientRef: `lead:${String(action.lead_id).slice(0, 8)}`,
       },
       flags,
     );
@@ -512,6 +518,7 @@ export const getSystemReadiness = createServerFn({ method: "GET" })
       mode: "TEST/REVIEW" as const,
       flags,
       externalSendAllowed: false as const,
+      liveModeAvailable: LIVE_MODE_AVAILABLE,
       modelKeyConfigured: Boolean(process.env["LOVABLE_API_KEY"]),
       counts: {
         customers: customerCount ?? 0,
