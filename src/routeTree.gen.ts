@@ -20,6 +20,7 @@ import { Route as TakoffertRouteImport } from './routes/takoffert'
 import { Route as VillkorRouteImport } from './routes/villkor'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as OffertSlugRouteImport } from './routes/offert.$slug'
+import { Route as TestTakoffertRouteImport } from './routes/test.takoffert'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin/index'
 import { Route as AuthenticatedAdminCustomerIdRouteImport } from './routes/_authenticated/admin/$customerId'
 import { Route as AuthenticatedAdminAiAssistentRouteImport } from './routes/_authenticated/admin/ai-assistent'
@@ -27,6 +28,7 @@ import { Route as AuthenticatedAdminCrmRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedAdminGrowthRouteImport } from './routes/_authenticated/admin/growth'
 import { Route as AuthenticatedAdminKonversationerRouteImport } from './routes/_authenticated/admin/konversationer'
 import { Route as AuthenticatedAdminProfilerRouteImport } from './routes/_authenticated/admin/profiler'
+import { Route as TestOffertSlugRouteImport } from './routes/test.offert.$slug'
 import { Route as ApiPublicGrowthAnalyzeLeadRouteImport } from './routes/api/public/growth/analyze-lead'
 import { Route as ApiPublicGrowthAssignVariantRouteImport } from './routes/api/public/growth/assign-variant'
 import { Route as ApiPublicGrowthGrowthRecommendationRouteImport } from './routes/api/public/growth/growth-recommendation'
@@ -88,6 +90,11 @@ const OffertSlugRoute = OffertSlugRouteImport.update({
   path: '/offert/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TestTakoffertRoute = TestTakoffertRouteImport.update({
+  id: '/test/takoffert',
+  path: '/test/takoffert',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   id: '/admin/',
   path: '/admin/',
@@ -128,6 +135,11 @@ const AuthenticatedAdminProfilerRoute =
     path: '/admin/profiler',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const TestOffertSlugRoute = TestOffertSlugRouteImport.update({
+  id: '/test/offert/$slug',
+  path: '/test/offert/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicGrowthAnalyzeLeadRoute =
   ApiPublicGrowthAnalyzeLeadRouteImport.update({
     id: '/api/public/growth/analyze-lead',
@@ -170,12 +182,14 @@ export interface FileRoutesByFullPath {
   '/villkor': typeof VillkorRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/offert/$slug': typeof OffertSlugRoute
+  '/test/takoffert': typeof TestTakoffertRoute
   '/admin/$customerId': typeof AuthenticatedAdminCustomerIdRoute
   '/admin/ai-assistent': typeof AuthenticatedAdminAiAssistentRoute
   '/admin/crm': typeof AuthenticatedAdminCrmRoute
   '/admin/growth': typeof AuthenticatedAdminGrowthRoute
   '/admin/konversationer': typeof AuthenticatedAdminKonversationerRoute
   '/admin/profiler': typeof AuthenticatedAdminProfilerRoute
+  '/test/offert/$slug': typeof TestOffertSlugRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/api/public/growth/analyze-lead': typeof ApiPublicGrowthAnalyzeLeadRoute
   '/api/public/growth/assign-variant': typeof ApiPublicGrowthAssignVariantRoute
@@ -194,12 +208,14 @@ export interface FileRoutesByTo {
   '/villkor': typeof VillkorRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/offert/$slug': typeof OffertSlugRoute
+  '/test/takoffert': typeof TestTakoffertRoute
   '/admin/$customerId': typeof AuthenticatedAdminCustomerIdRoute
   '/admin/ai-assistent': typeof AuthenticatedAdminAiAssistentRoute
   '/admin/crm': typeof AuthenticatedAdminCrmRoute
   '/admin/growth': typeof AuthenticatedAdminGrowthRoute
   '/admin/konversationer': typeof AuthenticatedAdminKonversationerRoute
   '/admin/profiler': typeof AuthenticatedAdminProfilerRoute
+  '/test/offert/$slug': typeof TestOffertSlugRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/api/public/growth/analyze-lead': typeof ApiPublicGrowthAnalyzeLeadRoute
   '/api/public/growth/assign-variant': typeof ApiPublicGrowthAssignVariantRoute
@@ -220,12 +236,14 @@ export interface FileRoutesById {
   '/villkor': typeof VillkorRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/offert/$slug': typeof OffertSlugRoute
+  '/test/takoffert': typeof TestTakoffertRoute
   '/_authenticated/admin/$customerId': typeof AuthenticatedAdminCustomerIdRoute
   '/_authenticated/admin/ai-assistent': typeof AuthenticatedAdminAiAssistentRoute
   '/_authenticated/admin/crm': typeof AuthenticatedAdminCrmRoute
   '/_authenticated/admin/growth': typeof AuthenticatedAdminGrowthRoute
   '/_authenticated/admin/konversationer': typeof AuthenticatedAdminKonversationerRoute
   '/_authenticated/admin/profiler': typeof AuthenticatedAdminProfilerRoute
+  '/test/offert/$slug': typeof TestOffertSlugRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/api/public/growth/analyze-lead': typeof ApiPublicGrowthAnalyzeLeadRoute
   '/api/public/growth/assign-variant': typeof ApiPublicGrowthAssignVariantRoute
@@ -246,12 +264,14 @@ export interface FileRouteTypes {
     | '/villkor'
     | '/.well-known/oauth-protected-resource'
     | '/offert/$slug'
+    | '/test/takoffert'
     | '/admin/$customerId'
     | '/admin/ai-assistent'
     | '/admin/crm'
     | '/admin/growth'
     | '/admin/konversationer'
     | '/admin/profiler'
+    | '/test/offert/$slug'
     | '/admin/'
     | '/api/public/growth/analyze-lead'
     | '/api/public/growth/assign-variant'
@@ -270,12 +290,14 @@ export interface FileRouteTypes {
     | '/villkor'
     | '/.well-known/oauth-protected-resource'
     | '/offert/$slug'
+    | '/test/takoffert'
     | '/admin/$customerId'
     | '/admin/ai-assistent'
     | '/admin/crm'
     | '/admin/growth'
     | '/admin/konversationer'
     | '/admin/profiler'
+    | '/test/offert/$slug'
     | '/admin'
     | '/api/public/growth/analyze-lead'
     | '/api/public/growth/assign-variant'
@@ -295,12 +317,14 @@ export interface FileRouteTypes {
     | '/villkor'
     | '/.well-known/oauth-protected-resource'
     | '/offert/$slug'
+    | '/test/takoffert'
     | '/_authenticated/admin/$customerId'
     | '/_authenticated/admin/ai-assistent'
     | '/_authenticated/admin/crm'
     | '/_authenticated/admin/growth'
     | '/_authenticated/admin/konversationer'
     | '/_authenticated/admin/profiler'
+    | '/test/offert/$slug'
     | '/_authenticated/admin/'
     | '/api/public/growth/analyze-lead'
     | '/api/public/growth/assign-variant'
@@ -321,6 +345,8 @@ export interface RootRouteChildren {
   VillkorRoute: typeof VillkorRoute
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   OffertSlugRoute: typeof OffertSlugRoute
+  TestTakoffertRoute: typeof TestTakoffertRoute
+  TestOffertSlugRoute: typeof TestOffertSlugRoute
   ApiPublicGrowthAnalyzeLeadRoute: typeof ApiPublicGrowthAnalyzeLeadRoute
   ApiPublicGrowthAssignVariantRoute: typeof ApiPublicGrowthAssignVariantRoute
   ApiPublicGrowthGrowthRecommendationRoute: typeof ApiPublicGrowthGrowthRecommendationRoute
@@ -407,6 +433,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OffertSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/test/takoffert': {
+      id: '/test/takoffert'
+      path: '/test/takoffert'
+      fullPath: '/test/takoffert'
+      preLoaderRoute: typeof TestTakoffertRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/admin/': {
       id: '/_authenticated/admin/'
       path: '/admin'
@@ -455,6 +488,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/profiler'
       preLoaderRoute: typeof AuthenticatedAdminProfilerRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/test/offert/$slug': {
+      id: '/test/offert/$slug'
+      path: '/test/offert/$slug'
+      fullPath: '/test/offert/$slug'
+      preLoaderRoute: typeof TestOffertSlugRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/public/growth/analyze-lead': {
       id: '/api/public/growth/analyze-lead'
@@ -530,6 +570,8 @@ const rootRouteChildren: RootRouteChildren = {
   Char91DotwellKnownChar93OauthProtectedResourceRoute:
     Char91DotwellKnownChar93OauthProtectedResourceRoute,
   OffertSlugRoute: OffertSlugRoute,
+  TestTakoffertRoute: TestTakoffertRoute,
+  TestOffertSlugRoute: TestOffertSlugRoute,
   ApiPublicGrowthAnalyzeLeadRoute: ApiPublicGrowthAnalyzeLeadRoute,
   ApiPublicGrowthAssignVariantRoute: ApiPublicGrowthAssignVariantRoute,
   ApiPublicGrowthGrowthRecommendationRoute:

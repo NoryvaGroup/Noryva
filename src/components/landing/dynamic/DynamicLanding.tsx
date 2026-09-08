@@ -38,6 +38,7 @@ export function DynamicLanding({ landing, preview = false, test = false }: Props
         consent,
         values,
         company: honeypot,
+        test,
       },
     });
     return res;
