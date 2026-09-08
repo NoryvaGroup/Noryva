@@ -24,6 +24,13 @@ export type RouterInput = {
   budget?: Budget;
   /** Om AI-generering är avstängd för kunden. */
   aiEnabled?: boolean;
+  /**
+   * Aktuell nivå från Intent Engine. Ersätter den initiala prioriteten när den
+   * finns, men AKUT från hårda regler vinner alltid och LÅG betyder billig
+   * hantering – aldrig att leadet kastas bort.
+   */
+  intentLevel?: LeadPriority | string | null;
+
 };
 
 export type RouteDecision = {
