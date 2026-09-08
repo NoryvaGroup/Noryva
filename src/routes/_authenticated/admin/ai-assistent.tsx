@@ -13,9 +13,9 @@ import {
 } from "@/lib/ai-sales.functions";
 
 export const Route = createFileRoute("/_authenticated/admin/ai-assistent")({
-  validateSearch: (search: Record<string, unknown>) => ({
-    lead: typeof search["lead"] === "string" ? (search["lead"] as string) : undefined,
-  }),
+  validateSearch: (search: Record<string, unknown>): { lead?: string } =>
+    typeof search["lead"] === "string" ? { lead: search["lead"] as string } : {},
+
 
   head: () => ({
     meta: [
