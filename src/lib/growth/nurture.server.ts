@@ -28,6 +28,7 @@ import {
   type GrowthContext,
 } from "./service.server";
 import { computeIntent } from "./intent";
+import { needsHumanTakeover } from "@/lib/ai-sales/policy";
 
 const TABLE = "growth_nurture_state";
 
@@ -79,7 +80,7 @@ export async function planNurtureCore(
 
   const existing = await readNurtureRow(ctx, lead.id);
   const executionMode = assertExecutableMode(
-    readExecutionMode((profile as { executionMode?: string }).executionMode ?? "review"),
+    readExecutionMode(profile.executionMode ?? "review"),
   );
 
   if (existing && (TERMINAL_STATUSES.includes(existing.status) || existing.status === "replied")) {
@@ -92,7 +93,7 @@ export async function planNurtureCore(
   const plan = buildNurturePlan({
     intentLevel: intent.level,
     terminal: intent.terminal,
-    humanTakeover: aiContext.requiresHuman === true,
+    humanTakeover: needsHumanTakeover(aiContext),
     missingInformation: aiContext.missingInformation ?? [],
     geographyVerified,
     executionMode,
