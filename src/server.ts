@@ -47,6 +47,15 @@ function isH3SwallowedErrorBody(body: string): boolean {
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      // Expose Cloudflare Worker env bindings to the TanStack request context.
+      // Lovable/TanStack secrets are passed as the per-request `env` binding,
+      // not via `process.env`, so we attach them to the request for server code
+      // to read safely without leaking into the client bundle.
+      if (env) {
+        (request as Request & { env?: Record<string, unknown> }).env =
+          env as Record<string, unknown>;
+      }
+
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);
