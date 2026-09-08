@@ -215,7 +215,7 @@ export const submitPublicLead = createServerFn({ method: "POST" })
     };
 
     try {
-      const res = await fetch(customer.delivery_webhook_url, {
+      const res = await fetch(data.test ? TEST_WEBHOOK_URL : customer.delivery_webhook_url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
