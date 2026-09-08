@@ -229,14 +229,21 @@ export async function analyzeLeadCore(
 
   const { lead, profile, budget, qualification, context: aiContext } = await loadLeadBundle(ctx, leadId);
   const usage = await readUsage(ctx, lead.customer_id);
+  const intent = computeIntent({
+    baseScore: qualification.score,
+    basePriority: qualification.priority,
+    outcomes: await readLeadOutcomes(ctx, lead.id),
+  });
   const decision = decideRoute({
     priority: qualification.priority,
+    intentLevel: intent.level,
     missingInformation: aiContext.missingInformation,
     text: [aiContext.need, aiContext.description, aiContext.timeline].join(" "),
     budgetUsage: usage,
     budget,
     aiEnabled: profile.aiAssistantEnabled && flags.enabled,
   });
+
 
   const routedTier =
     decision.route === "ai_full" || decision.route === "ai_light" ? decision.route : null;
@@ -406,7 +413,11 @@ export async function registerOutcomeCore(
     .select("id")
     .eq("idempotency_key", key)
     .maybeSingle();
-  if (existing) return { ok: true as const, created: false, idempotencyKey: key };
+  if (existing) {
+    // Idempotent återanvändning: räkna ändå om intent (samma resultat).
+    const intent = await recomputeIntentCore(ctx, lead.id);
+    return { ok: true as const, created: false, idempotencyKey: key, intent };
+  }
 
   const { error } = await ctx.supabase.from("growth_outcomes").insert({
     customer_id: lead.customer_id,
@@ -422,7 +433,11 @@ export async function registerOutcomeCore(
   // Unik nyckel i databasen gör parallella anrop säkra.
   if (error && !/duplicate key|23505/i.test(error.message)) throw new Error(error.message);
 
-  return { ok: true as const, created: !error, idempotencyKey: key };
+  // Intent räknas om deterministiskt – inga externa actions.
+  const intent = await recomputeIntentCore(ctx, lead.id);
+
+  return { ok: true as const, created: !error, idempotencyKey: key, intent };
+
 }
 
 export async function experimentReport(ctx: GrowthContext, experimentId: string) {
