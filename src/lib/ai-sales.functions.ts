@@ -245,5 +245,15 @@ export const updateAssistantDraft = createServerFn({ method: "POST" })
       .select(RUN_COLUMNS)
       .maybeSingle();
     if (error) throw new Error(error.message);
+    await logEvent(context as AdminContext, {
+      eventType: "ai_draft_edited",
+      actor: "human",
+      leadId: updated?.lead_id ?? null,
+      customerId: updated?.customer_id ?? null,
+      runId: data.id,
+      // Ingen mailtext loggas – endast att en redigering skett och dess längd.
+      detail: { subjectLength: data.subject.length, bodyLength: data.emailDraft.length },
+    });
     return { ok: true as const, run: updated };
+
   });
