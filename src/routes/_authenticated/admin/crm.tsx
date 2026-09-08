@@ -160,7 +160,37 @@ function CrmPage() {
               {open ? (
                 <div className="mt-5 space-y-6 border-t border-border pt-5">
                   <section>
-                    <h2 className="mb-2 text-sm font-semibold">AI-bedömning</h2>
+                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                      <h2 className="text-sm font-semibold">AI-bedömning</h2>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          disabled={busy}
+                          className="rounded-lg border border-primary px-3 py-1 text-sm text-primary disabled:opacity-50"
+                          onClick={() =>
+                            run(async () => {
+                              const res: any = await generateRun({ data: { leadId: lead.id } });
+                              if (res?.ok === false) return res;
+                              setMessage(
+                                res?.usedFallback
+                                  ? "Utkast skapat med reservlogik. Inget mail skickades."
+                                  : "AI-utkast skapat. Inget mail skickades.",
+                              );
+                              return { ok: true };
+                            })
+                          }
+                        >
+                          {lead.run ? "Generera nytt AI-utkast" : "Generera AI-utkast"}
+                        </button>
+                        <Link
+                          to="/admin/ai-assistent"
+                          search={{ lead: lead.id }}
+                          className="rounded-lg border border-border px-3 py-1 text-sm"
+                        >
+                          Öppna i granskningskön
+                        </Link>
+                      </div>
+                    </div>
                     {lead.run ? (
                       <div className="space-y-2 text-sm">
                         <div className="flex flex-wrap gap-2">
@@ -186,10 +216,11 @@ function CrmPage() {
                       </div>
                     ) : (
                       <p className="text-sm text-muted-foreground">
-                        Ingen AI-bedömning ännu. Skapa en i AI-säljassistenten.
+                        Ingen AI-bedömning ännu – generera ett utkast direkt härifrån.
                       </p>
                     )}
                   </section>
+
 
                   <section>
                     <h2 className="mb-2 text-sm font-semibold">Skapa åtgärd (utkast)</h2>
