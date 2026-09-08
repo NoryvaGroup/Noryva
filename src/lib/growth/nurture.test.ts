@@ -8,6 +8,7 @@ import {
   nextNurtureStepAt,
 } from "./nurture";
 import { classifyReplyDeterministic } from "@/lib/ai-sales/reply";
+import { computeIntent } from "./intent";
 
 const base = {
   intentLevel: "LÅG" as const,
@@ -115,5 +116,26 @@ describe("statusmaskin", () => {
     expect(canTransitionNurture("cancelled", "pending")).toBe(false);
     expect(canTransitionNurture("sent", "approved")).toBe(false);
     expect(canTransitionNurture("pending", "pending")).toBe(true);
+  });
+});
+
+describe("intent-uppgradering från svar", () => {
+  it("mötesvilja lyfter ett LÅG-lead över NORMAL-tröskeln", () => {
+    const effect = applyReplyToNurture(classifyReplyDeterministic("Kan vi boka ett möte?"));
+    const before = computeIntent({ baseScore: 20, outcomes: [] });
+    const after = computeIntent({
+      baseScore: 20,
+      outcomes: [{ leadId: "l1", variantId: null, outcomeType: effect.outcome!, outcomeValue: null, revenueValue: null }],
+    });
+    expect(before.level).toBe("LÅG");
+    expect(after.score).toBeGreaterThan(before.score);
+    expect(after.level).toBe("NORMAL");
+  });
+
+  it("samma utfall två gånger ger samma score (idempotens)", () => {
+    const o = { leadId: "l1", variantId: null, outcomeType: "replied" as const, outcomeValue: null, revenueValue: null };
+    expect(computeIntent({ baseScore: 30, outcomes: [o, o] }).score).toBe(
+      computeIntent({ baseScore: 30, outcomes: [o] }).score,
+    );
   });
 });
