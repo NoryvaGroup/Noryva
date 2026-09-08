@@ -63,6 +63,8 @@ function CrmPage() {
   const create = useServerFn(createSalesAction);
   const transition = useServerFn(transitionSalesAction);
   const executeTest = useServerFn(executeSalesActionTest);
+  const generateRun = useServerFn(generateAssistantRun);
+
   const queryClient = useQueryClient();
 
   const [openLead, setOpenLead] = useState<string | null>(null);
@@ -99,10 +101,12 @@ function CrmPage() {
 
   return (
     <AdminShell title="Lead-CRM">
+      <ReadinessPanel />
       <div className="mb-6 rounded-xl border border-amber-500/40 bg-amber-500/5 px-4 py-3 text-sm">
         <strong>TEST / REVIEW-läge.</strong> Inga mail, SMS eller bokningar lämnar systemet. Alla
         AI-förslag måste godkännas av en människa och utförs endast som testkörning som loggas.
       </div>
+
 
       {message ? (
         <p className="mb-5 rounded-lg border border-border px-4 py-2 text-sm">{message}</p>
