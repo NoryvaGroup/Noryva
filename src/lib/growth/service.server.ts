@@ -553,6 +553,20 @@ export async function growthDashboardCore(ctx: GrowthContext) {
     }
   }
 
+  // Aktuell intent per lead – visas bara när data faktiskt finns.
+  let leadStates: any[] = [];
+  try {
+    const { data } = await ctx.supabase
+      .from("growth_lead_state")
+      .select("lead_id, intent_score, intent_level, intent_reason, intent_terminal, intent_updated_at")
+      .order("intent_updated_at", { ascending: false })
+      .limit(20);
+    leadStates = data ?? [];
+  } catch {
+    /* tomt state är ett giltigt svar */
+  }
+
+
   return {
     today: {
       leads: leadCount,
