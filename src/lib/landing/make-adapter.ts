@@ -100,15 +100,8 @@ export function buildMakeFields(input: {
       antal || "Ej angivet"
     }. Befintlig automat: ${befintlig}.`;
 
-    const foretag = get(values, "foretagsnamn");
-    const ort = get(values, "ort");
-    const projektbeskrivning = [
-      foretag ? `Företagsnamn: ${foretag}` : "",
-      ort ? `Ort: ${ort}` : "",
-      ...labelledAnswers(questions, values),
-    ]
-      .filter(Boolean)
-      .join("\n");
+    const projektbeskrivning = labelledAnswers(questions, values).join("\n");
+
 
     return {
       behov,
