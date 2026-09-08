@@ -3,6 +3,7 @@ import { redactReplyBody } from "./reply-redact";
 import { classifyReplyDeterministic } from "./reply";
 
 const payload = {
+  payload_version: 2,
   answers: {
     foretagsnamn: "TEST Varuautomat AB",
     kontaktperson: "Anna Andersson",
