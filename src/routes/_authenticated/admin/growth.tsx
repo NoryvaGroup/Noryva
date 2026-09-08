@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { getGrowthDashboard } from "@/lib/growth.functions";
+import { getNurtureQueue } from "@/lib/nurture.functions";
+import { NURTURE_STATUS_LABEL, type NurtureStatus } from "@/lib/growth/nurture";
 import { EXPERIMENT_TYPE_LABEL, type ExperimentType } from "@/lib/growth/experiments";
 
 export const Route = createFileRoute("/_authenticated/admin/growth")({
@@ -194,6 +196,7 @@ function GrowthPage() {
             )}
           </section>
 
+          <NurtureSection />
 
 
           <section>
@@ -217,5 +220,78 @@ function GrowthPage() {
         </div>
       ) : null}
     </AdminShell>
+  );
+}
+
+/**
+ * Nurture-kö: LÅG/NORMAL-leads som får billig uppföljning i stället för att
+ * släppas. Vyn är läsbar översikt – inget skickas härifrån.
+ */
+function NurtureSection() {
+  const fetchQueue = useServerFn(getNurtureQueue);
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["nurture-queue"],
+    queryFn: () => fetchQueue(),
+  });
+
+  return (
+    <section>
+      <h2 className="mb-3 text-sm font-semibold">Uppföljningskö (nurture)</h2>
+      <p className="mb-3 text-xs text-muted-foreground">
+        Endast LÅG och NORMAL hamnar här. Inget mail, SMS eller möte lämnar systemet – status
+        &quot;{NURTURE_STATUS_LABEL.sent}&quot; betyder markerad i test/granskning.
+      </p>
+      {isLoading ? <p className="text-sm text-muted-foreground">Hämtar kön …</p> : null}
+      {error ? (
+        <p className="text-sm text-destructive">Kunde inte hämta kön: {(error as Error).message}</p>
+      ) : null}
+      {data && data.items.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Inga leads i uppföljningskön ännu.</p>
+      ) : null}
+      {data && data.items.length > 0 ? (
+        <div className="overflow-x-auto rounded-xl border border-border">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-muted/40 text-muted-foreground">
+              <tr>
+                <th className="px-3 py-2">Lead</th>
+                <th className="px-3 py-2">Status</th>
+                <th className="px-3 py-2">Intent</th>
+                <th className="px-3 py-2">Varför</th>
+                <th className="px-3 py-2">Frågor</th>
+                <th className="px-3 py-2">Nästa steg</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.items.map((n: any) => (
+                <tr key={n.lead_id} className="border-t border-border/60">
+                  <td className="px-3 py-2 font-mono">{String(n.lead_id).slice(0, 8)}</td>
+                  <td className="px-3 py-2">
+                    {NURTURE_STATUS_LABEL[n.status as NurtureStatus] ?? n.status}
+                    {n.human_takeover ? " · människa" : ""}
+                    {n.upgrade_signal ? " · uppgradering" : ""}
+                  </td>
+                  <td className="px-3 py-2">{n.intent_level}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{n.reason}</td>
+                  <td className="px-3 py-2 text-muted-foreground">
+                    {(n.questions ?? []).length === 0 ? (
+                      "–"
+                    ) : (
+                      <ul className="list-disc pl-4">
+                        {(n.questions as string[]).map((q) => (
+                          <li key={q}>{q}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-muted-foreground">
+                    {n.next_step_at ? new Date(n.next_step_at).toLocaleString("sv-SE") : "–"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+    </section>
   );
 }
