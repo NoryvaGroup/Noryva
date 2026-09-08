@@ -19,8 +19,10 @@ export const HUMAN_TAKEOVER_TERMS = [
   "offert",
   "pris",
   "prisuppgift",
+  "kostar",
   "kostnad",
   "rabatt",
+  "garanti",
   "förhandling",
   "avtal",
   "juridik",
@@ -28,9 +30,30 @@ export const HUMAN_TAKEOVER_TERMS = [
   "advokat",
   "tvist",
   "klagomål",
+  "missnöjd",
   "reklamation",
+  "skadestånd",
   "försäkring",
 ];
+
+/**
+ * Påståenden som modellen aldrig får göra: att något redan skickats/bokats,
+ * eller konkreta priser, garantier och leveranstider. Upptäcks i utkastet
+ * som skyddsnät, oavsett vad systemprompten säger.
+ */
+const FABRICATION_PATTERNS: { flag: string; re: RegExp }[] = [
+  { flag: "claim:already_sent", re: /\b(har|är)\s+(nu\s+)?(skickat|skickats|mailat|utskickat)\b/i },
+  { flag: "claim:already_booked", re: /\b(har|är)\s+(nu\s+)?(bokat|bokats|inbokat|reserverat)\b/i },
+  { flag: "claim:price", re: /\b\d[\d\s.,]*\s*(kr|sek|kronor)\b/i },
+  { flag: "claim:guarantee", re: /\b\d+\s*(års|åriga)\s*garanti\b/i },
+  { flag: "claim:delivery_time", re: /\b(leverans|montering|installation)\s+(sker|inom|om)\s+\d/i },
+];
+
+/** Returnerar flaggor för påhittade påståenden i en text. */
+export function detectFabricatedClaims(text: string): string[] {
+  return FABRICATION_PATTERNS.filter((p) => p.re.test(text)).map((p) => p.flag);
+}
+
 
 export function needsHumanTakeover(context: AiSalesContext): boolean {
   const haystack = [context.need, context.description, ...Object.values(context.signals)]
