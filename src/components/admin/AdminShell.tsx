@@ -29,9 +29,13 @@ export function AdminShell({ title, children }: { title: string; children: React
             <Link to="/admin/crm" className="text-muted-foreground hover:text-foreground">
               Lead-CRM
             </Link>
+            <Link to="/admin/profiler" className="text-muted-foreground hover:text-foreground">
+              Kundprofiler
+            </Link>
             <Link to="/admin/ai-assistent" className="text-muted-foreground hover:text-foreground">
               AI-säljassistent
             </Link>
+
             <button type="button" onClick={signOut} className="text-muted-foreground underline">
               Logga ut
             </button>
