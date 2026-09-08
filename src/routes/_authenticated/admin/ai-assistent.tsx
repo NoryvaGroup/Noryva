@@ -59,13 +59,14 @@ function Badge({ children, tone = "muted" }: { children: React.ReactNode; tone?:
 
 function AiAssistantQueue() {
   const queryClient = useQueryClient();
+  const search = Route.useSearch();
   const fetchRuns = useServerFn(listAssistantRuns);
   const fetchFlags = useServerFn(getAiSalesFlags);
   const generate = useServerFn(generateAssistantRun);
   const setStatus = useServerFn(setAssistantReviewStatus);
   const saveDraft = useServerFn(updateAssistantDraft);
 
-  const [leadId, setLeadId] = useState("");
+  const [leadId, setLeadId] = useState(search.lead ?? "");
   const [notice, setNotice] = useState("");
   const [editing, setEditing] = useState<string | null>(null);
   const [subject, setSubject] = useState("");
@@ -73,9 +74,10 @@ function AiAssistantQueue() {
 
   const flags = useQuery({ queryKey: ["ai-flags"], queryFn: () => fetchFlags() });
   const runs = useQuery({
-    queryKey: ["ai-runs"],
-    queryFn: () => fetchRuns({ data: {} }),
+    queryKey: ["ai-runs", search.lead ?? null],
+    queryFn: () => fetchRuns({ data: search.lead ? { leadId: search.lead } : {} }),
   });
+
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["ai-runs"] });
 
