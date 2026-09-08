@@ -62,7 +62,61 @@ describe("policyvägar", () => {
     expect(guarded.humanTakeover).toBe(true);
     expect(guarded.safetyFlags).toContain("policy:human_takeover");
   });
+
+  it("eskalerar när modellen påstår att mail skickats eller möte bokats", () => {
+    const context = contextFrom(highPriority);
+    const base = {
+      action: "Kontakta nu" as const,
+      contactSpeed: "Omgående" as const,
+      subject: "Din förfrågan",
+      followupQuestions: [],
+      humanTakeover: false,
+      strategyReason: "Modellen ville kontakta direkt.",
+      confidence: 0.8,
+      safetyFlags: [],
+    };
+    const cases: [string, string][] = [
+      ["Hej! Jag har nu skickat mailet till dig med all information du behöver.", "claim:already_sent"],
+      ["Hej! Ett möte är bokat på torsdag klockan 14 enligt din önskan om tid.", "claim:already_booked"],
+      ["Hej! Automaten kostar 4900 kr per månad enligt vår gällande prislista.", "claim:price"],
+      ["Hej! Vi lämnar 5 års garanti på hela installationen enligt vårt avtal.", "claim:guarantee"],
+      ["Hej! Installation sker inom 3 veckor efter att du bekräftat din order.", "claim:delivery_time"],
+    ];
+    for (const [emailDraft, flag] of cases) {
+      const guarded = applyPolicyGuardrails(
+        assistantOutputSchema.parse({ ...base, emailDraft }),
+        context,
+      );
+      expect(guarded.humanTakeover).toBe(true);
+      expect(guarded.action).toBe("Mänsklig handläggning");
+      expect(guarded.safetyFlags).toContain(flag);
+    }
+  });
+
+  it("rör inte ett neutralt utkast", () => {
+    const context = contextFrom(highPriority);
+    const output = assistantOutputSchema.parse({
+      action: "Kontakta nu",
+      contactSpeed: "Omgående",
+      subject: "Din förfrågan",
+      emailDraft: "Hej! Tack för din förfrågan, vi återkommer med nästa steg inom kort.",
+      followupQuestions: [],
+      humanTakeover: false,
+      strategyReason: "Modellen ville kontakta direkt.",
+      confidence: 0.8,
+      safetyFlags: [],
+    });
+    expect(applyPolicyGuardrails(output, context)).toEqual(output);
+  });
+
+  it("prisfråga i fritext eskalerar även när den formuleras som kostar", () => {
+    const p = resolvePolicyPath(
+      contextFrom({ ...highPriority, projektbeskrivning: "Vad kostar en sådan automat?" }),
+    );
+    expect(p.humanTakeover).toBe(true);
+  });
 });
+
 
 describe("outputvalidering", () => {
   it("avvisar ogiltiga värden", () => {
