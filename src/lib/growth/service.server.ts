@@ -9,7 +9,15 @@
 import { buildAiSalesContext } from "@/lib/ai-sales/context";
 import { serverAiSalesFlags, readAiSalesFlags, assertNoExternalSend } from "@/lib/ai-sales/flags";
 import type { RuntimeEnv } from "./runtime-env";
-import { ANALYSIS_VERSION, buildNormalized, type NormalizedOutput } from "./normalized";
+import {
+  ANALYSIS_VERSION,
+  buildNormalized,
+  refreshStoredNormalized,
+  type NormalizedOutput,
+} from "./normalized";
+import { resolveGeography } from "./geography";
+import { scoreMigrationLead, type MigrationScore } from "./migration-scoring";
+import { LeadBindingError, MIGRATION_CONTRACT_VERSION, type MakeContext } from "./make-contract";
 
 import { readStoredPayload } from "@/lib/landing/make-adapter";
 import { defaultProfile, rowToProfile } from "@/lib/ai-sales/profile";
@@ -36,7 +44,17 @@ export function startOfMonthIso(now = new Date()): string {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
 }
 
-export async function loadLeadBundle(ctx: GrowthContext, leadId: string) {
+export type LeadBundleOptions = { makeContext?: MakeContext | null };
+
+/**
+ * Laddar lead + kund + profil och räknar ut EN auktoritativ kvalificering.
+ * Modellkontexten får exakt samma siffror – ingen andra scoring körs.
+ */
+export async function loadLeadBundle(
+  ctx: GrowthContext,
+  leadId: string,
+  options: LeadBundleOptions = {},
+) {
   const { data: lead, error } = await ctx.supabase
     .from("leads")
     .select("id, customer_id, industry, payload, created_at")
@@ -45,9 +63,15 @@ export async function loadLeadBundle(ctx: GrowthContext, leadId: string) {
   if (error) throw new Error(error.message);
   if (!lead) throw new Error("Förfrågan hittades inte.");
 
+  const makeContext = options.makeContext ?? null;
+  // Bindningskontroll före allt annat – aldrig något modellanrop för fel kund.
+  if (makeContext && makeContext.customerId !== lead.customer_id) {
+    throw new LeadBindingError();
+  }
+
   const { data: customer } = await ctx.supabase
     .from("customers")
-    .select("id, name, industry")
+    .select("id, name, industry, service_area")
     .eq("id", lead.customer_id)
     .maybeSingle();
 
@@ -68,7 +92,42 @@ export async function loadLeadBundle(ctx: GrowthContext, leadId: string) {
 
   const stored = readStoredPayload(lead.payload);
   const answers = (stored.answers ?? {}) as Record<string, string>;
-  const qualification = qualifyLead(lead.industry ?? "", answers, profile);
+
+  // Postnumret används ENDAST här, på servern. Det lämnar aldrig funktionen.
+  const postalCode = answers["postnummer"] ?? stored.make?.postnummer ?? "";
+  const serviceArea = (makeContext?.serviceArea || customer?.service_area || "").trim();
+  const geography = resolveGeography(
+    postalCode,
+    makeContext
+      ? {
+          serviceArea,
+          ...(makeContext.localPostalPrefix ? { localPostalPrefix: makeContext.localPostalPrefix } : {}),
+          ...(makeContext.regionalPostalPrefix
+            ? { regionalPostalPrefix: makeContext.regionalPostalPrefix }
+            : {}),
+        }
+      : { serviceArea },
+  );
+
+  // Opt-in: Make-migrationens scoring. Annars oförändrad befintlig modell.
+  const migration = makeContext
+    ? scoreMigrationLead({
+        industry: lead.industry ?? "",
+        answers,
+        make: stored.make,
+        geography,
+      })
+    : null;
+
+  const qualification = migration
+    ? {
+        score: migration.score,
+        qualification: migration.qualification,
+        priority: migration.priority,
+        source: migration.source,
+      }
+    : qualifyLead(lead.industry ?? "", answers, profile);
+
   const context = buildAiSalesContext(
     {
       leadId: lead.id,
@@ -80,11 +139,32 @@ export async function loadLeadBundle(ctx: GrowthContext, leadId: string) {
     {
       name: customer?.name ?? "Kunden",
       industry: customer?.industry ?? lead.industry ?? "",
-      serviceArea: "",
+      serviceArea,
+    },
+    {
+      qualification,
+      geography: {
+        verdict: geography.verdict,
+        serviceArea: geography.serviceArea,
+        configured: geography.configured,
+      },
     },
   );
 
-  return { lead, profile, budget, qualification, context };
+  return { lead, profile, budget, qualification, context, geography, migration, makeContext };
+}
+
+/** Extra normaliseringsmetadata som gäller både route och analyze. */
+function normalizedExtras(bundle: {
+  migration: MigrationScore | null;
+  makeContext: MakeContext | null;
+}) {
+  return {
+    breakdown: bundle.migration?.breakdown ?? {},
+    manualReview: bundle.migration?.manualReview ?? false,
+    manualReviewReasons: bundle.migration?.manualReviewReasons ?? [],
+    migrationContract: bundle.makeContext ? MIGRATION_CONTRACT_VERSION : null,
+  };
 }
 
 export async function readUsage(ctx: GrowthContext, customerId: string) {
@@ -250,10 +330,11 @@ async function completeClaim(
 export async function routeLeadCore(
   ctx: GrowthContext,
   leadId: string,
-  options: { env?: RuntimeEnv } = {},
+  options: { env?: RuntimeEnv; makeContext?: MakeContext | null } = {},
 ) {
   const flags = resolveFlags(options.env);
-  const { lead, profile, budget, qualification, context: aiContext } = await loadLeadBundle(ctx, leadId);
+  const bundle = await loadLeadBundle(ctx, leadId, { makeContext: options.makeContext ?? null });
+  const { lead, profile, budget, qualification, context: aiContext } = bundle;
   const usage = await readUsage(ctx, lead.customer_id);
   const outcomes = await readLeadOutcomes(ctx, lead.id);
   const intent = computeIntent({
@@ -288,6 +369,7 @@ export async function routeLeadCore(
     llmAttempts: 0,
     usedFallback: false,
     cost: deterministic.cost,
+    ...normalizedExtras(bundle),
   });
 
   return { decision, qualification, intent, budget, usage, normalized };
@@ -308,12 +390,14 @@ export async function analyzeLeadCore(
     env?: RuntimeEnv;
     /** false = hoppa över claim (admin-omanalys). Default: claim på. */
     claim?: boolean;
+    makeContext?: MakeContext | null;
   } = {},
 ) {
   const flags = resolveFlags(options.env);
   assertNoExternalSend(flags);
 
-  const { lead, profile, budget, qualification, context: aiContext } = await loadLeadBundle(ctx, leadId);
+  const bundle = await loadLeadBundle(ctx, leadId, { makeContext: options.makeContext ?? null });
+  const { lead, profile, budget, qualification, context: aiContext } = bundle;
   const usage = await readUsage(ctx, lead.customer_id);
   const intent = computeIntent({
     baseScore: qualification.score,
@@ -344,22 +428,27 @@ export async function analyzeLeadCore(
     claimStatus = await claimAnalysis(ctx, lead.id);
     if (claimStatus !== "claimed") {
       const stored = await readClaimResult(ctx, lead.id);
+      // Deterministiskt, auktoritativt underlag för DEN HÄR förfrågan. Används
+      // både som svar när inget resultat finns och för att uppdatera ett
+      // cachat äldre svar – utan nytt modellanrop.
+      const freshNormalized = buildNormalized({
+        context: aiContext,
+        qualification,
+        intent,
+        decision,
+        analysis: deterministicAnalysis(aiContext).analysis,
+        tier: "deterministic",
+        model: null,
+        llmAttempts: 0,
+        usedFallback: true,
+        error: "Analys pågår redan för detta lead.",
+        cost: estimateCost({ tier: "deterministic", inputTokens: 0, outputTokens: 0 }),
+        reused: true,
+        ...normalizedExtras(bundle),
+      });
       const normalized: NormalizedOutput = stored
-        ? { ...stored, reused: true }
-        : buildNormalized({
-            context: aiContext,
-            qualification,
-            intent,
-            decision,
-            analysis: deterministicAnalysis(aiContext).analysis,
-            tier: "deterministic",
-            model: null,
-            llmAttempts: 0,
-            usedFallback: true,
-            error: "Analys pågår redan för detta lead.",
-            cost: estimateCost({ tier: "deterministic", inputTokens: 0, outputTokens: 0 }),
-            reused: true,
-          });
+        ? refreshStoredNormalized(stored, freshNormalized)
+        : freshNormalized;
       return {
         ok: true as const,
         decision,
@@ -466,6 +555,7 @@ export async function analyzeLeadCore(
     error: result.error ?? null,
     cost: result.cost,
     runId: inserted?.id ?? null,
+    ...normalizedExtras(bundle),
   });
 
   if (claimStatus === "claimed") {

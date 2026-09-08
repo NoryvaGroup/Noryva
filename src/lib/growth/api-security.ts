@@ -13,6 +13,7 @@
 import { z } from "zod";
 import { createHmacVerifier } from "@/lib/ai-sales/webhook-security";
 import { growthOutcomeTypeSchema } from "./outcomes";
+import { makeContextSchema } from "./make-contract";
 
 export const GROWTH_API_SOURCE = "make_growth";
 export const SIGNATURE_HEADER = "x-noryva-signature";
@@ -28,15 +29,21 @@ export type GrowthOperation =
   | "register-outcome"
   | "growth-recommendation";
 
-const leadOnly = z.object({ leadId: z.string().uuid() }).strict();
+/**
+ * `makeContext` är frivilligt. Utan det är beteendet identiskt med tidigare
+ * versioner – befintliga anropare påverkas inte.
+ */
+const leadWithMakeContext = z
+  .object({ leadId: z.string().uuid(), makeContext: makeContextSchema.optional() })
+  .strict();
 
 /**
  * Smala scheman. Notera att `analyze-lead` medvetet INTE tar emot någon
  * tier/modell – routern avgör ensam om AI får köras.
  */
 export const GROWTH_API_SCHEMAS = {
-  "route-lead": leadOnly,
-  "analyze-lead": leadOnly,
+  "route-lead": leadWithMakeContext,
+  "analyze-lead": leadWithMakeContext,
   "assign-variant": z
     .object({ leadId: z.string().uuid(), experimentId: z.string().uuid().optional() })
     .strict(),
