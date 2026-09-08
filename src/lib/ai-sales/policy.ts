@@ -42,12 +42,22 @@ export const HUMAN_TAKEOVER_TERMS = [
  * som skyddsnät, oavsett vad systemprompten säger.
  */
 const FABRICATION_PATTERNS: { flag: string; re: RegExp }[] = [
-  { flag: "claim:already_sent", re: /\b(har|är)\s+(nu\s+)?(skickat|skickats|mailat|utskickat)\b/i },
-  { flag: "claim:already_booked", re: /\b(har|är)\s+(nu\s+)?(bokat|bokats|inbokat|reserverat)\b/i },
-  { flag: "claim:price", re: /\b\d[\d\s.,]*\s*(kr|sek|kronor)\b/i },
-  { flag: "claim:guarantee", re: /\b\d+\s*(års|åriga)\s*garanti\b/i },
-  { flag: "claim:delivery_time", re: /\b(leverans|montering|installation)\s+(sker|inom|om)\s+\d/i },
+  {
+    flag: "claim:already_sent",
+    re: /(har|är|vi har)\s+(nu\s+)?(skickat|skickats|mailat|utskickat)/i,
+  },
+  {
+    flag: "claim:already_booked",
+    re: /(har|är|vi har)\s+(nu\s+)?(bokat|bokats|inbokat|reserverat)/i,
+  },
+  { flag: "claim:price", re: /\d[\d\s.,]*\s*(kr|sek|kronor)\b/i },
+  { flag: "claim:guarantee", re: /\d+\s*(års|åriga|år)\s*garanti/i },
+  {
+    flag: "claim:delivery_time",
+    re: /(leverans|leveransen|montering|monteringen|installation|installationen)\s+(sker\s+)?(inom|om|på)\s+\d/i,
+  },
 ];
+
 
 /** Returnerar flaggor för påhittade påståenden i en text. */
 export function detectFabricatedClaims(text: string): string[] {
