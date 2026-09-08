@@ -79,7 +79,7 @@ async function runOperation(
 ): Promise<unknown> {
   switch (operation) {
     case "route-lead": {
-      const { decision, qualification } = await routeLeadCore(ctx, data.leadId);
+      const { decision, qualification, intent } = await routeLeadCore(ctx, data.leadId);
       return {
         leadId: data.leadId,
         route: decision.route,
@@ -93,8 +93,10 @@ async function runOperation(
           qualification: qualification.qualification,
           priority: qualification.priority,
         },
+        intent: { score: intent.score, level: intent.level, reason: intent.reason },
       };
     }
+
     case "analyze-lead": {
       // Ingen forceTier: routern avgör ensam om AI får köras.
       const result = await analyzeLeadCore(ctx, data.leadId, { forceTier: null, actor: "system" });
