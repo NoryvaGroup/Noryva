@@ -105,21 +105,31 @@ export function resolvePolicyPath(context: AiSalesContext): PolicyPath {
 
 /**
  * Applicerar policyn som skyddsnät på modellens svar: mänsklig handläggning
- * kan aldrig tas bort av modellen, bara läggas till.
+ * kan aldrig tas bort av modellen, bara läggas till. Dessutom eskaleras
+ * utkast som påstår att något redan skickats/bokats eller innehåller pris,
+ * garanti eller leveranstid som saknar täckning i underlaget.
  */
 export function applyPolicyGuardrails(
   output: AssistantOutput,
   context: AiSalesContext,
 ): AssistantOutput {
   const policy = resolvePolicyPath(context);
-  if (!policy.humanTakeover) return output;
+  const claims = detectFabricatedClaims(`${output.subject}\n${output.emailDraft}`);
+  if (!policy.humanTakeover && claims.length === 0) return output;
   return {
     ...output,
     action: "Mänsklig handläggning",
     humanTakeover: true,
-    safetyFlags: Array.from(new Set([...output.safetyFlags, "policy:human_takeover"])),
+    safetyFlags: Array.from(
+      new Set([
+        ...output.safetyFlags,
+        ...(policy.humanTakeover ? ["policy:human_takeover"] : []),
+        ...claims,
+      ]),
+    ),
   };
 }
+
 
 /** Säkert reservutkast utan modellanrop. */
 export function fallbackOutput(context: AiSalesContext): AssistantOutput {
