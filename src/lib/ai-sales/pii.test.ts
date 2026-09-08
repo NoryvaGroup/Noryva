@@ -7,6 +7,7 @@ const LEAD = {
   industry: "varuautomater",
   createdAt: "2026-09-08T10:00:00.000Z",
   payload: {
+    payload_version: 2,
     answers: {
       foretagsnamn: "TEST Varuautomat AB",
       ort: "Borås",
