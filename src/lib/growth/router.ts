@@ -86,9 +86,19 @@ export function downgradeRoute(route: AgentRoute, state: BudgetState): AgentRout
   return route;
 }
 
+/** Returnerar prioriteten endast om värdet är känt, annars null. */
+function knownPriority(value: unknown): LeadPriority | null {
+  const v = String(value ?? "").trim().toUpperCase();
+  return v === "AKUT" || v === "HÖG" || v === "NORMAL" || v === "LÅG" ? v : null;
+}
+
 export function routeLead(input: RouterInput): RouteDecision {
-  const priority = normalizePriority(String(input.priority ?? ""));
+  const basePriority = normalizePriority(String(input.priority ?? ""));
+  const intentPriority = knownPriority(input.intentLevel);
+  // AKUT från hårda regler vinner alltid; annars styr aktuell intent-nivå.
+  const priority = basePriority === "AKUT" ? "AKUT" : (intentPriority ?? basePriority);
   const missing = input.missingInformation ?? [];
+
   const state = budgetState(
     input.budgetUsage ?? { spentTodayUsd: 0, spentMonthUsd: 0 },
     input.budget ?? DEFAULT_BUDGET,
