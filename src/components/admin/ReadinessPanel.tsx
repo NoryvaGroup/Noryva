@@ -49,6 +49,7 @@ export function ReadinessPanel() {
         <Row label="Automatisk sändning" on={f.autoSend} note="blockerad i kod" />
         <Row label="Svarsagent (inkorg)" on={f.replyAgentEnabled} note="endast gränssnitt" />
         <Row label="Mötesbokning" on={f.bookingAgentEnabled} note="endast gränssnitt" />
+        <Row label="Skarpt läge (live)" on={data.liveModeAvailable} note="hårdspärrat server-side" />
         <Row label="Extern sändning tillåten" on={data.externalSendAllowed} note="v1-spärr" />
         <Row label="Modellnyckel konfigurerad" on={data.modelKeyConfigured} note="visas ej" />
       </ul>

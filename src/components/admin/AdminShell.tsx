@@ -32,6 +32,9 @@ export function AdminShell({ title, children }: { title: string; children: React
             <Link to="/admin/profiler" className="text-muted-foreground hover:text-foreground">
               Kundprofiler
             </Link>
+            <Link to="/admin/konversationer" className="text-muted-foreground hover:text-foreground">
+              Konversationer
+            </Link>
             <Link to="/admin/ai-assistent" className="text-muted-foreground hover:text-foreground">
               AI-säljassistent
             </Link>
