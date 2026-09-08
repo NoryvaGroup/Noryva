@@ -38,6 +38,9 @@ export function AdminShell({ title, children }: { title: string; children: React
             <Link to="/admin/ai-assistent" className="text-muted-foreground hover:text-foreground">
               AI-säljassistent
             </Link>
+            <Link to="/admin/growth" className="text-muted-foreground hover:text-foreground">
+              Growth Engine
+            </Link>
 
             <button type="button" onClick={signOut} className="text-muted-foreground underline">
               Logga ut
