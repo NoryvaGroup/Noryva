@@ -7,9 +7,11 @@ type Props = {
   landing: PublicLanding;
   /** Förhandsgranskning: inget skickas och inga leads skapas. */
   preview?: boolean;
+  /** UAT: skickar till Make test-webhooken istället för kundens live-webhook. */
+  test?: boolean;
 };
 
-export function DynamicLanding({ landing, preview = false }: Props) {
+export function DynamicLanding({ landing, preview = false, test = false }: Props) {
   const submit = useServerFn(submitPublicLead);
   const submissionId = useRef<string | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
@@ -36,6 +38,7 @@ export function DynamicLanding({ landing, preview = false }: Props) {
         consent,
         values,
         company: honeypot,
+        test,
       },
     });
     return res;
