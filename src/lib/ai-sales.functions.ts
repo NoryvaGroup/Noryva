@@ -212,7 +212,16 @@ export const setAssistantReviewStatus = createServerFn({ method: "POST" })
       .select(RUN_COLUMNS)
       .maybeSingle();
     if (error) throw new Error(error.message);
+    await logEvent(context as AdminContext, {
+      eventType: `ai_run_${data.reviewStatus}`,
+      actor: "human",
+      leadId: updated?.lead_id ?? null,
+      customerId: updated?.customer_id ?? null,
+      runId: data.id,
+      detail: { reviewStatus: data.reviewStatus, hasNotes: data.reviewerNotes.length > 0 },
+    });
     return { ok: true as const, run: updated };
+
   });
 
 /** Sparar en redigerad ämnesrad/mailtext. Skickar inget. */
