@@ -289,3 +289,30 @@ signeras med kundens företagsnamn. Interna råd ligger i `strategy_reason` och
 `research`. Cachade äldre analyser transformeras deterministiskt – inget nytt
 modellanrop – och gamla interna utkast ersätts med ett säkert kundutkast som
 flaggas med `migration:stale_draft_replaced`.
+
+## Nurture / uppföljning (LÅG och NORMAL)
+
+Principen "Low-cost nurture, never discard relevant leads" har nu en egen,
+isolerad grund. Inget i lagret skickar mail, SMS eller bokar möten.
+
+- `src/lib/growth/nurture.ts` – ren policy: vem som får nurture (endast LÅG och
+  NORMAL; HÖG/AKUT hanteras personligen), 1–3 frågor byggda enbart ur
+  `context.missing_information` och analysens befintliga följdfrågor (saknas
+  inget genereras inga frågor), nästa steg (LÅG 72 h, NORMAL 24 h), statusmaskin
+  `pending → review → approved → sent → replied` med `cancelled` som stopp, samt
+  effekten av ett inkommande svar.
+- `src/lib/growth/nurture.server.ts` – persistens i `growth_nurture_state`
+  (idempotent per lead), due-lista, manuell statusändring och registrering av
+  inkommande svar. Svaret PII-maskeras, klassificeras deterministiskt med
+  befintlig `classifyReplyDeterministic` och registreras som utfall så att
+  Intent Engine räknas om.
+- `src/lib/nurture.functions.ts` – adminserverfunktioner (kräver admin).
+- Adminvy: sektionen "Uppföljningskö (nurture)" på `/admin/growth`.
+
+Spärrar:
+- Pris/offert/förhandling/klagomål/juridik ⇒ alltid `human_takeover` och stopp.
+- `avbojer` ⇒ `cancelled`, ingen vidare uppföljning.
+- Positivt svar eller mötesvilja sätter `upgrade_signal`; ingen notifiering
+  skickas i den här versionen (`notificationSent: false`).
+- `assertExecutableMode` körs före varje statusändring – endast `test`/`review`.
+  Status `sent` betyder "markerad som skickad i test/granskning".
