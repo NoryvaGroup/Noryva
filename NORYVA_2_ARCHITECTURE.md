@@ -72,21 +72,96 @@ minsta urval, exploration floor och minsta relativa förbättring.
 | `getGrowthRecommendation` | `{ experimentId, persist? }` | `{ experiment, variants, metrics, recommendation }` |
 | `getGrowthDashboard` | – | dagens/månadens kostnad, experiment, rekommendationer |
 
+## Publika Make-endpoints (HMAC-verifierade)
+
+Alla ligger under `/api/public/growth/*`, tar `POST` med JSON och kräver
+**ingen** adminsession. Service-rollen används först efter godkänd signatur.
+
+| Path | Body | Svar |
+| --- | --- | --- |
+| `/api/public/growth/route-lead` | `{ leadId }` | `{ leadId, route, requestedRoute, reason, requiresHuman, llmCalls, budgetState, qualification }` |
+| `/api/public/growth/analyze-lead` | `{ leadId }` | `{ ok, leadId, route, tier, model, llmCalls, estimatedCost, usedFallback, runId, requiresHuman }` |
+| `/api/public/growth/assign-variant` | `{ leadId, experimentId? }` | `{ assigned, experimentId, variantId, variantName, reused }` |
+| `/api/public/growth/register-outcome` | `{ leadId, outcomeType, outcomeValue?, revenueValue? }` | `{ ok, created, idempotencyKey }` |
+| `/api/public/growth/growth-recommendation` | `{ experimentId }` | `{ experimentId, status, metrics, recommendation }` |
+
+Scheman är `strict`: okända fält avvisas med 400. `analyze-lead` tar inte emot
+någon tier – routern avgör ensam om AI får köras, så en klient kan aldrig
+tvinga fram `ai_full`.
+
+### Headers
+
+```text
+content-type: application/json
+x-noryva-timestamp: <unix-sekunder>
+x-noryva-signature: hex(HMAC-SHA256(NORYVA_GROWTH_API_SECRET, "<timestamp>.<raw body>"))
+x-noryva-event-id: <unikt id per anrop>
+```
+
+Hemligheten läses från env-variabeln `NORYVA_GROWTH_API_SECRET` (Project
+Settings → Secrets). Den finns aldrig i klientkod och står aldrig i repot.
+
+### Exempel
+
+```http
+POST /api/public/growth/route-lead
+x-noryva-timestamp: 1767225600
+x-noryva-signature: 9f1c...   (exempel, inte en riktig signatur)
+x-noryva-event-id: make-9f2b1d
+
+{ "leadId": "11111111-1111-4111-8111-111111111111" }
+```
+
+```json
+{
+  "leadId": "11111111-1111-4111-8111-111111111111",
+  "route": "deterministic",
+  "requestedRoute": "deterministic",
+  "reason": "Låg prioritet och tydligt standardfall – inget AI-anrop behövs.",
+  "requiresHuman": false,
+  "llmCalls": 0,
+  "budgetState": "ok",
+  "qualification": { "score": 0, "qualification": "Låg", "priority": "LÅG" }
+}
+```
+
+### Felkoder
+
+| Status | Orsak |
+| --- | --- |
+| 400 | Saknat event-id, ogiltig JSON eller fält utanför schemat |
+| 401 | Saknad/felaktig signatur eller för gammal tidsstämpel (>300 s) |
+| 405 | Annat än POST |
+| 409 | Replay: samma `x-noryva-event-id` har redan behandlats |
+| 413 | Nyttolast över 20 kB |
+| 429 | Throttling (60 anrop/minut och IP) |
+| 500 | Hemlighet saknas eller internt fel |
+
+Replayskydd sker i `inbound_webhook_events` (unik `source + external_id`).
+`register-outcome` är dessutom idempotent i `growth_outcomes`.
+
+### Throttling – nästa hårdningssteg
+
+Nuvarande throttling är per serverinstans (in-memory) och är ett skydd mot
+skenande anrop, inte en distribuerad rate limit. Nästa steg vid behov är en
+räknare i databasen eller en IP-tillåtelselista för Make.
+
 ## Så kopplas Make om senare (minimerad AI-kostnad)
 
 1. Make skickar leadet som idag till `/offert`-flödet. Inget kontrakt ändras.
-2. Make anropar `routeLead`. Är svaret `deterministic` eller `human` görs
+2. Make anropar `route-lead`. Är svaret `deterministic` eller `human` görs
    **inget** AI-anrop – Make använder den deterministiska rekommendationen
    respektive notifierar en handläggare.
-3. Endast vid `ai_light`/`ai_full` anropar Make `analyzeLead`.
-4. Make anropar `assignLeadVariant` när ett experiment körs.
-5. Make rapporterar tillbaka utfall med `registerOutcome` (idempotent – samma
+3. Endast vid `ai_light`/`ai_full` anropar Make `analyze-lead`.
+4. Make anropar `assign-variant` när ett experiment körs.
+5. Make rapporterar tillbaka utfall med `register-outcome` (idempotent – samma
    anrop kan skickas om utan dubbletter).
-6. En schemalagd batch hämtar `getGrowthRecommendation` per experiment.
+6. En schemalagd batch hämtar `growth-recommendation` per experiment.
 
-Detta kräver att endpointerna exponeras som publika, signaturverifierade
-routes under `src/routes/api/public/*`. Det är **inte** gjort i den här fasen;
-funktionerna är i dag admin-skyddade serverfunktioner.
+Endpointerna finns nu och är signaturverifierade. Det som återstår innan Make
+kopplas om är att sätta `NORYVA_GROWTH_API_SECRET` och publicera – ingen
+ändring är gjord i det aktiva Make-scenariot.
+
 
 ## Medvetet avstängt
 
