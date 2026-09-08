@@ -16,6 +16,8 @@ import { DEFAULT_BUDGET, budgetState, estimateCost, sumCost, type Budget } from 
 import { routeLead as decideRoute, type AgentRoute } from "./router";
 import { assignVariant } from "./experiments";
 import { computeAllVariantMetrics, outcomeKey, type GrowthOutcomeType, type OutcomeRecord } from "./outcomes";
+import { computeIntent, type IntentState } from "./intent";
+
 import { recommendWinner } from "./optimizer";
 import { analyzeWithTier, deterministicAnalysis } from "./analyze.server";
 
