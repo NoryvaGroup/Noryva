@@ -582,6 +582,7 @@ export async function growthDashboardCore(ctx: GrowthContext) {
     experiments: experiments ?? [],
     leadStates,
     reports,
+    recommendations: recs ?? [],
 
     flags: {
       aiEnabled: flags.enabled,
