@@ -639,7 +639,11 @@ describe("claim: högst ett modellanrop per lead", () => {
  * Kill switch: route-lead och analyze-lead måste alltid vara överens
  * ------------------------------------------------------------------ */
 
-const AI_OFF_ENV = { NORYVA_GROWTH_API_SECRET: SECRET, LOVABLE_API_KEY: "test-key" };
+const AI_OFF_ENV = {
+  NORYVA_GROWTH_API_SECRET: SECRET,
+  AI_SALES_ASSISTANT_ENABLED: "false",
+  LOVABLE_API_KEY: "test-key",
+};
 
 async function routeOf(state: Record<string, Row[]>, env: Record<string, string>) {
   const res = await handleGrowthApi(
