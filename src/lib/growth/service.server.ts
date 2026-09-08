@@ -16,6 +16,8 @@ import { DEFAULT_BUDGET, budgetState, estimateCost, sumCost, type Budget } from 
 import { routeLead as decideRoute, type AgentRoute } from "./router";
 import { assignVariant } from "./experiments";
 import { computeAllVariantMetrics, outcomeKey, type GrowthOutcomeType, type OutcomeRecord } from "./outcomes";
+import { computeIntent, type IntentState } from "./intent";
+
 import { recommendWinner } from "./optimizer";
 import { analyzeWithTier, deterministicAnalysis } from "./analyze.server";
 
@@ -132,14 +134,75 @@ export async function logCost(
   }
 }
 
+/** Läser leadets registrerade utfall som rena records. */
+export async function readLeadOutcomes(ctx: GrowthContext, leadId: string): Promise<OutcomeRecord[]> {
+  const { data } = await ctx.supabase
+    .from("growth_outcomes")
+    .select("lead_id, variant_id, outcome_type, outcome_value, revenue_value")
+    .eq("lead_id", leadId);
+  return (data ?? []).map((r: any) => ({
+    leadId: r.lead_id,
+    variantId: r.variant_id ?? null,
+    outcomeType: r.outcome_type,
+    outcomeValue: r.outcome_value == null ? null : Number(r.outcome_value),
+    revenueValue: r.revenue_value == null ? null : Number(r.revenue_value),
+  }));
+}
+
+/**
+ * Intent Engine: deterministisk omräkning av leadets intent-score.
+ * Idempotent – samma utfall ger alltid samma score. Inga LLM-anrop, inga
+ * externa actions. Persistering får aldrig fälla flödet.
+ */
+export async function recomputeIntentCore(
+  ctx: GrowthContext,
+  leadId: string,
+  options: { persist?: boolean } = {},
+): Promise<IntentState> {
+  const { lead, qualification } = await loadLeadBundle(ctx, leadId);
+  const outcomes = await readLeadOutcomes(ctx, lead.id);
+  const state = computeIntent({
+    baseScore: qualification.score,
+    basePriority: qualification.priority,
+    outcomes,
+  });
+
+  if (options.persist !== false) {
+    try {
+      await ctx.supabase.from("growth_lead_state").upsert(
+        {
+          lead_id: lead.id,
+          customer_id: lead.customer_id,
+          intent_score: state.score,
+          intent_level: state.level,
+          intent_reason: state.reason,
+          intent_terminal: state.terminal,
+          intent_updated_at: new Date().toISOString(),
+        },
+        { onConflict: "lead_id" },
+      );
+    } catch {
+      /* intent-state är ett cachelager – får aldrig blockera */
+    }
+  }
+  return state;
+}
+
 /** 1) Beslut: behöver leadet AI alls? Inga sidoeffekter, inga LLM-anrop. */
 export async function routeLeadCore(ctx: GrowthContext, leadId: string) {
   const { lead, profile, budget, qualification, context: aiContext } = await loadLeadBundle(ctx, leadId);
   const usage = await readUsage(ctx, lead.customer_id);
+  const outcomes = await readLeadOutcomes(ctx, lead.id);
+  const intent = computeIntent({
+    baseScore: qualification.score,
+    basePriority: qualification.priority,
+    outcomes,
+  });
 
   const decision = decideRoute({
     priority: qualification.priority,
     qualification: qualification.qualification,
+    intentLevel: intent.level,
     missingInformation: aiContext.missingInformation,
     text: [aiContext.need, aiContext.description, aiContext.timeline].join(" "),
     budgetUsage: usage,
@@ -147,8 +210,9 @@ export async function routeLeadCore(ctx: GrowthContext, leadId: string) {
     aiEnabled: profile.aiAssistantEnabled,
   });
 
-  return { decision, qualification, budget, usage };
+  return { decision, qualification, intent, budget, usage };
 }
+
 
 /**
  * 2) Analys. Kör högst ETT LLM-anrop (research + sälj i samma svar).
@@ -165,14 +229,21 @@ export async function analyzeLeadCore(
 
   const { lead, profile, budget, qualification, context: aiContext } = await loadLeadBundle(ctx, leadId);
   const usage = await readUsage(ctx, lead.customer_id);
+  const intent = computeIntent({
+    baseScore: qualification.score,
+    basePriority: qualification.priority,
+    outcomes: await readLeadOutcomes(ctx, lead.id),
+  });
   const decision = decideRoute({
     priority: qualification.priority,
+    intentLevel: intent.level,
     missingInformation: aiContext.missingInformation,
     text: [aiContext.need, aiContext.description, aiContext.timeline].join(" "),
     budgetUsage: usage,
     budget,
     aiEnabled: profile.aiAssistantEnabled && flags.enabled,
   });
+
 
   const routedTier =
     decision.route === "ai_full" || decision.route === "ai_light" ? decision.route : null;
@@ -342,7 +413,11 @@ export async function registerOutcomeCore(
     .select("id")
     .eq("idempotency_key", key)
     .maybeSingle();
-  if (existing) return { ok: true as const, created: false, idempotencyKey: key };
+  if (existing) {
+    // Idempotent återanvändning: räkna ändå om intent (samma resultat).
+    const intent = await recomputeIntentCore(ctx, lead.id);
+    return { ok: true as const, created: false, idempotencyKey: key, intent };
+  }
 
   const { error } = await ctx.supabase.from("growth_outcomes").insert({
     customer_id: lead.customer_id,
@@ -358,7 +433,11 @@ export async function registerOutcomeCore(
   // Unik nyckel i databasen gör parallella anrop säkra.
   if (error && !/duplicate key|23505/i.test(error.message)) throw new Error(error.message);
 
-  return { ok: true as const, created: !error, idempotencyKey: key };
+  // Intent räknas om deterministiskt – inga externa actions.
+  const intent = await recomputeIntentCore(ctx, lead.id);
+
+  return { ok: true as const, created: !error, idempotencyKey: key, intent };
+
 }
 
 export async function experimentReport(ctx: GrowthContext, experimentId: string) {
@@ -474,6 +553,20 @@ export async function growthDashboardCore(ctx: GrowthContext) {
     }
   }
 
+  // Aktuell intent per lead – visas bara när data faktiskt finns.
+  let leadStates: any[] = [];
+  try {
+    const { data } = await ctx.supabase
+      .from("growth_lead_state")
+      .select("lead_id, intent_score, intent_level, intent_reason, intent_terminal, intent_updated_at")
+      .order("intent_updated_at", { ascending: false })
+      .limit(20);
+    leadStates = data ?? [];
+  } catch {
+    /* tomt state är ett giltigt svar */
+  }
+
+
   return {
     today: {
       leads: leadCount,
@@ -487,8 +580,10 @@ export async function growthDashboardCore(ctx: GrowthContext) {
       budgetState: budgetState({ spentTodayUsd: spentToday, spentMonthUsd: spentMonth }, DEFAULT_BUDGET),
     },
     experiments: experiments ?? [],
+    leadStates,
     reports,
     recommendations: recs ?? [],
+
     flags: {
       aiEnabled: flags.enabled,
       autoSend: flags.autoSend,

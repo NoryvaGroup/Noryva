@@ -636,6 +636,57 @@ export type Database = {
           },
         ]
       }
+      growth_lead_state: {
+        Row: {
+          created_at: string
+          customer_id: string
+          intent_level: string
+          intent_reason: string
+          intent_score: number
+          intent_terminal: boolean
+          intent_updated_at: string
+          lead_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id: string
+          intent_level?: string
+          intent_reason?: string
+          intent_score?: number
+          intent_terminal?: boolean
+          intent_updated_at?: string
+          lead_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string
+          intent_level?: string
+          intent_reason?: string
+          intent_score?: number
+          intent_terminal?: boolean
+          intent_updated_at?: string
+          lead_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "growth_lead_state_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "growth_lead_state_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       growth_outcomes: {
         Row: {
           created_at: string

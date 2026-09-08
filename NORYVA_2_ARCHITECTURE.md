@@ -23,7 +23,42 @@ Lead (publikt formulär, oförändrat)  ->  leads + Make-webhook (oförändrad)
   -> OPTIMIZER (batch, aldrig per lead) -> growth_recommendations
 ```
 
+## Princip: Low-cost nurture, never discard relevant leads
+
+Ett lead med låg intent kastas aldrig bort – det hanteras billigare. LÅG betyder
+0 AI-anrop och deterministisk rekommendation, men leadet ligger kvar och kan
+när som helst uppgraderas av nya signaler.
+
+## Intent Engine (growth/intent.ts)
+
+Deterministisk score 0–100. Ingen LLM används för att räkna score.
+
+| Signal | Effekt |
+| --- | --- |
+| `lead_created` | basnivå = befintlig kvalificeringspoäng |
+| `contacted` | +3 (liten/neutral) |
+| `replied` | +18 |
+| `meeting_booked` | +32 |
+| `revenue` | +6 (dubbelräknar inte `won`) |
+| `won` | terminalt 100 |
+| `lost` | terminalt 0 |
+
+Trösklar: ≥70 = HÖG, ≥40 = NORMAL, annars LÅG. AKUT sätts aldrig av score utan
+endast av befintliga hårda regler och vinner över intent-nivån. Uteblivet svar
+efter uppföljning påverkar inte score idag – ingen sådan event-typ finns, och
+inga events hittas på.
+
+Score räknas om idempotent i `recomputeIntent(leadId)` från initial
+kvalificering + `growth_outcomes`, och sparas i `growth_lead_state`
+(`intent_score`, `intent_level`, `intent_reason`, `intent_terminal`,
+`intent_updated_at`). `registerOutcome` triggar omräkningen – utan externa
+actions.
+
+Routern använder aktuell intent-nivå när den finns, men människoregler,
+budgetdegradering och komplexitet gäller före.
+
 ## Routerregler (growth/router.ts)
+
 
 | Villkor | Route | LLM-anrop |
 | --- | --- | --- |
@@ -79,7 +114,7 @@ Alla ligger under `/api/public/growth/*`, tar `POST` med JSON och kräver
 
 | Path | Body | Svar |
 | --- | --- | --- |
-| `/api/public/growth/route-lead` | `{ leadId }` | `{ leadId, route, requestedRoute, reason, requiresHuman, llmCalls, budgetState, qualification }` |
+| `/api/public/growth/route-lead` | `{ leadId }` | `{ leadId, route, requestedRoute, reason, requiresHuman, llmCalls, budgetState, qualification, intent: { score, level, reason } }` |
 | `/api/public/growth/analyze-lead` | `{ leadId }` | `{ ok, leadId, route, tier, model, llmCalls, estimatedCost, usedFallback, runId, requiresHuman }` |
 | `/api/public/growth/assign-variant` | `{ leadId, experimentId? }` | `{ assigned, experimentId, variantId, variantName, reused }` |
 | `/api/public/growth/register-outcome` | `{ leadId, outcomeType, outcomeValue?, revenueValue? }` | `{ ok, created, idempotencyKey }` |
@@ -121,7 +156,13 @@ x-noryva-event-id: make-9f2b1d
   "requiresHuman": false,
   "llmCalls": 0,
   "budgetState": "ok",
-  "qualification": { "score": 0, "qualification": "Låg", "priority": "LÅG" }
+  "qualification": { "score": 0, "qualification": "Låg", "priority": "LÅG" },
+  "intent": {
+    "score": 0,
+    "level": "LÅG",
+    "reason": "Basnivå 0 från kvalificering – inga utfall registrerade ännu."
+  }
+
 }
 ```
 

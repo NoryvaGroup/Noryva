@@ -156,6 +156,47 @@ function GrowthPage() {
           </section>
 
           <section>
+            <h2 className="mb-3 text-sm font-semibold">Intent-score per förfrågan</h2>
+            {(data.leadStates ?? []).length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Ingen intent-data ännu. Score räknas om automatiskt när utfall registreras.
+              </p>
+            ) : (
+              <div className="overflow-x-auto rounded-xl border border-border bg-card">
+                <table className="w-full text-left text-xs">
+                  <thead className="text-muted-foreground">
+                    <tr>
+                      <th className="px-3 py-2">Förfrågan</th>
+                      <th className="px-3 py-2">Score</th>
+                      <th className="px-3 py-2">Nivå</th>
+                      <th className="px-3 py-2">Motivering</th>
+                      <th className="px-3 py-2">Uppdaterad</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(data.leadStates as any[]).map((s) => (
+                      <tr key={s.lead_id} className="border-t border-border/60">
+                        <td className="px-3 py-2 font-mono">{String(s.lead_id).slice(0, 8)}</td>
+                        <td className="px-3 py-2">{s.intent_score}</td>
+                        <td className="px-3 py-2">
+                          {s.intent_level}
+                          {s.intent_terminal ? " (avgjord)" : ""}
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground">{s.intent_reason}</td>
+                        <td className="px-3 py-2 text-muted-foreground">
+                          {new Date(s.intent_updated_at).toLocaleString("sv-SE")}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
+
+
+          <section>
             <h2 className="mb-3 text-sm font-semibold">Senaste optimizer-rekommendationer</h2>
             {data.recommendations.length === 0 ? (
               <p className="text-sm text-muted-foreground">Inga sparade rekommendationer ännu.</p>
