@@ -24,6 +24,37 @@ function missingTable(message: string): boolean {
   return /relation .* does not exist|schema cache|42P01/i.test(message);
 }
 
+/**
+ * Audit-logg. Endast metadata och beslut – aldrig personuppgifter eller
+ * mailtext. Loggen får aldrig stoppa huvudflödet.
+ */
+async function logEvent(
+  context: AdminContext,
+  event: {
+    eventType: string;
+    actor: "ai" | "human" | "system";
+    leadId?: string | null;
+    customerId?: string | null;
+    runId?: string | null;
+    detail?: Record<string, unknown>;
+  },
+) {
+  try {
+    await context.supabase.from("ai_sales_events").insert({
+      event_type: event.eventType,
+      actor: event.actor,
+      actor_user_id: context.userId,
+      lead_id: event.leadId ?? null,
+      customer_id: event.customerId ?? null,
+      run_id: event.runId ?? null,
+      detail: event.detail ?? {},
+    });
+  } catch {
+    /* audit får aldrig blockera */
+  }
+}
+
+
 export const getAiSalesFlags = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
