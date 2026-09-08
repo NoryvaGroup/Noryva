@@ -15,6 +15,7 @@ type Row = Record<string, any>;
 
 function makeSupabase(state: Record<string, Row[]>) {
   const inserted: Record<string, Row[]> = {};
+  const rpcCalls: Array<[string, any]> = [];
   const supabase = {
     from(table: string) {
       const filters: Array<[string, any]> = [];
@@ -40,14 +41,45 @@ function makeSupabase(state: Record<string, Row[]>) {
           };
           return res;
         },
+        upsert: async () => ({ data: null, error: null }),
+        update: (patch: Row) => {
+          const res: any = {
+            eq: (c: string, v: any) => {
+              filters.push([c, v]);
+              return res;
+            },
+            then: (resolve: any) => {
+              for (const row of rows()) Object.assign(row, patch);
+              return resolve({ data: null, error: null });
+            },
+          };
+          return res;
+        },
         then: (resolve: any) => resolve({ data: rows(), error: null }),
       };
       return builder;
     },
-    rpc: async () => ({ data: true, error: null }),
+    async rpc(name: string, args: any) {
+      rpcCalls.push([name, args]);
+      if (name === "claim_growth_analysis") {
+        const existing = (state["growth_analysis_claims"] ??= []).find(
+          (r) => r["lead_id"] === args.p_lead_id && r["analysis_version"] === args.p_analysis_version,
+        );
+        if (existing) return { data: existing["status"], error: null };
+        state["growth_analysis_claims"]!.push({
+          lead_id: args.p_lead_id,
+          analysis_version: args.p_analysis_version,
+          status: "in_progress",
+          result: {},
+        });
+        return { data: "claimed", error: null };
+      }
+      return { data: true, error: null };
+    },
   };
-  return { supabase, inserted };
+  return { supabase, inserted, rpcCalls };
 }
+
 
 function baseState(answers: Record<string, string>) {
   return {
@@ -332,5 +364,273 @@ describe("Cloudflare Worker env-binding", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as any;
     expect(body.leadId).toBe(LEAD_ID);
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * Normaliserat kontrakt, faktiska modellförsök och claim-återanvändning
+ * ------------------------------------------------------------------ */
+
+const AI_ENV = {
+  NORYVA_GROWTH_API_SECRET: SECRET,
+  AI_SALES_ASSISTANT_ENABLED: "true",
+  LOVABLE_API_KEY: "test-key",
+};
+
+function withEnv(req: Request, env: Record<string, string> = AI_ENV) {
+  (req as Request & { env?: Record<string, unknown> }).env = env;
+  return req;
+}
+
+/** Utfall som lyfter intent till NORMAL (ai_light) respektive HÖG (ai_full). */
+function stateWithOutcomes(outcomes: string[], extra: Record<string, Row[]> = {}) {
+  const state = baseState(COMPLETE_ANSWERS);
+  state["customer_profiles"] = [
+    { customer_id: CUSTOMER_ID, ai_assistant_enabled: true, execution_mode: "test" },
+  ];
+  state["growth_outcomes"] = outcomes.map((t, i) => ({
+    id: `o-${i}`,
+    lead_id: LEAD_ID,
+    customer_id: CUSTOMER_ID,
+    outcome_type: t,
+    outcome_value: null,
+    revenue_value: null,
+  }));
+  return { ...state, ...extra };
+}
+
+const MODEL_JSON = JSON.stringify({
+  action: "Följ upp",
+  contactSpeed: "Inom 24 timmar",
+  subject: "Din takförfrågan",
+  emailDraft: "Hej!\n\nTack för din förfrågan, vi återkommer med nästa steg inom kort.",
+  followupQuestions: ["Kan du beskriva takets skick närmare?"],
+  humanTakeover: false,
+  strategyReason: "Tydligt behov och rimlig tidsram.",
+  confidence: 0.7,
+  safetyFlags: [],
+  research: {
+    needSummary: "Takbyte på lagerbyggnad.",
+    buyingSignals: ["Tidsram 3-6 månader"],
+    risks: [],
+    qualificationNote: "Normalt kvalificerat.",
+  },
+});
+
+function stubFetch(impl: () => any) {
+  const calls = { count: 0 };
+  const original = globalThis.fetch;
+  globalThis.fetch = (async () => {
+    calls.count += 1;
+    return impl();
+  }) as typeof fetch;
+  return { calls, restore: () => (globalThis.fetch = original) };
+}
+
+function okResponse() {
+  return new Response(JSON.stringify({ output_text: MODEL_JSON, usage: { input_tokens: 800, output_tokens: 300 } }), {
+    status: 200,
+    headers: { "content-type": "application/json" },
+  });
+}
+
+async function analyze(state: Record<string, Row[]>, env = AI_ENV) {
+  const res = await handleGrowthApi(
+    "analyze-lead",
+    withEnv(signedRequest("analyze-lead", { leadId: LEAD_ID }), env),
+    depsNoSecret(state),
+  );
+  return { res, body: (await res.json()) as any };
+}
+
+describe("normaliserat svarsformat", () => {
+  it("route-lead och analyze-lead returnerar identiskt schema utan kontakt-PII", async () => {
+    const routeRes = await handleGrowthApi(
+      "route-lead",
+      withEnv(signedRequest("route-lead", { leadId: LEAD_ID })),
+      depsNoSecret(baseState(COMPLETE_ANSWERS)),
+    );
+    const routeBody = (await routeRes.json()) as any;
+    const { body: analyzeBody } = await analyze(baseState(COMPLETE_ANSWERS));
+
+    const n = routeBody.normalized;
+    expect(Object.keys(n).sort()).toEqual(Object.keys(analyzeBody.normalized).sort());
+    expect(n.schema_version).toBe("noryva.growth.normalized.v1");
+    expect(n.review_required).toBe(true);
+    expect(n.review_status).toBe("draft");
+
+    // Alla sju CRM-fält är alltid ifyllda, även deterministiskt/human.
+    for (const key of [
+      "action",
+      "contact_speed",
+      "subject",
+      "email_draft",
+      "strategy_reason",
+    ]) {
+      expect(typeof n.sales[key]).toBe("string");
+      expect(n.sales[key].length).toBeGreaterThan(0);
+    }
+    expect(Array.isArray(n.sales.followup_questions)).toBe(true);
+    expect(typeof n.sales.human_takeover).toBe("boolean");
+
+    // Kvalificering och kontext följer med, men ingen kontakt-PII.
+    expect(typeof n.qualification.score).toBe("number");
+    expect(typeof n.context.need).toBe("string");
+    expect(n.context).toHaveProperty("roof");
+    const serialized = JSON.stringify(n).toLowerCase();
+    for (const forbidden of ["epost", "telefon", "@", "kontaktperson"]) {
+      expect(serialized.includes(forbidden)).toBe(false);
+    }
+  });
+});
+
+describe("faktiska modellförsök", () => {
+  it("deterministiskt lead ger 0 försök och inget nätverksanrop", async () => {
+    const stub = stubFetch(okResponse);
+    try {
+      const { body } = await analyze(baseState(COMPLETE_ANSWERS));
+      expect(body.llmCalls).toBe(0);
+      expect(stub.calls.count).toBe(0);
+    } finally {
+      stub.restore();
+    }
+  });
+
+  it("prisfråga går till människa med 0 försök", async () => {
+    const stub = stubFetch(okResponse);
+    try {
+      const state = baseState({
+        ...COMPLETE_ANSWERS,
+        projektbeskrivning: "Vad kostar ett nytt tak? Vi vill ha en offert.",
+      });
+      const { body } = await analyze(state);
+      expect(body.route).toBe("human");
+      expect(body.llmCalls).toBe(0);
+      expect(stub.calls.count).toBe(0);
+      expect(body.normalized.requires_human).toBe(true);
+    } finally {
+      stub.restore();
+    }
+  });
+
+  it("ai_light ger exakt 1 försök", async () => {
+    const stub = stubFetch(okResponse);
+    try {
+      const { body } = await analyze(stateWithOutcomes(["replied", "meeting_booked"]));
+      expect(body.route).toBe("ai_light");
+      expect(body.llmCalls).toBe(1);
+      expect(stub.calls.count).toBe(1);
+      expect(body.normalized.llm_attempts).toBe(1);
+    } finally {
+      stub.restore();
+    }
+  });
+
+  it("ai_full ger exakt 1 försök", async () => {
+    const stub = stubFetch(okResponse);
+    try {
+      const { body } = await analyze(stateWithOutcomes(["won"]));
+      expect(body.route).toBe("ai_full");
+      expect(body.llmCalls).toBe(1);
+      expect(stub.calls.count).toBe(1);
+    } finally {
+      stub.restore();
+    }
+  });
+
+  it("leverantörsfel behåller försök, försökt nivå och konservativ kostnad", async () => {
+    const stub = stubFetch(() => new Response("upstream down", { status: 503 }));
+    try {
+      const { body } = await analyze(stateWithOutcomes(["replied", "meeting_booked"]));
+      expect(stub.calls.count).toBe(1);
+      expect(body.llmCalls).toBe(1);
+      expect(body.usedFallback).toBe(true);
+      expect(body.attemptedTier).toBe("ai_light");
+      expect(body.attemptedModel).toBeTruthy();
+      expect(body.normalized.cost.estimated_usd).toBeGreaterThan(0);
+      expect(body.normalized.cost.assumed).toBe(true);
+      expect(body.normalized.sales.subject.length).toBeGreaterThan(0);
+    } finally {
+      stub.restore();
+    }
+  });
+
+  it("ogiltig JSON från modellen ger fallback men räknat försök", async () => {
+    const stub = stubFetch(
+      () => new Response(JSON.stringify({ output_text: "inte json alls" }), { status: 200 }),
+    );
+    try {
+      const { body } = await analyze(stateWithOutcomes(["replied", "meeting_booked"]));
+      expect(stub.calls.count).toBe(1);
+      expect(body.llmCalls).toBe(1);
+      expect(body.usedFallback).toBe(true);
+      expect(body.normalized.attempted_tier).toBe("ai_light");
+    } finally {
+      stub.restore();
+    }
+  });
+
+  it("budgettak nedgraderar till deterministisk utan modellanrop", async () => {
+    const stub = stubFetch(okResponse);
+    try {
+      const state = stateWithOutcomes(["replied", "meeting_booked"]);
+      state["ai_cost_events"] = [
+        { id: "c1", customer_id: CUSTOMER_ID, estimated_cost: 99, created_at: new Date().toISOString() },
+      ];
+      const { body } = await analyze(state);
+      expect(body.route).toBe("deterministic");
+      expect(body.llmCalls).toBe(0);
+      expect(stub.calls.count).toBe(0);
+      expect(body.normalized.budget_state).toBe("exceeded");
+    } finally {
+      stub.restore();
+    }
+  });
+});
+
+describe("claim: högst ett modellanrop per lead", () => {
+  it("upprepade anrop med nya event-id ger bara ett modellanrop", async () => {
+    const stub = stubFetch(okResponse);
+    try {
+      const state = stateWithOutcomes(["replied", "meeting_booked"]);
+      const d = depsNoSecret(state);
+      const first = await handleGrowthApi(
+        "analyze-lead",
+        withEnv(signedRequest("analyze-lead", { leadId: LEAD_ID })),
+        d,
+      );
+      const second = await handleGrowthApi(
+        "analyze-lead",
+        withEnv(signedRequest("analyze-lead", { leadId: LEAD_ID })),
+        d,
+      );
+      const b1 = (await first.json()) as any;
+      const b2 = (await second.json()) as any;
+      expect(stub.calls.count).toBe(1);
+      expect(b1.llmCalls).toBe(1);
+      expect(b2.llmCalls).toBe(0);
+      expect(b2.reused).toBe(true);
+      expect(b2.normalized.sales.subject).toBe(b1.normalized.sales.subject);
+    } finally {
+      stub.restore();
+    }
+  });
+
+  it("samtidiga anrop ger bara ett modellanrop", async () => {
+    const stub = stubFetch(okResponse);
+    try {
+      const state = stateWithOutcomes(["replied", "meeting_booked"]);
+      const d = depsNoSecret(state);
+      const [a, b] = await Promise.all([
+        handleGrowthApi("analyze-lead", withEnv(signedRequest("analyze-lead", { leadId: LEAD_ID })), d),
+        handleGrowthApi("analyze-lead", withEnv(signedRequest("analyze-lead", { leadId: LEAD_ID })), d),
+      ]);
+      const bodies = [(await a.json()) as any, (await b.json()) as any];
+      expect(stub.calls.count).toBe(1);
+      expect(bodies.filter((x) => x.llmCalls === 1).length).toBe(1);
+      expect(bodies.filter((x) => x.reused === true).length).toBe(1);
+    } finally {
+      stub.restore();
+    }
   });
 });

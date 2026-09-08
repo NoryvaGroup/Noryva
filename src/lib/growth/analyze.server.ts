@@ -24,7 +24,17 @@ export type AnalyzeResult = {
   usedFallback: boolean;
   cost: CostEstimate;
   error?: string;
+  /**
+   * Faktiskt antal modellförsök (0 eller 1). Räknas upp så snart ett anrop
+   * påbörjats – oberoende av om det lyckades. Får aldrig härledas ur `tier`,
+   * eftersom ett misslyckat anrop faller tillbaka på deterministisk analys.
+   */
+  attempts: 0 | 1;
+  /** Nivå/modell som försöktes, även när svaret blev fallback. */
+  attemptedTier: ModelTier | null;
+  attemptedModel: string | null;
 };
+
 
 function extractText(json: unknown): string {
   const j = json as Record<string, any>;
@@ -67,24 +77,44 @@ export function deterministicAnalysis(context: AiSalesContext): AnalyzeResult {
     promptVersion: GROWTH_PROMPT_VERSION,
     usedFallback: false,
     cost: estimateCost({ tier: "deterministic", inputTokens: 0, outputTokens: 0 }),
+    attempts: 0,
+    attemptedTier: null,
+    attemptedModel: null,
   };
 }
+
+export type AnalyzeOptions = {
+  variant?: VariantHint | null;
+  /** API-nyckel från runtime-env (Worker-binding eller process.env). */
+  apiKey?: string | undefined;
+};
 
 export async function analyzeWithTier(
   context: AiSalesContext,
   tier: Extract<ModelTier, "ai_light" | "ai_full">,
-  variant?: VariantHint | null,
+  options: AnalyzeOptions = {},
 ): Promise<AnalyzeResult> {
   const cfg = MODEL_TIERS[tier];
-  const apiKey = process.env["LOVABLE_API_KEY"];
+  const variant = options.variant ?? null;
+  const apiKey = options.apiKey ?? process.env["LOVABLE_API_KEY"];
 
-  const fail = (error: string): AnalyzeResult => ({
+  /**
+   * `attempted` = anropet hann påbörjas. Då behålls försökt nivå/modell och en
+   * konservativ schablonkostnad, eftersom faktisk tokenförbrukning är okänd.
+   * Inget nytt modellanrop görs – fallback är alltid deterministisk.
+   */
+  const fail = (error: string, attempted: boolean): AnalyzeResult => ({
     ...deterministicAnalysis(context),
     usedFallback: true,
     error,
+    attempts: attempted ? 1 : 0,
+    attemptedTier: attempted ? tier : null,
+    attemptedModel: attempted ? (cfg.model ?? null) : null,
+    ...(attempted ? { cost: estimateCost({ tier }) } : {}),
   });
 
-  if (!apiKey) return fail("LOVABLE_API_KEY saknas.");
+  if (!apiKey) return fail("LOVABLE_API_KEY saknas.", false);
+
 
   try {
     const body: Record<string, unknown> = {
@@ -110,8 +140,9 @@ export async function analyzeWithTier(
 
     if (!res.ok) {
       const message = await res.text();
-      return fail(`AI-tjänsten svarade ${res.status}: ${message.slice(0, 300)}`);
+      return fail(`AI-tjänsten svarade ${res.status}: ${message.slice(0, 300)}`, true);
     }
+
 
     const json = (await res.json()) as Record<string, any>;
     const parsed = growthAnalysisSchema.parse(parseJson(extractText(json)));
@@ -144,8 +175,13 @@ export async function analyzeWithTier(
       promptVersion: GROWTH_PROMPT_VERSION,
       usedFallback: false,
       cost,
+      attempts: 1,
+      attemptedTier: tier,
+      attemptedModel: cfg.model ?? null,
     };
   } catch (error) {
-    return fail(error instanceof Error ? error.message : "Okänt fel vid AI-anrop.");
+    // Vi har redan påbörjat (eller genomfört) anropet – räkna det som ett försök.
+    return fail(error instanceof Error ? error.message : "Okänt fel vid AI-anrop.", true);
   }
+
 }

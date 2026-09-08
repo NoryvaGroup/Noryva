@@ -23,6 +23,8 @@ import {
   routeLeadCore,
   type GrowthContext,
 } from "./service.server";
+import { runtimeEnvFromRequest, type RuntimeEnv } from "./runtime-env";
+
 
 const throttle = createThrottle(60, 60_000);
 
@@ -86,10 +88,13 @@ async function runOperation(
   operation: GrowthOperation,
   ctx: GrowthContext,
   data: any,
+  env: RuntimeEnv,
 ): Promise<unknown> {
   switch (operation) {
     case "route-lead": {
-      const { decision, qualification, intent } = await routeLeadCore(ctx, data.leadId);
+      const { decision, qualification, intent, normalized } = await routeLeadCore(ctx, data.leadId, {
+        env,
+      });
       return {
         leadId: data.leadId,
         route: decision.route,
@@ -104,25 +109,37 @@ async function runOperation(
           priority: qualification.priority,
         },
         intent: { score: intent.score, level: intent.level, reason: intent.reason },
+        normalized,
       };
     }
 
     case "analyze-lead": {
       // Ingen forceTier: routern avgör ensam om AI får köras.
-      const result = await analyzeLeadCore(ctx, data.leadId, { forceTier: null, actor: "system" });
+      const result = await analyzeLeadCore(ctx, data.leadId, {
+        forceTier: null,
+        actor: "system",
+        env,
+      });
       return {
         ok: true,
         leadId: data.leadId,
         route: result.decision.route,
         tier: result.tier,
         model: result.model === "deterministic" ? null : result.model,
-        llmCalls: result.tier === "ai_light" || result.tier === "ai_full" ? 1 : 0,
+        // Faktiska försök, inte härlett ur tier: ett misslyckat AI-anrop
+        // rapporteras som 1 även när svaret föll tillbaka på deterministik.
+        llmCalls: result.llmAttempts,
+        attemptedTier: result.attemptedTier,
+        attemptedModel: result.attemptedModel,
+        reused: result.reused,
         estimatedCost: result.cost.estimatedCost,
         usedFallback: result.usedFallback,
         runId: result.runId,
         requiresHuman: result.decision.requiresHuman,
+        normalized: result.normalized,
       };
     }
+
     case "assign-variant":
       return assignLeadVariantCore(ctx, data.leadId, data.experimentId ?? null);
     case "register-outcome":
@@ -187,7 +204,7 @@ export async function handleGrowthApi(
     if (!fresh) {
       return json(409, { error: "Anropet har redan behandlats.", duplicate: true, eventId: verified.eventId });
     }
-    const result = await runOperation(operation, ctx, parsed.data);
+    const result = await runOperation(operation, ctx, parsed.data, runtimeEnvFromRequest(request));
     return json(200, result);
   } catch (error) {
     console.error(`[growth-api:${operation}]`, error);

@@ -63,7 +63,9 @@ export const analyzeLead = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const ctx = context as GrowthContext;
     await assertAdmin(ctx);
-    return analyzeLeadCore(ctx, data.leadId, { forceTier: data.forceTier ?? null });
+    // Admin får analysera om manuellt – claim gäller maskinanropen (Make).
+    return analyzeLeadCore(ctx, data.leadId, { forceTier: data.forceTier ?? null, claim: false });
+
   });
 
 export const assignLeadVariant = createServerFn({ method: "POST" })

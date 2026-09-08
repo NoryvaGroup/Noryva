@@ -7,7 +7,10 @@
  * ändrar experimentvikter.
  */
 import { buildAiSalesContext } from "@/lib/ai-sales/context";
-import { serverAiSalesFlags, assertNoExternalSend } from "@/lib/ai-sales/flags";
+import { serverAiSalesFlags, readAiSalesFlags, assertNoExternalSend } from "@/lib/ai-sales/flags";
+import type { RuntimeEnv } from "./runtime-env";
+import { ANALYSIS_VERSION, buildNormalized, type NormalizedOutput } from "./normalized";
+
 import { readStoredPayload } from "@/lib/landing/make-adapter";
 import { defaultProfile, rowToProfile } from "@/lib/ai-sales/profile";
 import { qualifyLead } from "@/lib/ai-sales/qualify";
@@ -188,8 +191,68 @@ export async function recomputeIntentCore(
   return state;
 }
 
+/** Flaggor läses från samma runtime-env i BÅDE route och analyze. */
+function resolveFlags(env?: RuntimeEnv) {
+  return env ? readAiSalesFlags(env) : serverAiSalesFlags();
+}
+
+type ClaimStatus = "claimed" | "in_progress" | "done" | "failed" | "skipped";
+
+/** Atomisk reservation per (lead, analysversion). Skyddar mot Make-retries. */
+async function claimAnalysis(ctx: GrowthContext, leadId: string): Promise<ClaimStatus> {
+  const { data, error } = await ctx.supabase.rpc("claim_growth_analysis", {
+    p_lead_id: leadId,
+    p_analysis_version: ANALYSIS_VERSION,
+  });
+  if (error) throw new Error(error.message);
+  if (typeof data !== "string") return "claimed";
+  return (data as ClaimStatus) ?? "in_progress";
+}
+
+/** Tidigare sparat normaliserat resultat, om analysen redan är gjord. */
+async function readClaimResult(
+  ctx: GrowthContext,
+  leadId: string,
+): Promise<NormalizedOutput | null> {
+  const { data } = await ctx.supabase
+    .from("growth_analysis_claims")
+    .select("status, run_id, result")
+    .eq("lead_id", leadId)
+    .eq("analysis_version", ANALYSIS_VERSION)
+    .maybeSingle();
+  const result = data?.result;
+  if (result && typeof result === "object" && result["schema_version"]) {
+    return result as NormalizedOutput;
+  }
+  return null;
+}
+
+async function completeClaim(
+  ctx: GrowthContext,
+  leadId: string,
+  customerId: string,
+  status: "done" | "failed",
+  runId: string | null,
+  normalized: NormalizedOutput,
+): Promise<void> {
+  try {
+    await ctx.supabase
+      .from("growth_analysis_claims")
+      .update({ status, run_id: runId, customer_id: customerId, result: normalized })
+      .eq("lead_id", leadId)
+      .eq("analysis_version", ANALYSIS_VERSION);
+  } catch {
+    /* claim-uppdatering får aldrig blockera svaret */
+  }
+}
+
 /** 1) Beslut: behöver leadet AI alls? Inga sidoeffekter, inga LLM-anrop. */
-export async function routeLeadCore(ctx: GrowthContext, leadId: string) {
+export async function routeLeadCore(
+  ctx: GrowthContext,
+  leadId: string,
+  options: { env?: RuntimeEnv } = {},
+) {
+  const flags = resolveFlags(options.env);
   const { lead, profile, budget, qualification, context: aiContext } = await loadLeadBundle(ctx, leadId);
   const usage = await readUsage(ctx, lead.customer_id);
   const outcomes = await readLeadOutcomes(ctx, lead.id);
@@ -207,10 +270,27 @@ export async function routeLeadCore(ctx: GrowthContext, leadId: string) {
     text: [aiContext.need, aiContext.description, aiContext.timeline].join(" "),
     budgetUsage: usage,
     budget,
-    aiEnabled: profile.aiAssistantEnabled,
+    // Samma villkor som i analyzeLeadCore – route och analys kan aldrig glida isär.
+    aiEnabled: profile.aiAssistantEnabled && flags.enabled,
   });
 
-  return { decision, qualification, intent, budget, usage };
+  // Deterministiskt komplett underlag, utan modellanrop. Make kan skriva över
+  // sin fallback direkt även när svaret är human/deterministic.
+  const deterministic = deterministicAnalysis(aiContext);
+  const normalized = buildNormalized({
+    context: aiContext,
+    qualification,
+    intent,
+    decision,
+    analysis: deterministic.analysis,
+    tier: "deterministic",
+    model: null,
+    llmAttempts: 0,
+    usedFallback: false,
+    cost: deterministic.cost,
+  });
+
+  return { decision, qualification, intent, budget, usage, normalized };
 }
 
 
@@ -222,9 +302,15 @@ export async function routeLeadCore(ctx: GrowthContext, leadId: string) {
 export async function analyzeLeadCore(
   ctx: GrowthContext,
   leadId: string,
-  options: { forceTier?: "ai_light" | "ai_full" | null; actor?: "ai" | "system" } = {},
+  options: {
+    forceTier?: "ai_light" | "ai_full" | null;
+    actor?: "ai" | "system";
+    env?: RuntimeEnv;
+    /** false = hoppa över claim (admin-omanalys). Default: claim på. */
+    claim?: boolean;
+  } = {},
 ) {
-  const flags = serverAiSalesFlags();
+  const flags = resolveFlags(options.env);
   assertNoExternalSend(flags);
 
   const { lead, profile, budget, qualification, context: aiContext } = await loadLeadBundle(ctx, leadId);
@@ -236,6 +322,7 @@ export async function analyzeLeadCore(
   });
   const decision = decideRoute({
     priority: qualification.priority,
+    qualification: qualification.qualification,
     intentLevel: intent.level,
     missingInformation: aiContext.missingInformation,
     text: [aiContext.need, aiContext.description, aiContext.timeline].join(" "),
@@ -248,8 +335,70 @@ export async function analyzeLeadCore(
   const routedTier =
     decision.route === "ai_full" || decision.route === "ai_light" ? decision.route : null;
   const tier = options.forceTier ?? routedTier;
+  const willCallModel = Boolean(tier) && flags.enabled;
+
+  // Retries från Make har nya event-id:n – replayskyddet räcker inte. Claim
+  // per (lead, analysversion) garanterar högst ETT modellförsök per lead.
+  let claimStatus: ClaimStatus = "skipped";
+  if (willCallModel && options.claim !== false) {
+    claimStatus = await claimAnalysis(ctx, lead.id);
+    if (claimStatus !== "claimed") {
+      const stored = await readClaimResult(ctx, lead.id);
+      const normalized: NormalizedOutput = stored
+        ? { ...stored, reused: true }
+        : buildNormalized({
+            context: aiContext,
+            qualification,
+            intent,
+            decision,
+            analysis: deterministicAnalysis(aiContext).analysis,
+            tier: "deterministic",
+            model: null,
+            llmAttempts: 0,
+            usedFallback: true,
+            error: "Analys pågår redan för detta lead.",
+            cost: estimateCost({ tier: "deterministic", inputTokens: 0, outputTokens: 0 }),
+            reused: true,
+          });
+      return {
+        ok: true as const,
+        decision,
+        tier: normalized.tier,
+        model: normalized.model ?? "deterministic",
+        usedFallback: normalized.used_fallback,
+        error: normalized.error,
+        cost: {
+          tier: normalized.tier,
+          model: normalized.model,
+          inputTokens: normalized.cost.input_tokens,
+          outputTokens: normalized.cost.output_tokens,
+          estimatedCost: normalized.cost.estimated_usd,
+          assumed: normalized.cost.assumed,
+        },
+        runId: normalized.run_id,
+        research: {
+          needSummary: normalized.research.need_summary,
+          buyingSignals: normalized.research.buying_signals,
+          risks: normalized.research.risks,
+          qualificationNote: normalized.research.qualification_note,
+        },
+        // Inget nytt modellanrop gjordes i den här förfrågan.
+        llmAttempts: 0 as const,
+        attemptedTier: normalized.attempted_tier,
+        attemptedModel: normalized.attempted_model,
+        reused: true as const,
+        claimStatus,
+
+        normalized,
+      };
+    }
+  }
+
   const result =
-    tier && flags.enabled ? await analyzeWithTier(aiContext, tier) : deterministicAnalysis(aiContext);
+    willCallModel && tier
+      ? await analyzeWithTier(aiContext, tier, { apiKey: (options.env ?? process.env)["LOVABLE_API_KEY"] })
+      : deterministicAnalysis(aiContext);
+
 
   await logCost(ctx, {
     customerId: lead.customer_id,
@@ -302,6 +451,34 @@ export async function analyzeLeadCore(
     /* audit får aldrig blockera */
   }
 
+  const normalized = buildNormalized({
+    context: aiContext,
+    qualification,
+    intent,
+    decision,
+    analysis: result.analysis,
+    tier: result.tier,
+    model: result.model,
+    attemptedTier: result.attemptedTier,
+    attemptedModel: result.attemptedModel,
+    llmAttempts: result.attempts,
+    usedFallback: result.usedFallback,
+    error: result.error ?? null,
+    cost: result.cost,
+    runId: inserted?.id ?? null,
+  });
+
+  if (claimStatus === "claimed") {
+    await completeClaim(
+      ctx,
+      lead.id,
+      lead.customer_id,
+      result.usedFallback ? "failed" : "done",
+      inserted?.id ?? null,
+      normalized,
+    );
+  }
+
   return {
     ok: true as const,
     decision,
@@ -312,8 +489,16 @@ export async function analyzeLeadCore(
     cost: result.cost,
     runId: inserted?.id ?? null,
     research: result.analysis.research,
+    /** Faktiska modellförsök i denna förfrågan (0 eller 1). */
+    llmAttempts: result.attempts,
+    attemptedTier: result.attemptedTier,
+    attemptedModel: result.attemptedModel,
+    reused: false as const,
+    claimStatus,
+    normalized,
   };
 }
+
 
 /** 3) Stabil varianttilldelning. Samma lead får alltid samma variant. */
 export async function assignLeadVariantCore(
