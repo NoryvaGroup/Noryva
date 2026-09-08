@@ -248,6 +248,8 @@ export function refreshStoredNormalized(
 ): NormalizedOutput {
   const stale = stored.draft_contract !== DRAFT_CONTRACT_VERSION;
   return {
+    // `fresh` först: äldre cachade svar kan sakna fält som tillkommit senare.
+    ...fresh,
     ...stored,
     schema_version: NORMALIZED_SCHEMA_VERSION,
     analysis_version: stored.analysis_version ?? ANALYSIS_VERSION,
