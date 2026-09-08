@@ -156,7 +156,13 @@ x-noryva-event-id: make-9f2b1d
   "requiresHuman": false,
   "llmCalls": 0,
   "budgetState": "ok",
-  "qualification": { "score": 0, "qualification": "Låg", "priority": "LÅG" }
+  "qualification": { "score": 0, "qualification": "Låg", "priority": "LÅG" },
+  "intent": {
+    "score": 0,
+    "level": "LÅG",
+    "reason": "Basnivå 0 från kvalificering – inga utfall registrerade ännu."
+  }
+
 }
 ```
 
