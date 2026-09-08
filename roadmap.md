@@ -18,3 +18,9 @@
 - [x] Förberedd svarshantering med eskalering vid pris/förhandling/klagomål/juridik
 - [x] Arkitekturdokumentation i docs/ai-sales-architecture.md
 - [ ] Skarpt läge: mailkanal, inbox/svar, kalenderbokning och utfallsmätning (kräver separat godkännande)
+- [x] Noryva 2.0: kostnadsmedveten router (deterministic/ai_light/ai_full/human)
+- [x] Noryva 2.0: research + sälj i ett strukturerat AI-anrop, optimizer endast batch
+- [x] Noryva 2.0: experiment, varianter, tilldelning, utfall och AI-kostnadslogg (RLS admin-only)
+- [x] Noryva 2.0: adminvy Growth Engine med tomma states och TEST/REVIEW-status
+- [x] Noryva 2.0: serverfunktioner förberedda för Make (routeLead, analyzeLead, assignLeadVariant, registerOutcome, getGrowthRecommendation)
+- [ ] Exponera Make-endpoints som signaturverifierade publika routes (kräver separat beslut)
