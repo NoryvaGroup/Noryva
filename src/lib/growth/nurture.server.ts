@@ -15,6 +15,7 @@ import {
   applyReplyToNurture,
   buildNurturePlan,
   canTransitionNurture,
+  isLegacyCompleteCancelled,
   nextNurtureStepAt,
   nurtureStatusSchema,
   type NurtureStatus,
@@ -195,7 +196,15 @@ export async function planNurtureCore(
   const humanTakeover = needsHumanTakeover(aiContext);
   const companyName = aiContext.companyName ?? "";
 
-  if (existing && (TERMINAL_STATUSES.includes(existing.status) || existing.status === "replied")) {
+  // Rader som gamla "komplett underlag"-regeln avbröt får planeras om en gång.
+  // Alla andra avslut förblir terminala.
+  const reopenLegacy = existing ? isLegacyCompleteCancelled(existing) : false;
+
+  if (
+    existing &&
+    !reopenLegacy &&
+    (TERMINAL_STATUSES.includes(existing.status) || existing.status === "replied")
+  ) {
     return {
       ok: true as const,
       changed: false,

@@ -261,3 +261,37 @@ export function applyReplyToNurture(classification: ReplyClassification): Nurtur
     reason: "Svar mottaget – fortsatt billig uppföljning.",
   };
 }
+
+/**
+ * Exakt text som den GAMLA regeln skrev när ett komplett lead avbröts.
+ * Används enbart för att kunna omplanera dessa rader efter policyändringen.
+ */
+export const LEGACY_COMPLETE_CANCEL_REASON =
+  "Underlaget är komplett – ingen kompletteringsfråga behövs.";
+
+export type LegacyCancelRow = {
+  status: NurtureStatus;
+  reason?: string | null;
+  stopped_reason?: string | null;
+  human_takeover?: boolean | null;
+  upgrade_signal?: boolean | null;
+  last_reply_intent?: string | null;
+  steps_taken?: number | null;
+};
+
+/**
+ * true ENDAST för en cancelled-rad som skapades av gamla "komplett underlag"-regeln
+ * och aldrig rörts av något svar, eskalering eller manuellt avslut.
+ * Alla andra avslut förblir terminala.
+ */
+export function isLegacyCompleteCancelled(row: LegacyCancelRow): boolean {
+  if (row.status !== "cancelled") return false;
+  if (row.human_takeover === true || row.upgrade_signal === true) return false;
+  if ((row.last_reply_intent ?? "").trim() !== "") return false;
+  if ((row.steps_taken ?? 0) > 0) return false;
+
+  const reason = (row.reason ?? "").trim();
+  const stopped = (row.stopped_reason ?? "").trim();
+  if (reason !== LEGACY_COMPLETE_CANCEL_REASON) return false;
+  return stopped === "" || stopped === LEGACY_COMPLETE_CANCEL_REASON;
+}
