@@ -33,6 +33,8 @@ import { buildNurturePreview } from "./nurture-preview";
 import type { MakeContext } from "./make-contract";
 
 const TABLE = "growth_nurture_state";
+const CONVERSATIONS = "conversations";
+const MESSAGES = "conversation_messages";
 
 export type NurtureRow = {
   lead_id: string;
@@ -55,6 +57,110 @@ async function readNurtureRow(ctx: GrowthContext, leadId: string): Promise<Nurtu
   const { data } = await ctx.supabase.from(TABLE).select("*").eq("lead_id", leadId).maybeSingle();
   return (data as NurtureRow) ?? null;
 }
+
+/** Stabil, kort hash för idempotenta source_ref-nycklar (inte kryptografisk). */
+function stableHash(value: string): string {
+  let h = 2166136261;
+  for (let i = 0; i < value.length; i += 1) {
+    h ^= value.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(16).padStart(8, "0");
+}
+
+/**
+ * Hämtar eller skapar konversationen för ett lead. Idempotent: `conversations`
+ * har unik lead_id, så en samtidig insert läses tillbaka i stället för att
+ * skapa en dubblett. Ingen extern effekt.
+ */
+export async function ensureConversationCore(
+  ctx: GrowthContext,
+  lead: { id: string; customer_id: string },
+): Promise<{ id: string; stage: string; created: boolean }> {
+  const { data: existing } = await ctx.supabase
+    .from(CONVERSATIONS)
+    .select("id, stage")
+    .eq("lead_id", lead.id)
+    .maybeSingle();
+  if (existing) return { id: existing.id, stage: existing.stage, created: false };
+
+  const { data, error } = await ctx.supabase
+    .from(CONVERSATIONS)
+    .insert({ lead_id: lead.id, customer_id: lead.customer_id, stage: "new" })
+    .select("id, stage")
+    .single();
+  if (error || !data) {
+    const { data: retry } = await ctx.supabase
+      .from(CONVERSATIONS)
+      .select("id, stage")
+      .eq("lead_id", lead.id)
+      .maybeSingle();
+    if (retry) return { id: retry.id, stage: retry.stage, created: false };
+    throw new Error(error?.message ?? "Kunde inte skapa konversation.");
+  }
+  return { id: data.id, stage: data.stage ?? "new", created: true };
+}
+
+/** Skriver ett meddelande om samma source_ref inte redan finns. Aldrig utskick. */
+async function insertMessageOnce(
+  ctx: GrowthContext,
+  message: {
+    conversationId: string;
+    leadId: string;
+    customerId: string;
+    direction: "inbound" | "outbound";
+    redactedBody: string;
+    intent: string;
+    confidence: number;
+    escalate: boolean;
+    escalationReason: string;
+    suggestedAction: string;
+    sourceRef: string;
+  },
+): Promise<{ stored: boolean; duplicate: boolean; sourceRef: string }> {
+  const { data: existing } = await ctx.supabase
+    .from(MESSAGES)
+    .select("id")
+    .eq("conversation_id", message.conversationId)
+    .eq("direction", message.direction)
+    .eq("source_ref", message.sourceRef)
+    .maybeSingle();
+  if (existing) return { stored: false, duplicate: true, sourceRef: message.sourceRef };
+
+  await ctx.supabase.from(MESSAGES).insert({
+    conversation_id: message.conversationId,
+    lead_id: message.leadId,
+    customer_id: message.customerId,
+    direction: message.direction,
+    channel: "mock",
+    redacted_body: message.redactedBody,
+    intent: message.intent,
+    confidence: message.confidence,
+    escalate: message.escalate,
+    escalation_reason: message.escalationReason,
+    suggested_action: message.suggestedAction,
+    source_ref: message.sourceRef,
+  });
+  return { stored: true, duplicate: false, sourceRef: message.sourceRef };
+}
+
+/** Tillåtna steg enligt databasens check-villkor. */
+type ConversationStage =
+  | "new"
+  | "draft_ready"
+  | "approved"
+  | "contacted"
+  | "replied"
+  | "meeting_booked"
+  | "closed";
+
+async function touchConversation(ctx: GrowthContext, conversationId: string, stage: ConversationStage) {
+  await ctx.supabase
+    .from(CONVERSATIONS)
+    .update({ stage, last_event_at: new Date().toISOString() })
+    .eq("id", conversationId);
+}
+
 
 /** Statusar som betyder att den automatiska uppföljningen är avslutad. */
 const TERMINAL_STATUSES: NurtureStatus[] = ["cancelled"];
