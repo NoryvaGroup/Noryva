@@ -27,10 +27,26 @@ export function buildNurturePreview(input: NurturePreviewInput): NurturePreview 
     .map((q) => q.trim())
     .filter(Boolean)
     .slice(0, 3);
-  if (questions.length === 0) return null;
 
   const company = (input.companyName ?? "").trim();
   if (!company) return null;
+
+  // Inga frågor = komplett underlag. Då skickas ett kort, neutralt "håll varmt"-mail.
+  if (questions.length === 0) {
+    return {
+      subject: "Uppföljning på din förfrågan",
+      body: [
+        "Hej!",
+        "",
+        "Tack för din förfrågan. Vi ville bara följa upp och höra om behovet fortfarande är aktuellt.",
+        "",
+        "Om du vill gå vidare eller har frågor är det bara att svara på det här mailet.",
+        "",
+        "Vänliga hälsningar",
+        company,
+      ].join("\n"),
+    };
+  }
 
   const lines = [
     "Hej!",
