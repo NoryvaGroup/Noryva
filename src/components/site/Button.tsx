@@ -1,4 +1,5 @@
-import type { AnchorHTMLAttributes, ButtonHTMLAttributes } from "react";
+import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from "react";
+import { Link } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 
 const base =
