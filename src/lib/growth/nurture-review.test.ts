@@ -444,8 +444,8 @@ describe("granskningsspärrar (rena funktioner)", () => {
       questions: ["q"],
       dueAt: PAST,
     };
-    expect(reviewFingerprint(input)).toBe(reviewFingerprint(input));
-    expect(reviewFingerprint({ ...input, body: "B2" })).not.toBe(reviewFingerprint(input));
+    expect(await reviewFingerprint(input)).toBe(await reviewFingerprint(input));
+    expect(await reviewFingerprint({ ...input, body: "B2" })).not.toBe(await reviewFingerprint(input));
     expect(occurrenceKey(0, PAST)).toBe(`0:${PAST}`);
     expect(isValidEmail("a@b.se")).toBe(true);
     expect(isValidEmail("a@b")).toBe(false);
