@@ -1,5 +1,5 @@
 import { ArrowRight } from "lucide-react";
-import { CtaLink } from "./Button";
+import { CtaTo } from "./Button";
 import { Reveal } from "./Reveal";
 
 const steps = [
@@ -59,7 +59,7 @@ export function Process() {
 
         <Reveal delay={200}>
           <div className="mt-14">
-            <CtaLink href="/#kontakt" className="py-4 sm:py-3.5">
+            <CtaTo to="/kontakt" className="py-4 sm:py-3.5">
               Boka kostnadsfri genomgång <ArrowRight size={17} />
             </CtaLink>
           </div>

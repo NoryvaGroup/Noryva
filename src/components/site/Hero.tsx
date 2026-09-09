@@ -1,5 +1,5 @@
 import { ArrowDown, ArrowRight } from "lucide-react";
-import { CtaLink } from "./Button";
+import { CtaLink, CtaTo } from "./Button";
 import { Reveal } from "./Reveal";
 
 const flowSteps = ["Annons", "Lead", "Kvalificering", "Uppföljning", "Affär"];
@@ -135,7 +135,7 @@ export function Hero() {
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
               <CtaTo to="/kontakt" className="py-4 sm:py-3.5">
                 Boka kostnadsfri genomgång <ArrowRight size={17} />
-              </CtaLink>
+              </CtaTo>
               <CtaLink href="/#sa-fungerar" variant="ghost" className="py-4 sm:py-3.5">
                 Se hur det fungerar <ArrowDown size={16} />
               </CtaLink>

@@ -1,6 +1,6 @@
 import { ArrowRight, Building2, BriefcaseBusiness, KeyRound, Wrench } from "lucide-react";
 import { Reveal } from "./Reveal";
-import { CtaLink } from "./Button";
+import { CtaTo } from "./Button";
 
 const categories = [
   {
@@ -67,9 +67,9 @@ export function Audience() {
                 Boka en kostnadsfri genomgång så tittar vi på din situation tillsammans.
               </p>
             </div>
-            <CtaLink href="/#kontakt" className="shrink-0 py-3.5">
+            <CtaTo to="/kontakt" className="shrink-0 py-3.5">
               Boka kostnadsfri genomgång <ArrowRight size={16} />
-            </CtaLink>
+            </CtaTo>
           </div>
         </Reveal>
       </div>
