@@ -5,6 +5,8 @@ import {
   buildNurtureQuestions,
   canTransitionNurture,
   evaluateNurtureEligibility,
+  isLegacyCompleteCancelled,
+  LEGACY_COMPLETE_CANCEL_REASON,
   nextNurtureStepAt,
 } from "./nurture";
 import { classifyReplyDeterministic } from "@/lib/ai-sales/reply";
@@ -156,5 +158,44 @@ describe("intent-uppgradering från svar", () => {
     expect(computeIntent({ baseScore: 30, outcomes: [o, o] }).score).toBe(
       computeIntent({ baseScore: 30, outcomes: [o] }).score,
     );
+  });
+});
+
+describe("migration av gamla cancelled-rader", () => {
+  const legacy = {
+    status: "cancelled" as const,
+    reason: LEGACY_COMPLETE_CANCEL_REASON,
+    stopped_reason: LEGACY_COMPLETE_CANCEL_REASON,
+    human_takeover: false,
+    upgrade_signal: false,
+    last_reply_intent: "",
+    steps_taken: 0,
+  };
+
+  it("känner igen en gammal komplett-avbruten rad", () => {
+    expect(isLegacyCompleteCancelled(legacy)).toBe(true);
+    expect(isLegacyCompleteCancelled({ ...legacy, stopped_reason: "" })).toBe(true);
+  });
+
+  it("återöppnar aldrig andra avslut", () => {
+    expect(isLegacyCompleteCancelled({ ...legacy, reason: "Avslutad manuellt" })).toBe(false);
+    expect(
+      isLegacyCompleteCancelled({ ...legacy, reason: "Leadet har tackat nej – ingen vidare uppföljning." }),
+    ).toBe(false);
+    expect(isLegacyCompleteCancelled({ ...legacy, human_takeover: true })).toBe(false);
+    expect(isLegacyCompleteCancelled({ ...legacy, upgrade_signal: true })).toBe(false);
+    expect(isLegacyCompleteCancelled({ ...legacy, last_reply_intent: "avbojer" })).toBe(false);
+    expect(isLegacyCompleteCancelled({ ...legacy, steps_taken: 1 })).toBe(false);
+    expect(isLegacyCompleteCancelled({ ...legacy, status: "pending" })).toBe(false);
+  });
+
+  it("en omplanerad legacy-rad blir pending med nytt tillfälle", () => {
+    const plan = buildNurturePlan({
+      ...base,
+      missingInformation: [],
+      now: new Date("2026-01-01T00:00:00.000Z"),
+    });
+    expect(plan.status).toBe("pending");
+    expect(plan.nextStepAt).toBe("2026-01-04T00:00:00.000Z");
   });
 });
