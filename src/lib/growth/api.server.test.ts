@@ -930,7 +930,7 @@ describe("plan-nurture-test", () => {
     expect(body.questions.length).toBeLessThanOrEqual(3);
     expect(body.preview.body.startsWith("Hej!")).toBe(true);
     expect(body.preview.body).toContain("Testkund");
-    for (const word of ["ai_light", "ai_full", "tier", "score", "route", "kr", "pris"]) {
+    for (const word of ["ai_light", "ai_full", "tier", "score", "route", "offert", "pris"]) {
       expect(body.preview.body.toLowerCase()).not.toContain(word.toLowerCase());
     }
     expect(body.notificationSent).toBe(false);
@@ -946,7 +946,7 @@ describe("plan-nurture-test", () => {
 
   it("HÖG/AKUT får aldrig nurture-preview", async () => {
     const { body } = await planNurture(
-      nurtureState(INCOMPLETE_ANSWERS, ["replied", "meeting_booked", "quote_sent"]),
+      nurtureState(INCOMPLETE_ANSWERS, ["contacted", "replied", "meeting_booked", "revenue"]),
     );
     expect(["HÖG", "AKUT"]).toContain(body.intent.level);
     expect(body.eligible).toBe(false);
