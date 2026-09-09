@@ -1072,8 +1072,10 @@ export type Database = {
       }
       leads: {
         Row: {
+          contacted_at: string | null
           created_at: string
           customer_id: string
+          customer_status: string
           delivered_at: string | null
           delivery_attempts: number
           delivery_error: string
@@ -1087,8 +1089,10 @@ export type Database = {
           source_ip_hash: string
         }
         Insert: {
+          contacted_at?: string | null
           created_at?: string
           customer_id: string
+          customer_status?: string
           delivered_at?: string | null
           delivery_attempts?: number
           delivery_error?: string
@@ -1102,8 +1106,10 @@ export type Database = {
           source_ip_hash?: string
         }
         Update: {
+          contacted_at?: string | null
           created_at?: string
           customer_id?: string
+          customer_status?: string
           delivered_at?: string | null
           delivery_attempts?: number
           delivery_error?: string

@@ -1,5 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getRequestHeader } from "@tanstack/react-start/server";
+import { getRequest, getRequestHeader } from "@tanstack/react-start/server";
+import { runtimeEnvFromRequest } from "@/lib/growth/runtime-env";
+import { buildContactUrl } from "@/lib/leads/contact-token";
 import { z } from "zod";
 import { validateAnswers, type PublicLanding, type PublicQuestion } from "./landing/schema";
 import { buildMakeFields, buildStoredPayload, readStoredPayload } from "./landing/make-adapter";
@@ -198,6 +200,12 @@ export const submitPublicLead = createServerFn({ method: "POST" })
         ? scoreVaruautomat(readStoredPayload(rawPayload).answers ?? answers)
         : null;
 
+    // Signerad kundlänk för "Markera som kontaktad". Pekar alltid på Noryva.
+    const actionSecret = runtimeEnvFromRequest(getRequest())["NORYVA_LEAD_ACTION_SECRET"];
+    const kontaktadUrl = actionSecret
+      ? buildContactUrl({ secret: actionSecret, leadId: leadId! })
+      : "";
+
     // Servermetadata sist så att inga dynamiska fältnycklar kan skriva över dem.
     const body = {
       ...fields,
@@ -212,6 +220,8 @@ export const submitPublicLead = createServerFn({ method: "POST" })
       mottagare: customer.recipient_email,
       submitted_at: createdAt ?? new Date().toISOString(),
       source: `noryva_offert_${customer.industry}`,
+      kontaktad_url: kontaktadUrl,
+      kund_status: "Ny",
     };
 
     try {

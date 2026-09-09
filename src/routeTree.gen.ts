@@ -22,6 +22,7 @@ import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as TakoffertRouteImport } from './routes/takoffert'
 import { Route as VillkorRouteImport } from './routes/villkor'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
+import { Route as LeadKontaktadRouteImport } from './routes/lead/kontaktad'
 import { Route as OffertSlugRouteImport } from './routes/offert.$slug'
 import { Route as TestTakoffertRouteImport } from './routes/test.takoffert'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin/index'
@@ -110,6 +111,11 @@ const Char91DotwellKnownChar93OauthProtectedResourceRoute =
     path: '/.well-known/oauth-protected-resource',
     getParentRoute: () => rootRouteImport,
   } as any)
+const LeadKontaktadRoute = LeadKontaktadRouteImport.update({
+  id: '/lead/kontaktad',
+  path: '/lead/kontaktad',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OffertSlugRoute = OffertSlugRouteImport.update({
   id: '/offert/$slug',
   path: '/offert/$slug',
@@ -251,6 +257,7 @@ export interface FileRoutesByFullPath {
   '/takoffert': typeof TakoffertRoute
   '/villkor': typeof VillkorRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/lead/kontaktad': typeof LeadKontaktadRoute
   '/offert/$slug': typeof OffertSlugRoute
   '/test/takoffert': typeof TestTakoffertRoute
   '/admin/$customerId': typeof AuthenticatedAdminCustomerIdRoute
@@ -287,6 +294,7 @@ export interface FileRoutesByTo {
   '/takoffert': typeof TakoffertRoute
   '/villkor': typeof VillkorRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/lead/kontaktad': typeof LeadKontaktadRoute
   '/offert/$slug': typeof OffertSlugRoute
   '/test/takoffert': typeof TestTakoffertRoute
   '/admin/$customerId': typeof AuthenticatedAdminCustomerIdRoute
@@ -325,6 +333,7 @@ export interface FileRoutesById {
   '/takoffert': typeof TakoffertRoute
   '/villkor': typeof VillkorRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/lead/kontaktad': typeof LeadKontaktadRoute
   '/offert/$slug': typeof OffertSlugRoute
   '/test/takoffert': typeof TestTakoffertRoute
   '/_authenticated/admin/$customerId': typeof AuthenticatedAdminCustomerIdRoute
@@ -363,6 +372,7 @@ export interface FileRouteTypes {
     | '/takoffert'
     | '/villkor'
     | '/.well-known/oauth-protected-resource'
+    | '/lead/kontaktad'
     | '/offert/$slug'
     | '/test/takoffert'
     | '/admin/$customerId'
@@ -399,6 +409,7 @@ export interface FileRouteTypes {
     | '/takoffert'
     | '/villkor'
     | '/.well-known/oauth-protected-resource'
+    | '/lead/kontaktad'
     | '/offert/$slug'
     | '/test/takoffert'
     | '/admin/$customerId'
@@ -436,6 +447,7 @@ export interface FileRouteTypes {
     | '/takoffert'
     | '/villkor'
     | '/.well-known/oauth-protected-resource'
+    | '/lead/kontaktad'
     | '/offert/$slug'
     | '/test/takoffert'
     | '/_authenticated/admin/$customerId'
@@ -474,6 +486,7 @@ export interface RootRouteChildren {
   TakoffertRoute: typeof TakoffertRoute
   VillkorRoute: typeof VillkorRoute
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  LeadKontaktadRoute: typeof LeadKontaktadRoute
   OffertSlugRoute: typeof OffertSlugRoute
   TestTakoffertRoute: typeof TestTakoffertRoute
   TestOffertSlugRoute: typeof TestOffertSlugRoute
@@ -582,6 +595,13 @@ declare module '@tanstack/react-router' {
       path: '/.well-known/oauth-protected-resource'
       fullPath: '/.well-known/oauth-protected-resource'
       preLoaderRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/lead/kontaktad': {
+      id: '/lead/kontaktad'
+      path: '/lead/kontaktad'
+      fullPath: '/lead/kontaktad'
+      preLoaderRoute: typeof LeadKontaktadRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/offert/$slug': {
@@ -779,6 +799,7 @@ const rootRouteChildren: RootRouteChildren = {
   VillkorRoute: VillkorRoute,
   Char91DotwellKnownChar93OauthProtectedResourceRoute:
     Char91DotwellKnownChar93OauthProtectedResourceRoute,
+  LeadKontaktadRoute: LeadKontaktadRoute,
   OffertSlugRoute: OffertSlugRoute,
   TestTakoffertRoute: TestTakoffertRoute,
   TestOffertSlugRoute: TestOffertSlugRoute,
