@@ -178,6 +178,9 @@ function makeSupabase() {
       update: (patch: Row) => {
         const res: any = {
           eq: (c: string, v: any) => (preds.push((r) => r[c] === v), res),
+          neq: (c: string, v: any) => (preds.push((r) => r[c] !== v), res),
+          in: (c: string, v: any[]) => (preds.push((r) => v.includes(r[c])), res),
+          is: (c: string, v: any) => (preds.push((r) => (r[c] ?? null) === v), res),
           select: () => res,
           maybeSingle: async () => {
             const hit = rows();
