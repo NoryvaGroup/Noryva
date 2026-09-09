@@ -1,24 +1,23 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Nav } from "@/components/site/Nav";
 import { Hero } from "@/components/site/Hero";
 import { Problem } from "@/components/site/Problem";
-import { Process } from "@/components/site/Process";
-import { Services } from "@/components/site/Services";
-
+import { HowItWorks } from "@/components/site/HowItWorks";
+import { Signals } from "@/components/site/Signals";
+import { Positioning } from "@/components/site/Positioning";
+import { Benefits } from "@/components/site/Benefits";
 import { Dashboard } from "@/components/site/Dashboard";
-import { Results } from "@/components/site/Results";
-import { Why } from "@/components/site/Why";
+import { HumanControl } from "@/components/site/HumanControl";
+import { LeadContext } from "@/components/site/LeadContext";
 import { Audience } from "@/components/site/Audience";
-import { About } from "@/components/site/About";
 import { Cases } from "@/components/site/Cases";
-import { Faq, faqItems } from "@/components/site/Faq";
 import { BigCta } from "@/components/site/BigCta";
-import { Contact } from "@/components/site/Contact";
 import { Footer } from "@/components/site/Footer";
 
-const title = "Noryva | Kvalificerade leads och automatiserad uppföljning";
+const title = "Noryva | Prioriterade leads och smartare uppföljning";
 const description =
-  "Noryva hjälper tjänste- och B2B-företag med högt kundvärde att fånga, kvalificera och följa upp fler affärsmöjligheter automatiskt.";
+  "Noryva analyserar, prioriterar och förbereder nästa steg för varje inkommande lead – så att säljaren vet vem som bör kontaktas först och varför.";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -29,42 +28,30 @@ export const Route = createFileRoute("/")({
       { property: "og:title", content: title },
       { property: "og:description", content: description },
       { property: "og:type", content: "website" },
-      { property: "og:url", content: "https://noryva.se" },
+      { property: "og:url", content: "https://www.noryva.se" },
       { property: "og:locale", content: "sv_SE" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: title },
       { name: "twitter:description", content: description },
     ],
-    links: [{ rel: "canonical", href: "https://noryva.se" }],
+    links: [{ rel: "canonical", href: "https://www.noryva.se" }],
     scripts: [
       {
         type: "application/ld+json",
         children: JSON.stringify({
           "@context": "https://schema.org",
-          "@graph": [
-            {
-              "@type": "ProfessionalService",
-              name: "Noryva",
-              description,
-              areaServed: "SE",
-              email: "info@noryva.se",
-              url: "https://noryva.se",
-              serviceType: [
-                "Digital annonsering",
-                "Leadgenerering",
-                "AI-baserad leadkvalificering",
-                "Automatiserad uppföljning",
-                "CRM- och processflöden",
-              ],
-            },
-            {
-              "@type": "FAQPage",
-              mainEntity: faqItems.map((f) => ({
-                "@type": "Question",
-                name: f.q,
-                acceptedAnswer: { "@type": "Answer", text: f.a },
-              })),
-            },
+          "@type": "ProfessionalService",
+          name: "Noryva",
+          description,
+          areaServed: "SE",
+          email: "info@noryva.se",
+          url: "https://www.noryva.se",
+          serviceType: [
+            "Digital annonsering",
+            "Leadgenerering",
+            "AI-baserad leadkvalificering",
+            "Automatiserad uppföljning",
+            "CRM- och processflöden",
           ],
         }),
       },
@@ -72,25 +59,38 @@ export const Route = createFileRoute("/")({
   }),
 });
 
+/** Gamla ankarlänkar (#om, #faq, #kontakt) pekar nu på egna sidor. */
+const legacyHash: Record<string, string> = {
+  "#om": "/om",
+  "#faq": "/faq",
+  "#kontakt": "/kontakt",
+  "#formular": "/kontakt",
+};
+
 function Index() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const target = legacyHash[window.location.hash];
+    if (target) navigate({ to: target, replace: true });
+  }, [navigate]);
+
   return (
     <div className="min-h-screen bg-background">
       <Nav />
       <main>
         <Hero />
         <Problem />
-        <Process />
-        <Services />
-        
+        <HowItWorks />
+        <Signals />
+        <Positioning />
+        <Benefits />
         <Dashboard />
-        <Results />
-        <Why />
+        <HumanControl />
+        <LeadContext />
         <Audience />
-        <About />
         <Cases />
-        <Faq />
         <BigCta />
-        <Contact />
       </main>
       <Footer />
     </div>

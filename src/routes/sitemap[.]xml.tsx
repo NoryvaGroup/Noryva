@@ -2,7 +2,15 @@ import { createFileRoute } from "@tanstack/react-router";
 
 const BASE_URL = "https://noryva.se";
 
-const paths = ["/", "/integritetspolicy", "/cookies", "/villkor"];
+const paths = [
+  "/",
+  "/om",
+  "/faq",
+  "/kontakt",
+  "/integritetspolicy",
+  "/cookies",
+  "/villkor",
+];
 
 export const Route = createFileRoute("/sitemap.xml")({
   server: {

@@ -2,12 +2,11 @@ import { Link } from "@tanstack/react-router";
 import { Logo } from "./Logo";
 
 const nav = [
-  { href: "/#tjanster", label: "Tjänster" },
-  { href: "/#process", label: "Så fungerar det" },
-  { href: "/#resultat", label: "Resultat" },
-  { href: "/#om", label: "Om Noryva" },
-  { href: "/#faq", label: "FAQ" },
-  { href: "/#kontakt", label: "Kontakt" },
+  { href: "/#sa-fungerar", label: "Så fungerar det", route: false },
+  { href: "/#vad-ni-far", label: "Vad ni får", route: false },
+  { href: "/om", label: "Om Noryva", route: true },
+  { href: "/faq", label: "FAQ", route: true },
+  { href: "/kontakt", label: "Kontakt", route: true },
 ];
 
 export function Footer() {
