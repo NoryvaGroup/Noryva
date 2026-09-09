@@ -39,32 +39,32 @@
 :root {
   --radius: 0.75rem;
 
-  /* Ljust, varmt och stillsamt – känns handbyggt snarare än genererat */
-  --background: oklch(0.985 0.003 95);
-  --foreground: oklch(0.27 0.014 262);
-  --surface: oklch(1 0 0);
-  --surface-2: oklch(0.962 0.004 95);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.27 0.014 262);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.27 0.014 262);
+  /* Ljust, varmt och handbyggt – mjukare än kliniskt vitt */
+  --background: oklch(0.978 0.007 90);
+  --foreground: oklch(0.32 0.014 75);
+  --surface: oklch(0.992 0.005 90);
+  --surface-2: oklch(0.965 0.007 90);
+  --card: oklch(0.995 0.004 90);
+  --card-foreground: oklch(0.32 0.014 75);
+  --popover: oklch(0.995 0.004 90);
+  --popover-foreground: oklch(0.32 0.014 75);
 
   /* Dämpad, förtroendeingivande blå accent – ingen neon */
   --primary: oklch(0.5 0.11 255);
   --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.955 0.005 255);
-  --secondary-foreground: oklch(0.27 0.014 262);
-  --muted: oklch(0.962 0.004 95);
-  --muted-foreground: oklch(0.48 0.012 262);
+  --secondary: oklch(0.955 0.007 90);
+  --secondary-foreground: oklch(0.32 0.014 75);
+  --muted: oklch(0.955 0.007 90);
+  --muted-foreground: oklch(0.50 0.012 80);
   --accent: oklch(0.5 0.11 255);
   --accent-foreground: oklch(0.99 0 0);
   --destructive: oklch(0.55 0.18 27);
   --destructive-foreground: oklch(0.99 0 0);
-  --border: oklch(0.27 0.014 262 / 11%);
-  --input: oklch(0.27 0.014 262 / 18%);
+  --border: oklch(0.32 0.014 75 / 10%);
+  --input: oklch(0.32 0.014 75 / 18%);
   --ring: oklch(0.5 0.11 255 / 45%);
 
-  --shadow-elevated: 0 18px 45px -28px oklch(0.27 0.014 262 / 0.25);
+  --shadow-elevated: 0 18px 45px -28px oklch(0.32 0.014 75 / 0.22);
   --glow-accent: 0 10px 26px -16px oklch(0.5 0.11 255 / 0.45);
   --gradient-veil: radial-gradient(
     65% 55% at 50% 0%,
