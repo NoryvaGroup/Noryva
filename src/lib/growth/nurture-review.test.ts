@@ -567,6 +567,42 @@ describe("granskningskö – serverflöde", () => {
     expect(again.code).toBe("not_claimable");
   });
 
+  it("avvisar godkännande när underlaget ändrats utan att texten ändrats", async () => {
+    const { supabase, state } = makeSupabase();
+    const ctx = ctxOf(supabase);
+    const review = await seedReview(ctx, state, LEAD_A);
+    // Underlaget ändras (konversationens läge) utan att mailtexten påverkas.
+    state["conversations"]![0]!["stage"] = "meeting_booked";
+
+    const result = await approveNurtureReviewCore(
+      ctx,
+      { reviewId: review["id"], expectedFingerprint: review["content_fingerprint"] },
+      ENV_ON,
+      okDispatch,
+    );
+    expect(result.ok).toBe(false);
+    expect(result.code).toBe("stale_source");
+    expect(review["status"]).toBe("pending_review");
+  });
+
+  it("spärrar hämtningen när en mänsklig ägare tillkommer efter godkännandet", async () => {
+    const { supabase, state } = makeSupabase();
+    const ctx = ctxOf(supabase);
+    const review = await seedReview(ctx, state, LEAD_A);
+    await approveNurtureReviewCore(
+      ctx,
+      { reviewId: review["id"], expectedFingerprint: review["content_fingerprint"] },
+      ENV_ON,
+      okDispatch,
+    );
+    state["conversations"]![0]!["human_owner"] = "55555555-5555-4555-8555-555555555555";
+
+    const claim = await claimNurtureReviewCore(ctx, { reviewId: review["id"] }, {});
+    expect(claim.ok).toBe(false);
+    expect(claim.code).toBe("blocked");
+    expect(review["status"]).toBe("blocked");
+  });
+
   it("bokför utskick en gång, räknar steg en gång och är idempotent vid omtagning", async () => {
     const { supabase, state } = makeSupabase();
     const ctx = ctxOf(supabase);
