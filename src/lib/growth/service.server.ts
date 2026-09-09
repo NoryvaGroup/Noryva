@@ -96,28 +96,30 @@ export async function loadLeadBundle(
   // Postnumret används ENDAST här, på servern. Det lämnar aldrig funktionen.
   const postalCode = answers["postnummer"] ?? stored.make?.postnummer ?? "";
   const serviceArea = (makeContext?.serviceArea || customer?.service_area || "").trim();
-  const geography = resolveGeography(
-    postalCode,
-    makeContext
-      ? {
-          serviceArea,
-          ...(makeContext.localPostalPrefix ? { localPostalPrefix: makeContext.localPostalPrefix } : {}),
-          ...(makeContext.regionalPostalPrefix
-            ? { regionalPostalPrefix: makeContext.regionalPostalPrefix }
-            : {}),
-        }
-      : { serviceArea },
-  );
+  // Prefix kommer i första hand från anropet, annars från kundens sparade
+  // profil. Geografi avgörs alltid deterministiskt av postnumret – aldrig av
+  // ortsnamn och aldrig av modellen.
+  const localPostalPrefix =
+    makeContext?.localPostalPrefix || String(profileRow?.["local_postal_prefix"] ?? "");
+  const regionalPostalPrefix =
+    makeContext?.regionalPostalPrefix || String(profileRow?.["regional_postal_prefix"] ?? "");
+  const geography = resolveGeography(postalCode, {
+    serviceArea,
+    ...(localPostalPrefix ? { localPostalPrefix } : {}),
+    ...(regionalPostalPrefix ? { regionalPostalPrefix } : {}),
+  });
 
-  // Opt-in: Make-migrationens scoring. Annars oförändrad befintlig modell.
-  const migration = makeContext
-    ? scoreMigrationLead({
-        industry: lead.industry ?? "",
-        answers,
-        make: stored.make,
-        geography,
-      })
-    : null;
+  // Make-migrationens scoring används när anroparen skickar makeContext ELLER
+  // när kunden har konfigurerad geografi – annars oförändrad befintlig modell.
+  const migration =
+    makeContext || geography.configured
+      ? scoreMigrationLead({
+          industry: lead.industry ?? "",
+          answers,
+          make: stored.make,
+          geography,
+        })
+      : null;
 
   const qualification = migration
     ? {
