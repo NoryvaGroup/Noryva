@@ -35,8 +35,8 @@ function safeEqual(a: string, b: string): boolean {
 export function createContactToken(args: {
   secret: string;
   leadId: string;
-  now?: Date;
-  ttlSeconds?: number;
+  now?: Date | undefined;
+  ttlSeconds?: number | undefined;
 }): string {
   const now = args.now ?? new Date();
   const ttl = args.ttlSeconds ?? DEFAULT_TTL_SECONDS;
@@ -50,7 +50,7 @@ export function verifyContactToken(args: {
   secret: string | undefined;
   leadId: string;
   token: string;
-  now?: Date;
+  now?: Date | undefined;
 }): TokenCheck {
   if (!args.secret) return { valid: false, reason: "Länken kan inte kontrolleras just nu." };
   if (!args.leadId || !args.token) return { valid: false, reason: "Länken är ofullständig." };
@@ -74,9 +74,9 @@ export function verifyContactToken(args: {
 export function buildContactUrl(args: {
   secret: string;
   leadId: string;
-  now?: Date;
-  ttlSeconds?: number;
-  baseUrl?: string;
+  now?: Date | undefined;
+  ttlSeconds?: number | undefined;
+  baseUrl?: string | undefined;
 }): string {
   const token = createContactToken(args);
   const base = (args.baseUrl ?? PUBLIC_SITE_URL).replace(/\/+$/, "");
