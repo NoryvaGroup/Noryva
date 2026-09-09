@@ -279,7 +279,9 @@ function makeSupabase() {
         if (!r) return { data: { ok: false, code: "not_found" }, error: null };
         if (r["attempt_id"] !== args["p_attempt_id"])
           return { data: { ok: false, code: "attempt_mismatch" }, error: null };
-        if (r["status"] === "sent")
+        if (r["status"] === "sent") {
+          if (String(args["p_transport_message_id"]).trim() !== r["transport_message_id"])
+            return { data: { ok: false, code: "transport_mismatch" }, error: null };
           return {
             data: {
               ok: true,
@@ -289,6 +291,7 @@ function makeSupabase() {
             },
             error: null,
           };
+        }
         if (r["status"] !== "claimed")
           return { data: { ok: false, code: "invalid_status", status: r["status"] }, error: null };
         Object.assign(r, {
@@ -326,6 +329,34 @@ function makeSupabase() {
           },
           error: null,
         };
+      }
+      case "reserve_nurture_inbound": {
+        const events = (state["nurture_inbound_events"] ??= []);
+        const found = events.find((e) => e["source_ref"] === args["p_source_ref"]);
+        if (!found) {
+          events.push({
+            id: uuid(),
+            source_ref: args["p_source_ref"],
+            review_id: args["p_review_id"],
+            lead_id: args["p_lead_id"],
+            status: "reserved",
+            result: {},
+          });
+          return { data: { state: "reserved" }, error: null };
+        }
+        if (found["status"] === "done")
+          return { data: { state: "done", result: found["result"] }, error: null };
+        if (found["status"] === "reserved") return { data: { state: "in_progress" }, error: null };
+        found["status"] = "reserved";
+        return { data: { state: "reserved" }, error: null };
+      }
+      case "finish_nurture_inbound": {
+        const events = (state["nurture_inbound_events"] ??= []);
+        const found = events.find((e) => e["source_ref"] === args["p_source_ref"]);
+        if (!found) return { data: { ok: false }, error: null };
+        found["status"] = args["p_ok"] === true ? "done" : "failed";
+        found["result"] = args["p_result"] ?? {};
+        return { data: { ok: true }, error: null };
       }
       case "fail_nurture_review": {
         const r = find();
@@ -737,6 +768,7 @@ describe("inkommande svar på skickad uppföljning", () => {
       inReplyTo: "<thread-1@noryva.se>",
       fromEmail: "angripare@example.com",
       body: "Hej",
+      messageId: "<in-x@example.com>",
     });
     expect(wrongSender.ok).toBe(false);
     expect(wrongSender.code).toBe("sender_mismatch");
@@ -745,8 +777,56 @@ describe("inkommande svar på skickad uppföljning", () => {
       inReplyTo: "<finns-inte@example.com>",
       fromEmail: "info@noryva.se",
       body: "Hej",
+      messageId: "<in-y@example.com>",
     });
     expect(unknownThread.ok).toBe(false);
     expect(unknownThread.code).toBe("thread_not_found");
+  });
+
+  it("kräver stabilt meddelande-id och kan inte deduplicera på enbart texthash", async () => {
+    const { ctx } = await sendOne();
+    const missing = await registerReviewedNurtureReplyCore(ctx, {
+      inReplyTo: "<thread-1@noryva.se>",
+      fromEmail: "info@noryva.se",
+      body: "Ja tack",
+    });
+    expect(missing.ok).toBe(false);
+    expect(missing.code).toBe("message_id_required");
+  });
+
+  it("tillämpar effekten en gång även när samma svar behandlas samtidigt", async () => {
+    const { ctx, state } = await sendOne();
+    const payload = {
+      inReplyTo: "<thread-1@noryva.se>",
+      fromEmail: "info@noryva.se",
+      body: "Ja, hör gärna av er.",
+      messageId: "<in-concurrent@example.com>",
+    };
+    const [a, b] = await Promise.all([
+      registerReviewedNurtureReplyCore(ctx, payload),
+      registerReviewedNurtureReplyCore(ctx, payload),
+    ]);
+    const codes = [a.code, b.code].sort();
+    expect(codes).toContain("registered");
+    expect(["duplicate", "in_progress"]).toContain(codes[0] === "registered" ? codes[1] : codes[0]);
+    const inbound = state["conversation_messages"]!.filter((m) => m["direction"] === "inbound");
+    expect(inbound.length).toBe(1);
+  });
+
+  it("rapporterar inte klart när avslutningen misslyckas i databasen", async () => {
+    const { ctx } = await sendOne();
+    const original = ctx.supabase.rpc.bind(ctx.supabase);
+    (ctx.supabase as any).rpc = async (name: string, args: any) =>
+      name === "finish_nurture_inbound"
+        ? { data: null, error: { message: "db nere" } }
+        : original(name, args);
+    const res = await registerReviewedNurtureReplyCore(ctx, {
+      inReplyTo: "<thread-1@noryva.se>",
+      fromEmail: "info@noryva.se",
+      body: "Ja",
+      messageId: "<in-finish-fail@example.com>",
+    });
+    expect(res.ok).toBe(false);
+    expect(res.code).toBe("not_finalized");
   });
 });
