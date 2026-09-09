@@ -373,8 +373,10 @@ export type Database = {
           followup_rules: Json
           language: string
           lead_prefix: string
+          local_postal_prefix: string
           notify_recipients: string[]
           qualification_profile: Json
+          regional_postal_prefix: string
           tone: string
           updated_at: string
         }
@@ -389,8 +391,10 @@ export type Database = {
           followup_rules?: Json
           language?: string
           lead_prefix?: string
+          local_postal_prefix?: string
           notify_recipients?: string[]
           qualification_profile?: Json
+          regional_postal_prefix?: string
           tone?: string
           updated_at?: string
         }
@@ -405,8 +409,10 @@ export type Database = {
           followup_rules?: Json
           language?: string
           lead_prefix?: string
+          local_postal_prefix?: string
           notify_recipients?: string[]
           qualification_profile?: Json
+          regional_postal_prefix?: string
           tone?: string
           updated_at?: string
         }
