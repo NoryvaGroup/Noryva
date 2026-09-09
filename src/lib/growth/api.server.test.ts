@@ -946,7 +946,10 @@ describe("plan-nurture-test", () => {
 
   it("HÖG/AKUT får aldrig nurture-preview", async () => {
     const { body } = await planNurture(
-      nurtureState(INCOMPLETE_ANSWERS, ["contacted", "replied", "meeting_booked", "revenue"]),
+      nurtureState(
+        { behov: "Takbyte", tidsram: "Snarast", ager_fastigheten: "Ja", postnummer: "503 30" },
+        ["contacted", "replied", "meeting_booked", "revenue"],
+      ),
     );
     expect(["HÖG", "AKUT"]).toContain(body.intent.level);
     expect(body.eligible).toBe(false);
