@@ -28,6 +28,12 @@ function Page() {
     <div className="min-h-screen bg-background">
       <Nav />
       <main className="pt-24">
+        <section className="container-x pt-14 pb-2">
+          <h1 className="text-3xl leading-tight font-semibold sm:text-5xl">Kontakta oss</h1>
+          <p className="mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+            Berätta kort om er verksamhet så återkommer vi med förslag på nästa steg.
+          </p>
+        </section>
         <Contact />
       </main>
       <Footer />
