@@ -950,6 +950,7 @@ describe("plan-nurture-test", () => {
         { behov: "Takbyte", tidsram: "Snarast", ager_fastigheten: "Ja", postnummer: "503 30" },
         ["contacted", "replied", "meeting_booked", "revenue"],
       ),
+      { leadId: LEAD_ID, makeContext: MAKE_CONTEXT },
     );
     expect(["HÖG", "AKUT"]).toContain(body.intent.level);
     expect(body.eligible).toBe(false);
