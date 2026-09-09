@@ -34,10 +34,15 @@ import { Route as AuthenticatedAdminProfilerRouteImport } from './routes/_authen
 import { Route as TestOffertSlugRouteImport } from './routes/test.offert.$slug'
 import { Route as ApiPublicGrowthAnalyzeLeadRouteImport } from './routes/api/public/growth/analyze-lead'
 import { Route as ApiPublicGrowthAssignVariantRouteImport } from './routes/api/public/growth/assign-variant'
+import { Route as ApiPublicGrowthClaimNurtureReviewRouteImport } from './routes/api/public/growth/claim-nurture-review'
+import { Route as ApiPublicGrowthCompleteNurtureReviewRouteImport } from './routes/api/public/growth/complete-nurture-review'
+import { Route as ApiPublicGrowthDueNurtureReviewsRouteImport } from './routes/api/public/growth/due-nurture-reviews'
+import { Route as ApiPublicGrowthFailNurtureReviewRouteImport } from './routes/api/public/growth/fail-nurture-review'
 import { Route as ApiPublicGrowthGrowthRecommendationRouteImport } from './routes/api/public/growth/growth-recommendation'
 import { Route as ApiPublicGrowthPlanNurtureTestRouteImport } from './routes/api/public/growth/plan-nurture-test'
 import { Route as ApiPublicGrowthRegisterNurtureReplyTestRouteImport } from './routes/api/public/growth/register-nurture-reply-test'
 import { Route as ApiPublicGrowthRegisterOutcomeRouteImport } from './routes/api/public/growth/register-outcome'
+import { Route as ApiPublicGrowthRegisterReviewedNurtureReplyRouteImport } from './routes/api/public/growth/register-reviewed-nurture-reply'
 import { Route as ApiPublicGrowthRouteLeadRouteImport } from './routes/api/public/growth/route-lead'
 
 const IndexRoute = IndexRouteImport.update({
@@ -172,6 +177,30 @@ const ApiPublicGrowthAssignVariantRoute =
     path: '/api/public/growth/assign-variant',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicGrowthClaimNurtureReviewRoute =
+  ApiPublicGrowthClaimNurtureReviewRouteImport.update({
+    id: '/api/public/growth/claim-nurture-review',
+    path: '/api/public/growth/claim-nurture-review',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicGrowthCompleteNurtureReviewRoute =
+  ApiPublicGrowthCompleteNurtureReviewRouteImport.update({
+    id: '/api/public/growth/complete-nurture-review',
+    path: '/api/public/growth/complete-nurture-review',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicGrowthDueNurtureReviewsRoute =
+  ApiPublicGrowthDueNurtureReviewsRouteImport.update({
+    id: '/api/public/growth/due-nurture-reviews',
+    path: '/api/public/growth/due-nurture-reviews',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicGrowthFailNurtureReviewRoute =
+  ApiPublicGrowthFailNurtureReviewRouteImport.update({
+    id: '/api/public/growth/fail-nurture-review',
+    path: '/api/public/growth/fail-nurture-review',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicGrowthGrowthRecommendationRoute =
   ApiPublicGrowthGrowthRecommendationRouteImport.update({
     id: '/api/public/growth/growth-recommendation',
@@ -194,6 +223,12 @@ const ApiPublicGrowthRegisterOutcomeRoute =
   ApiPublicGrowthRegisterOutcomeRouteImport.update({
     id: '/api/public/growth/register-outcome',
     path: '/api/public/growth/register-outcome',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicGrowthRegisterReviewedNurtureReplyRoute =
+  ApiPublicGrowthRegisterReviewedNurtureReplyRouteImport.update({
+    id: '/api/public/growth/register-reviewed-nurture-reply',
+    path: '/api/public/growth/register-reviewed-nurture-reply',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicGrowthRouteLeadRoute =
@@ -228,10 +263,15 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/api/public/growth/analyze-lead': typeof ApiPublicGrowthAnalyzeLeadRoute
   '/api/public/growth/assign-variant': typeof ApiPublicGrowthAssignVariantRoute
+  '/api/public/growth/claim-nurture-review': typeof ApiPublicGrowthClaimNurtureReviewRoute
+  '/api/public/growth/complete-nurture-review': typeof ApiPublicGrowthCompleteNurtureReviewRoute
+  '/api/public/growth/due-nurture-reviews': typeof ApiPublicGrowthDueNurtureReviewsRoute
+  '/api/public/growth/fail-nurture-review': typeof ApiPublicGrowthFailNurtureReviewRoute
   '/api/public/growth/growth-recommendation': typeof ApiPublicGrowthGrowthRecommendationRoute
   '/api/public/growth/plan-nurture-test': typeof ApiPublicGrowthPlanNurtureTestRoute
   '/api/public/growth/register-nurture-reply-test': typeof ApiPublicGrowthRegisterNurtureReplyTestRoute
   '/api/public/growth/register-outcome': typeof ApiPublicGrowthRegisterOutcomeRoute
+  '/api/public/growth/register-reviewed-nurture-reply': typeof ApiPublicGrowthRegisterReviewedNurtureReplyRoute
   '/api/public/growth/route-lead': typeof ApiPublicGrowthRouteLeadRoute
 }
 export interface FileRoutesByTo {
@@ -259,10 +299,15 @@ export interface FileRoutesByTo {
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/api/public/growth/analyze-lead': typeof ApiPublicGrowthAnalyzeLeadRoute
   '/api/public/growth/assign-variant': typeof ApiPublicGrowthAssignVariantRoute
+  '/api/public/growth/claim-nurture-review': typeof ApiPublicGrowthClaimNurtureReviewRoute
+  '/api/public/growth/complete-nurture-review': typeof ApiPublicGrowthCompleteNurtureReviewRoute
+  '/api/public/growth/due-nurture-reviews': typeof ApiPublicGrowthDueNurtureReviewsRoute
+  '/api/public/growth/fail-nurture-review': typeof ApiPublicGrowthFailNurtureReviewRoute
   '/api/public/growth/growth-recommendation': typeof ApiPublicGrowthGrowthRecommendationRoute
   '/api/public/growth/plan-nurture-test': typeof ApiPublicGrowthPlanNurtureTestRoute
   '/api/public/growth/register-nurture-reply-test': typeof ApiPublicGrowthRegisterNurtureReplyTestRoute
   '/api/public/growth/register-outcome': typeof ApiPublicGrowthRegisterOutcomeRoute
+  '/api/public/growth/register-reviewed-nurture-reply': typeof ApiPublicGrowthRegisterReviewedNurtureReplyRoute
   '/api/public/growth/route-lead': typeof ApiPublicGrowthRouteLeadRoute
 }
 export interface FileRoutesById {
@@ -292,10 +337,15 @@ export interface FileRoutesById {
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/api/public/growth/analyze-lead': typeof ApiPublicGrowthAnalyzeLeadRoute
   '/api/public/growth/assign-variant': typeof ApiPublicGrowthAssignVariantRoute
+  '/api/public/growth/claim-nurture-review': typeof ApiPublicGrowthClaimNurtureReviewRoute
+  '/api/public/growth/complete-nurture-review': typeof ApiPublicGrowthCompleteNurtureReviewRoute
+  '/api/public/growth/due-nurture-reviews': typeof ApiPublicGrowthDueNurtureReviewsRoute
+  '/api/public/growth/fail-nurture-review': typeof ApiPublicGrowthFailNurtureReviewRoute
   '/api/public/growth/growth-recommendation': typeof ApiPublicGrowthGrowthRecommendationRoute
   '/api/public/growth/plan-nurture-test': typeof ApiPublicGrowthPlanNurtureTestRoute
   '/api/public/growth/register-nurture-reply-test': typeof ApiPublicGrowthRegisterNurtureReplyTestRoute
   '/api/public/growth/register-outcome': typeof ApiPublicGrowthRegisterOutcomeRoute
+  '/api/public/growth/register-reviewed-nurture-reply': typeof ApiPublicGrowthRegisterReviewedNurtureReplyRoute
   '/api/public/growth/route-lead': typeof ApiPublicGrowthRouteLeadRoute
 }
 export interface FileRouteTypes {
@@ -325,10 +375,15 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/api/public/growth/analyze-lead'
     | '/api/public/growth/assign-variant'
+    | '/api/public/growth/claim-nurture-review'
+    | '/api/public/growth/complete-nurture-review'
+    | '/api/public/growth/due-nurture-reviews'
+    | '/api/public/growth/fail-nurture-review'
     | '/api/public/growth/growth-recommendation'
     | '/api/public/growth/plan-nurture-test'
     | '/api/public/growth/register-nurture-reply-test'
     | '/api/public/growth/register-outcome'
+    | '/api/public/growth/register-reviewed-nurture-reply'
     | '/api/public/growth/route-lead'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -356,10 +411,15 @@ export interface FileRouteTypes {
     | '/admin'
     | '/api/public/growth/analyze-lead'
     | '/api/public/growth/assign-variant'
+    | '/api/public/growth/claim-nurture-review'
+    | '/api/public/growth/complete-nurture-review'
+    | '/api/public/growth/due-nurture-reviews'
+    | '/api/public/growth/fail-nurture-review'
     | '/api/public/growth/growth-recommendation'
     | '/api/public/growth/plan-nurture-test'
     | '/api/public/growth/register-nurture-reply-test'
     | '/api/public/growth/register-outcome'
+    | '/api/public/growth/register-reviewed-nurture-reply'
     | '/api/public/growth/route-lead'
   id:
     | '__root__'
@@ -388,10 +448,15 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/'
     | '/api/public/growth/analyze-lead'
     | '/api/public/growth/assign-variant'
+    | '/api/public/growth/claim-nurture-review'
+    | '/api/public/growth/complete-nurture-review'
+    | '/api/public/growth/due-nurture-reviews'
+    | '/api/public/growth/fail-nurture-review'
     | '/api/public/growth/growth-recommendation'
     | '/api/public/growth/plan-nurture-test'
     | '/api/public/growth/register-nurture-reply-test'
     | '/api/public/growth/register-outcome'
+    | '/api/public/growth/register-reviewed-nurture-reply'
     | '/api/public/growth/route-lead'
   fileRoutesById: FileRoutesById
 }
@@ -414,10 +479,15 @@ export interface RootRouteChildren {
   TestOffertSlugRoute: typeof TestOffertSlugRoute
   ApiPublicGrowthAnalyzeLeadRoute: typeof ApiPublicGrowthAnalyzeLeadRoute
   ApiPublicGrowthAssignVariantRoute: typeof ApiPublicGrowthAssignVariantRoute
+  ApiPublicGrowthClaimNurtureReviewRoute: typeof ApiPublicGrowthClaimNurtureReviewRoute
+  ApiPublicGrowthCompleteNurtureReviewRoute: typeof ApiPublicGrowthCompleteNurtureReviewRoute
+  ApiPublicGrowthDueNurtureReviewsRoute: typeof ApiPublicGrowthDueNurtureReviewsRoute
+  ApiPublicGrowthFailNurtureReviewRoute: typeof ApiPublicGrowthFailNurtureReviewRoute
   ApiPublicGrowthGrowthRecommendationRoute: typeof ApiPublicGrowthGrowthRecommendationRoute
   ApiPublicGrowthPlanNurtureTestRoute: typeof ApiPublicGrowthPlanNurtureTestRoute
   ApiPublicGrowthRegisterNurtureReplyTestRoute: typeof ApiPublicGrowthRegisterNurtureReplyTestRoute
   ApiPublicGrowthRegisterOutcomeRoute: typeof ApiPublicGrowthRegisterOutcomeRoute
+  ApiPublicGrowthRegisterReviewedNurtureReplyRoute: typeof ApiPublicGrowthRegisterReviewedNurtureReplyRoute
   ApiPublicGrowthRouteLeadRoute: typeof ApiPublicGrowthRouteLeadRoute
 }
 
@@ -598,6 +668,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicGrowthAssignVariantRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/growth/claim-nurture-review': {
+      id: '/api/public/growth/claim-nurture-review'
+      path: '/api/public/growth/claim-nurture-review'
+      fullPath: '/api/public/growth/claim-nurture-review'
+      preLoaderRoute: typeof ApiPublicGrowthClaimNurtureReviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/growth/complete-nurture-review': {
+      id: '/api/public/growth/complete-nurture-review'
+      path: '/api/public/growth/complete-nurture-review'
+      fullPath: '/api/public/growth/complete-nurture-review'
+      preLoaderRoute: typeof ApiPublicGrowthCompleteNurtureReviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/growth/due-nurture-reviews': {
+      id: '/api/public/growth/due-nurture-reviews'
+      path: '/api/public/growth/due-nurture-reviews'
+      fullPath: '/api/public/growth/due-nurture-reviews'
+      preLoaderRoute: typeof ApiPublicGrowthDueNurtureReviewsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/growth/fail-nurture-review': {
+      id: '/api/public/growth/fail-nurture-review'
+      path: '/api/public/growth/fail-nurture-review'
+      fullPath: '/api/public/growth/fail-nurture-review'
+      preLoaderRoute: typeof ApiPublicGrowthFailNurtureReviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/growth/growth-recommendation': {
       id: '/api/public/growth/growth-recommendation'
       path: '/api/public/growth/growth-recommendation'
@@ -624,6 +722,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/growth/register-outcome'
       fullPath: '/api/public/growth/register-outcome'
       preLoaderRoute: typeof ApiPublicGrowthRegisterOutcomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/growth/register-reviewed-nurture-reply': {
+      id: '/api/public/growth/register-reviewed-nurture-reply'
+      path: '/api/public/growth/register-reviewed-nurture-reply'
+      fullPath: '/api/public/growth/register-reviewed-nurture-reply'
+      preLoaderRoute: typeof ApiPublicGrowthRegisterReviewedNurtureReplyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/growth/route-lead': {
@@ -679,12 +784,20 @@ const rootRouteChildren: RootRouteChildren = {
   TestOffertSlugRoute: TestOffertSlugRoute,
   ApiPublicGrowthAnalyzeLeadRoute: ApiPublicGrowthAnalyzeLeadRoute,
   ApiPublicGrowthAssignVariantRoute: ApiPublicGrowthAssignVariantRoute,
+  ApiPublicGrowthClaimNurtureReviewRoute:
+    ApiPublicGrowthClaimNurtureReviewRoute,
+  ApiPublicGrowthCompleteNurtureReviewRoute:
+    ApiPublicGrowthCompleteNurtureReviewRoute,
+  ApiPublicGrowthDueNurtureReviewsRoute: ApiPublicGrowthDueNurtureReviewsRoute,
+  ApiPublicGrowthFailNurtureReviewRoute: ApiPublicGrowthFailNurtureReviewRoute,
   ApiPublicGrowthGrowthRecommendationRoute:
     ApiPublicGrowthGrowthRecommendationRoute,
   ApiPublicGrowthPlanNurtureTestRoute: ApiPublicGrowthPlanNurtureTestRoute,
   ApiPublicGrowthRegisterNurtureReplyTestRoute:
     ApiPublicGrowthRegisterNurtureReplyTestRoute,
   ApiPublicGrowthRegisterOutcomeRoute: ApiPublicGrowthRegisterOutcomeRoute,
+  ApiPublicGrowthRegisterReviewedNurtureReplyRoute:
+    ApiPublicGrowthRegisterReviewedNurtureReplyRoute,
   ApiPublicGrowthRouteLeadRoute: ApiPublicGrowthRouteLeadRoute,
 }
 export const routeTree = rootRouteImport

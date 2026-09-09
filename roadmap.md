@@ -24,3 +24,9 @@
 - [x] Noryva 2.0: adminvy Growth Engine med tomma states och TEST/REVIEW-status
 - [x] Noryva 2.0: serverfunktioner förberedda för Make (routeLead, analyzeLead, assignLeadVariant, registerOutcome, getGrowthRecommendation)
 - [ ] Exponera Make-endpoints som signaturverifierade publika routes (kräver separat beslut)
+- [x] Noryva 2.0: granskningskö (nurture_reviews) med atomiska SQL-funktioner för godkänn/avslå/hämta/slutför/misslyckas
+- [x] Noryva 2.0: signerade Make-endpoints för förfallna granskningar, hämtning, slutförande, misslyckande och svar i tråd
+- [x] Noryva 2.0: adminvy "Granskning före utskick" med exakt mottagare/ämne/text och Godkänn och skicka
+- [ ] Sätt NORYVA_NURTURE_REVIEW_WEBHOOK_URL (utskicksbrygga i Make) – utan den registreras inget godkännande
+- [ ] Sätt NORYVA_NURTURE_EXTERNAL_SEND_ENABLED=true först när riktiga kundutskick ska tillåtas (nu endast info@noryva.se)
+- [ ] Uppdatera Make-scenarierna 7331509 och 7331569 till de nya endpointsen (görs av dig, inte av mig)

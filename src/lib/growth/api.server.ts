@@ -85,6 +85,15 @@ async function defaultDeps(request?: Request): Promise<GrowthApiDeps> {
   };
 }
 
+/** Operationer som styr sin egen HTTP-status. */
+type OperationOutcome = { __status: number; body: unknown };
+function withStatus(status: number, body: unknown): OperationOutcome {
+  return { __status: status, body };
+}
+function isOutcome(value: unknown): value is OperationOutcome {
+  return typeof value === "object" && value !== null && "__status" in value;
+}
+
 async function runOperation(
   operation: GrowthOperation,
   ctx: GrowthContext,
@@ -203,6 +212,53 @@ async function runOperation(
         externalEffect: false,
       };
     }
+
+    case "due-nurture-reviews": {
+      const { refreshDueNurtureReviewsCore } = await import("./nurture-review.server");
+      return refreshDueNurtureReviewsCore(ctx, { limit: data.limit ?? 10 });
+    }
+
+    case "claim-nurture-review": {
+      const { claimNurtureReviewCore } = await import("./nurture-review.server");
+      const result = await claimNurtureReviewCore(ctx, { reviewId: data.reviewId }, env);
+      const { status, ...body } = result as { status: number } & Record<string, unknown>;
+      return withStatus(status, body);
+    }
+
+    case "complete-nurture-review": {
+      const { completeNurtureReviewCore } = await import("./nurture-review.server");
+      const result = await completeNurtureReviewCore(ctx, {
+        reviewId: data.reviewId,
+        attemptId: data.attemptId,
+        transportMessageId: data.transportMessageId,
+      });
+      const { status, ...body } = result as { status: number } & Record<string, unknown>;
+      return withStatus(status, { ...body, externalEffect: false, notificationSent: false });
+    }
+
+    case "fail-nurture-review": {
+      const { failNurtureReviewCore } = await import("./nurture-review.server");
+      const result = await failNurtureReviewCore(ctx, {
+        reviewId: data.reviewId,
+        attemptId: data.attemptId,
+        outcome: data.outcome,
+        reason: data.reason,
+      });
+      const { status, ...body } = result as { status: number } & Record<string, unknown>;
+      return withStatus(status, body);
+    }
+
+    case "register-reviewed-nurture-reply": {
+      const { registerReviewedNurtureReplyCore } = await import("./nurture-review.server");
+      const result = await registerReviewedNurtureReplyCore(ctx, {
+        inReplyTo: data.inReplyTo,
+        fromEmail: data.fromEmail,
+        body: data.body,
+        messageId: data.messageId,
+      });
+      const { status, ...body } = result as { status: number } & Record<string, unknown>;
+      return withStatus(status, body);
+    }
   }
 }
 
@@ -249,6 +305,7 @@ export async function handleGrowthApi(
       return json(409, { error: "Anropet har redan behandlats.", duplicate: true, eventId: verified.eventId });
     }
     const result = await runOperation(operation, ctx, parsed.data, runtimeEnvFromRequest(request));
+    if (isOutcome(result)) return json(result.__status, result.body);
     return json(200, result);
   } catch (error) {
     // Fel kundbindning är ett klientfel, inte ett serverfel – och inträffar

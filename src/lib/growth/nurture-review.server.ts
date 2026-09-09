@@ -1,0 +1,755 @@
+/**
+ * Granskningsregister för uppföljningsutskick – serverlogik.
+ *
+ * SÄKERHET:
+ *  - Ingen kod här skickar mail. Utskicket görs av Make/SMTP efter att en
+ *    administratör godkänt och Make hämtat posten via signerad endpoint.
+ *  - Databasen är facit: godkännande, hämtning, slutförande och misslyckande
+ *    körs som atomära SQL-funktioner med radlås.
+ *  - Frontenden skickar aldrig mottagare, ämne eller brödtext – bara reviewId
+ *    och det avtryck den faktiskt visat.
+ *  - En hämtad post släpps aldrig automatiskt tillbaka till kön.
+ */
+import { buildNurturePreview } from "./nurture-preview";
+import { computeIntent } from "./intent";
+import { needsHumanTakeover } from "@/lib/ai-sales/policy";
+import { readStoredPayload } from "@/lib/landing/make-adapter";
+import {
+  loadLeadBundle,
+  readLeadOutcomes,
+  type GrowthContext,
+} from "./service.server";
+import {
+  ensureConversationCore,
+  dueNurtureItemsCore,
+  planNurtureCore,
+  registerNurtureReplyCore,
+} from "./nurture.server";
+import {
+  NURTURE_REPLY_TO,
+  evaluateReviewGate,
+  externalSendDecision,
+  isValidEmail,
+  normalizeEmail,
+  occurrenceKey,
+  readBooleanFlag,
+  reviewFingerprint,
+  sourceFingerprint,
+  stableHash,
+} from "./nurture-review";
+import type { RuntimeEnv } from "./runtime-env";
+
+const TABLE = "nurture_reviews";
+const MESSAGES = "conversation_messages";
+
+export const EXTERNAL_SEND_FLAG = "NORYVA_NURTURE_EXTERNAL_SEND_ENABLED";
+export const REVIEW_WEBHOOK_ENV = "NORYVA_NURTURE_REVIEW_WEBHOOK_URL";
+
+export type NurtureReviewRow = {
+  id: string;
+  lead_id: string;
+  customer_id: string;
+  conversation_id: string | null;
+  occurrence_key: string;
+  step_index: number;
+  due_at: string;
+  intent_level: string;
+  company_name: string;
+  recipient_email: string;
+  subject: string;
+  body: string;
+  questions: string[];
+  content_fingerprint: string;
+  source_fingerprint: string;
+  status: string;
+  blocked_reason: string;
+  execution_mode: string;
+  approved_by: string | null;
+  approved_at: string | null;
+  attempt_id: string | null;
+  transport_message_id: string | null;
+  sent_at: string | null;
+  failure_reason: string;
+  updated_at?: string;
+};
+
+/** Mottagaradressen kommer ALLTID från lagrad lead-payload. */
+export function recipientFromLead(payload: unknown): string {
+  const stored = readStoredPayload(payload);
+  const fromMake = normalizeEmail(stored.make?.epost);
+  if (isValidEmail(fromMake)) return fromMake;
+  const answers = (stored.answers ?? {}) as Record<string, string>;
+  for (const key of ["epost", "email", "e-post"]) {
+    const value = normalizeEmail(answers[key]);
+    if (isValidEmail(value)) return value;
+  }
+  return "";
+}
+
+export type BuiltReview = {
+  leadId: string;
+  customerId: string;
+  conversationId: string;
+  dueAt: string | null;
+  stepIndex: number;
+  intentLevel: string;
+  intentScore: number;
+  companyName: string;
+  recipientEmail: string;
+  subject: string;
+  body: string;
+  questions: string[];
+  blockedReason: string;
+  executionMode: string;
+  contentFingerprint: string;
+  sourceFingerprint: string;
+};
+
+/**
+ * Bygger den auktoritativa granskningsposten för ett lead utifrån live-data.
+ * Deterministisk och utan modellanrop. Används både vid skapande, godkännande
+ * och hämtning så att alla tre ser exakt samma underlag.
+ */
+export async function buildReviewCandidate(
+  ctx: GrowthContext,
+  leadId: string,
+  options: { now?: Date } = {},
+): Promise<BuiltReview> {
+  const now = options.now ?? new Date();
+  const planned = await planNurtureCore(ctx, leadId, { now });
+  const state = planned.state;
+
+  const bundle = await loadLeadBundle(ctx, leadId);
+  const outcomes = await readLeadOutcomes(ctx, leadId);
+  const intent = computeIntent({
+    baseScore: bundle.qualification.score,
+    basePriority: bundle.qualification.priority,
+    outcomes,
+  });
+
+  const { data: customer } = await ctx.supabase
+    .from("customers")
+    .select("id, name, status")
+    .eq("id", state.customer_id)
+    .maybeSingle();
+
+  const conversation = await ensureConversationCore(ctx, {
+    id: state.lead_id,
+    customer_id: state.customer_id,
+  });
+  const { data: conversationRow } = await ctx.supabase
+    .from("conversations")
+    .select("id, human_owner")
+    .eq("id", conversation.id)
+    .maybeSingle();
+
+  const recipientEmail = recipientFromLead(bundle.lead.payload);
+  const preview = buildNurturePreview({
+    questions: state.questions ?? [],
+    companyName: planned.companyName,
+    blocked: false,
+  });
+
+  const optedOut = (state.last_reply_intent ?? "") === "avbojer";
+  const blockedReason = evaluateReviewGate({
+    intentLevel: intent.level,
+    terminal: intent.terminal,
+    humanTakeover: needsHumanTakeover(bundle.context) || state.human_takeover === true,
+    conversationHumanOwner: conversationRow?.human_owner ?? null,
+    optedOut,
+    nurtureStatus: state.status,
+    customerStatus: String(customer?.status ?? ""),
+    recipientEmail,
+    hasPreview: preview !== null,
+    executionMode: state.execution_mode,
+  });
+
+  const dueAt = state.next_step_at;
+  const subject = preview?.subject ?? "";
+  const body = preview?.body ?? "";
+  const questions = state.questions ?? [];
+
+  return {
+    leadId: state.lead_id,
+    customerId: state.customer_id,
+    conversationId: conversation.id,
+    dueAt,
+    stepIndex: state.steps_taken ?? 0,
+    intentLevel: intent.level,
+    intentScore: intent.score,
+    companyName: planned.companyName,
+    recipientEmail,
+    subject,
+    body,
+    questions,
+    blockedReason,
+    executionMode: state.execution_mode,
+    contentFingerprint: reviewFingerprint({
+      leadId: state.lead_id,
+      customerId: state.customer_id,
+      recipientEmail,
+      subject,
+      body,
+      questions,
+      dueAt: dueAt ?? "",
+    }),
+    sourceFingerprint: sourceFingerprint({
+      intentLevel: intent.level,
+      intentScore: intent.score,
+      nurtureStatus: state.status,
+      stepsTaken: state.steps_taken ?? 0,
+      executionMode: state.execution_mode,
+      customerStatus: String(customer?.status ?? ""),
+    }),
+  };
+}
+
+/** Statusar där innehållet fortfarande får uppdateras. */
+const MUTABLE_STATUSES = ["pending_review", "blocked"];
+
+async function upsertReview(
+  writer: GrowthContext,
+  candidate: BuiltReview,
+  now: Date,
+): Promise<{ row: NurtureReviewRow | null; created: boolean; updated: boolean }> {
+  if (!candidate.dueAt || new Date(candidate.dueAt).getTime() > now.getTime()) {
+    return { row: null, created: false, updated: false };
+  }
+  const key = occurrenceKey(candidate.stepIndex, candidate.dueAt);
+
+  const { data: existing } = await writer
+    .supabase.from(TABLE)
+    .select("*")
+    .eq("lead_id", candidate.leadId)
+    .eq("occurrence_key", key)
+    .maybeSingle();
+
+  const payload = {
+    lead_id: candidate.leadId,
+    customer_id: candidate.customerId,
+    conversation_id: candidate.conversationId,
+    occurrence_key: key,
+    step_index: candidate.stepIndex,
+    due_at: candidate.dueAt,
+    intent_level: candidate.intentLevel,
+    company_name: candidate.companyName,
+    recipient_email: candidate.recipientEmail,
+    subject: candidate.subject,
+    body: candidate.body,
+    questions: candidate.questions,
+    content_fingerprint: candidate.contentFingerprint,
+    source_fingerprint: candidate.sourceFingerprint,
+    status: candidate.blockedReason ? "blocked" : "pending_review",
+    blocked_reason: candidate.blockedReason,
+    execution_mode: candidate.executionMode,
+  };
+
+  if (!existing) {
+    const { data, error } = await writer
+      .supabase.from(TABLE)
+      .insert(payload)
+      .select("*")
+      .single();
+    if (error) {
+      const { data: retry } = await writer
+        .supabase.from(TABLE)
+        .select("*")
+        .eq("lead_id", candidate.leadId)
+        .eq("occurrence_key", key)
+        .maybeSingle();
+      return { row: (retry as NurtureReviewRow) ?? null, created: false, updated: false };
+    }
+    return { row: data as NurtureReviewRow, created: true, updated: false };
+  }
+
+  // Godkända, hämtade, skickade och avslutade poster rörs aldrig av en refresh.
+  if (!MUTABLE_STATUSES.includes(existing.status)) {
+    return { row: existing as NurtureReviewRow, created: false, updated: false };
+  }
+  if (existing.content_fingerprint === candidate.contentFingerprint &&
+      existing.blocked_reason === candidate.blockedReason) {
+    return { row: existing as NurtureReviewRow, created: false, updated: false };
+  }
+
+  const { data } = await writer
+    .supabase.from(TABLE)
+    .update(payload)
+    .eq("id", existing.id)
+    .select("*")
+    .maybeSingle();
+  return { row: (data as NurtureReviewRow) ?? (existing as NurtureReviewRow), created: false, updated: true };
+}
+
+/**
+ * Deterministisk, begränsad batch: bygger/uppdaterar granskningsposter för de
+ * uppföljningar vars tillfälle passerat. Ingen extern effekt.
+ */
+export async function refreshDueNurtureReviewsCore(
+  ctx: GrowthContext,
+  options: { now?: Date; limit?: number; writer?: GrowthContext } = {},
+) {
+  const now = options.now ?? new Date();
+  const limit = Math.min(Math.max(1, options.limit ?? 10), 25);
+  const writer = options.writer ?? ctx;
+
+  const due = await dueNurtureItemsCore(ctx, { now, limit });
+  let created = 0;
+  let updated = 0;
+  let skipped = 0;
+  const reviewIds: string[] = [];
+
+  for (const item of due.items) {
+    try {
+      const candidate = await buildReviewCandidate(ctx, item.lead_id, { now });
+      const result = await upsertReview(writer, candidate, now);
+      if (!result.row) {
+        skipped += 1;
+        continue;
+      }
+      if (result.created) created += 1;
+      else if (result.updated) updated += 1;
+      reviewIds.push(result.row.id);
+    } catch {
+      skipped += 1;
+    }
+  }
+
+  return {
+    ok: true as const,
+    now: now.toISOString(),
+    examined: due.items.length,
+    created,
+    updated,
+    skipped,
+    reviewIds,
+    externalEffect: false as const,
+    notificationSent: false as const,
+  };
+}
+
+/** Läslista för adminvyn. Kräver att anroparen redan verifierat behörighet. */
+export async function listNurtureReviewsCore(ctx: GrowthContext, limit = 50) {
+  const { data } = await ctx.supabase
+    .from(TABLE)
+    .select("*")
+    .order("due_at", { ascending: true })
+    .limit(Math.min(Math.max(1, limit), 100));
+  return { items: (data ?? []) as NurtureReviewRow[] };
+}
+
+async function readReview(ctx: GrowthContext, reviewId: string): Promise<NurtureReviewRow | null> {
+  const { data } = await ctx.supabase.from(TABLE).select("*").eq("id", reviewId).maybeSingle();
+  return (data as NurtureReviewRow) ?? null;
+}
+
+export type ApproveResult = {
+  ok: boolean;
+  code: string;
+  message: string;
+  reviewId: string;
+  dispatched?: boolean;
+  dispatchError?: string;
+  contentFingerprint?: string;
+};
+
+/**
+ * Godkännande: full auktoritativ omvalidering innan den atomära SQL-funktionen
+ * körs. Är innehållet ändrat sedan administratören såg det uppdateras posten
+ * och godkännandet AVVISAS – ett nytt godkännande krävs.
+ *
+ * Saknas brygg-konfiguration förbrukas inget godkännande alls.
+ */
+export async function approveNurtureReviewCore(
+  ctx: GrowthContext,
+  input: { reviewId: string; expectedFingerprint: string; now?: Date; writer?: GrowthContext },
+  env: RuntimeEnv,
+  dispatch?: (reviewId: string) => Promise<{ ok: boolean; error?: string }>,
+): Promise<ApproveResult> {
+  const writer = input.writer ?? ctx;
+  const existing = await readReview(ctx, input.reviewId);
+  if (!existing) {
+    return { ok: false, code: "not_found", message: "Granskningsposten hittades inte.", reviewId: input.reviewId };
+  }
+  if (existing.status !== "pending_review") {
+    return {
+      ok: false,
+      code: "invalid_status",
+      message: `Posten kan inte godkännas i status ${existing.status}.`,
+      reviewId: existing.id,
+    };
+  }
+
+  const webhookUrl = (env[REVIEW_WEBHOOK_ENV] ?? "").trim();
+  if (!webhookUrl && !dispatch) {
+    return {
+      ok: false,
+      code: "config_missing",
+      message: `Utskicksbryggan saknas (${REVIEW_WEBHOOK_ENV}). Inget godkännande registrerades.`,
+      reviewId: existing.id,
+    };
+  }
+
+  // Auktoritativ omvalidering mot live-data.
+  const candidate = await buildReviewCandidate(ctx, existing.lead_id, {
+    ...(input.now ? { now: input.now } : {}),
+  });
+  if (candidate.blockedReason) {
+    await writer.supabase
+      .from(TABLE)
+      .update({ status: "blocked", blocked_reason: candidate.blockedReason })
+      .eq("id", existing.id);
+    return { ok: false, code: "blocked", message: candidate.blockedReason, reviewId: existing.id };
+  }
+  if (
+    candidate.contentFingerprint !== existing.content_fingerprint ||
+    candidate.contentFingerprint !== input.expectedFingerprint
+  ) {
+    await upsertReview(writer, candidate, input.now ?? new Date());
+    return {
+      ok: false,
+      code: "stale",
+      message: "Underlaget har ändrats sedan du öppnade posten. Granska den nya versionen igen.",
+      reviewId: existing.id,
+      contentFingerprint: candidate.contentFingerprint,
+    };
+  }
+
+  const { data: rpc, error } = await ctx.supabase.rpc("approve_nurture_review", {
+    p_review_id: existing.id,
+    p_fingerprint: input.expectedFingerprint,
+  });
+  if (error) {
+    return { ok: false, code: "error", message: error.message, reviewId: existing.id };
+  }
+  const result = (rpc ?? {}) as { ok?: boolean; code?: string; reason?: string; status?: string };
+  if (!result.ok) {
+    return {
+      ok: false,
+      code: String(result.code ?? "rejected"),
+      message: result.reason ?? `Godkännandet avvisades (${result.code ?? "okänt"}).`,
+      reviewId: existing.id,
+    };
+  }
+
+  const sent = dispatch
+    ? await dispatch(existing.id)
+    : await dispatchReviewToBridge(webhookUrl, existing.id, env);
+
+  return {
+    ok: true,
+    code: "approved",
+    message: sent.ok
+      ? "Godkänd och skickad till utskicksbryggan."
+      : "Godkänd, men utskicksbryggan svarade inte. Utskicket ligger kvar som godkänt.",
+    reviewId: existing.id,
+    dispatched: sent.ok,
+    ...(sent.error ? { dispatchError: sent.error } : {}),
+  };
+}
+
+/** Skickar ENDAST reviewId till Make. Aldrig mottagare eller brödtext. */
+async function dispatchReviewToBridge(
+  url: string,
+  reviewId: string,
+  env: RuntimeEnv,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const body = JSON.stringify({ reviewId });
+    const headers: Record<string, string> = { "content-type": "application/json" };
+    const secret = env["NORYVA_GROWTH_API_SECRET"];
+    if (secret) {
+      const timestamp = String(Math.floor(Date.now() / 1000));
+      headers["x-noryva-timestamp"] = timestamp;
+      headers["x-noryva-event-id"] = `review-dispatch:${reviewId}`;
+      headers["x-noryva-signature"] = await hmacHex(secret, `${timestamp}.${body}`);
+    }
+    const response = await fetch(url, { method: "POST", headers, body });
+    if (!response.ok) return { ok: false, error: `Bryggan svarade ${response.status}.` };
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
+  }
+}
+
+async function hmacHex(secret: string, payload: string): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(payload));
+  return Array.from(new Uint8Array(signature))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+/** Avslag. Skickar aldrig något. */
+export async function cancelNurtureReviewCore(
+  ctx: GrowthContext,
+  input: { reviewId: string; reason?: string },
+) {
+  const { data, error } = await ctx.supabase.rpc("cancel_nurture_review", {
+    p_review_id: input.reviewId,
+    p_reason: (input.reason ?? "").trim(),
+  });
+  if (error) throw new Error(error.message);
+  const result = (data ?? {}) as { ok?: boolean; code?: string; status?: string };
+  return {
+    ok: result.ok === true,
+    code: String(result.code ?? "unknown"),
+    externalEffect: false as const,
+    notificationSent: false as const,
+  };
+}
+
+/**
+ * Hämtning för utskick. Returnerar sändbart innehåll EXAKT en gång – även vid
+ * omtagning av samma API-anrop. Innehållet omvalideras mot live-data först.
+ */
+export async function claimNurtureReviewCore(
+  ctx: GrowthContext,
+  input: { reviewId: string; now?: Date },
+  env: RuntimeEnv,
+) {
+  const existing = await readReview(ctx, input.reviewId);
+  if (!existing) return { ok: false as const, status: 404, code: "not_found" };
+  if (existing.status !== "approved") {
+    return { ok: false as const, status: 409, code: "not_claimable", reviewStatus: existing.status };
+  }
+
+  const gate = externalSendDecision({
+    enabled: readBooleanFlag(env[EXTERNAL_SEND_FLAG]),
+    storedRecipient: existing.recipient_email,
+  });
+  if (!gate.allowed) {
+    return { ok: false as const, status: 403, code: "external_send_disabled", reason: gate.reason };
+  }
+
+  const candidate = await buildReviewCandidate(ctx, existing.lead_id, {
+    ...(input.now ? { now: input.now } : {}),
+  });
+  if (candidate.blockedReason) {
+    await ctx.supabase
+      .from(TABLE)
+      .update({ status: "blocked", blocked_reason: candidate.blockedReason })
+      .eq("id", existing.id);
+    return { ok: false as const, status: 409, code: "blocked", reason: candidate.blockedReason };
+  }
+  if (candidate.contentFingerprint !== existing.content_fingerprint) {
+    return { ok: false as const, status: 409, code: "stale" };
+  }
+
+  const { data, error } = await ctx.supabase.rpc("claim_nurture_review", {
+    p_review_id: existing.id,
+  });
+  if (error) throw new Error(error.message);
+  const result = (data ?? {}) as Record<string, any>;
+  if (result["ok"] !== true) {
+    return { ok: false as const, status: 409, code: String(result["code"] ?? "not_claimable") };
+  }
+
+  return {
+    ok: true as const,
+    status: 200,
+    reviewId: result["reviewId"],
+    attemptId: result["attemptId"],
+    leadId: result["leadId"],
+    customerId: result["customerId"],
+    conversationId: result["conversationId"],
+    recipientEmail: result["recipientEmail"],
+    replyTo: NURTURE_REPLY_TO,
+    subject: result["subject"],
+    body: result["body"],
+    contentFingerprint: result["contentFingerprint"],
+    executionMode: "review" as const,
+    externalEffect: false as const,
+    notificationSent: false as const,
+  };
+}
+
+/**
+ * Slutförande efter bekräftat utskick. Idempotent via (reviewId, attemptId).
+ * Räknar upp genomförda steg exakt en gång och loggar det verkliga utskicket.
+ */
+export async function completeNurtureReviewCore(
+  ctx: GrowthContext,
+  input: { reviewId: string; attemptId: string; transportMessageId: string },
+) {
+  const { data, error } = await ctx.supabase.rpc("complete_nurture_review", {
+    p_review_id: input.reviewId,
+    p_attempt_id: input.attemptId,
+    p_transport_message_id: input.transportMessageId,
+  });
+  if (error) throw new Error(error.message);
+  const result = (data ?? {}) as Record<string, any>;
+  if (result["ok"] !== true) {
+    return { ok: false as const, status: 409, code: String(result["code"] ?? "invalid") };
+  }
+  if (result["duplicate"] === true) {
+    return {
+      ok: true as const,
+      status: 200,
+      code: "already_sent",
+      duplicate: true,
+      transportMessageId: result["transportMessageId"],
+    };
+  }
+
+  // Logg av det VERKLIGA utskicket, idempotent på transportens meddelande-id.
+  const conversationId = result["conversationId"];
+  if (conversationId) {
+    const sourceRef = `nurture-transport:${input.transportMessageId}`;
+    const { data: existing } = await ctx.supabase
+      .from(MESSAGES)
+      .select("id")
+      .eq("conversation_id", conversationId)
+      .eq("source_ref", sourceRef)
+      .maybeSingle();
+    if (!existing) {
+      const review = await readReview(ctx, input.reviewId);
+      await ctx.supabase.from(MESSAGES).insert({
+        conversation_id: conversationId,
+        lead_id: result["leadId"],
+        customer_id: result["customerId"],
+        direction: "outbound",
+        channel: "email",
+        redacted_body: `${review?.subject ?? ""}\n\n${review?.body ?? ""}`,
+        intent: "nurture_followup",
+        confidence: 1,
+        escalate: false,
+        escalation_reason: "",
+        suggested_action: "send_followup",
+        source_ref: sourceRef,
+      });
+      await ctx.supabase
+        .from("conversations")
+        .update({ stage: "contacted", last_event_at: new Date().toISOString() })
+        .eq("id", conversationId);
+    }
+  }
+
+  return {
+    ok: true as const,
+    status: 200,
+    code: "sent",
+    duplicate: false,
+    transportMessageId: result["transportMessageId"],
+  };
+}
+
+/**
+ * Misslyckat utskick. `unknown` (standard) betyder att vi inte vet om mailet
+ * gick iväg – posten släpps ALDRIG automatiskt tillbaka för nytt försök.
+ */
+export async function failNurtureReviewCore(
+  ctx: GrowthContext,
+  input: { reviewId: string; attemptId: string; outcome?: "not_sent" | "unknown"; reason?: string },
+) {
+  const outcome = input.outcome === "not_sent" ? "not_sent" : "unknown";
+  const { data, error } = await ctx.supabase.rpc("fail_nurture_review", {
+    p_review_id: input.reviewId,
+    p_attempt_id: input.attemptId,
+    p_outcome: outcome,
+    p_reason: (input.reason ?? "").trim(),
+  });
+  if (error) throw new Error(error.message);
+  const result = (data ?? {}) as Record<string, any>;
+  return {
+    ok: result["ok"] === true,
+    status: result["ok"] === true ? 200 : 409,
+    code: String(result["code"] ?? "invalid"),
+    reviewStatus: result["status"] ?? null,
+    releasedForRetry: false as const,
+  };
+}
+
+/**
+ * Inkommande svar på ett verkligt skickat uppföljningsmail.
+ *
+ * Tråden identifieras av transportens meddelande-id (In-Reply-To/References) –
+ * aldrig av ämnesrad. Avsändaren måste vara exakt den bundna mottagaren.
+ * Kund och lead härleds från den lagrade posten, aldrig från anropet.
+ */
+export async function registerReviewedNurtureReplyCore(
+  ctx: GrowthContext,
+  input: {
+    inReplyTo: string;
+    fromEmail: string;
+    body: string;
+    messageId?: string | undefined;
+  },
+) {
+  const threadRef = input.inReplyTo.trim();
+  const { data: review } = await ctx.supabase
+    .from(TABLE)
+    .select("*")
+    .eq("transport_message_id", threadRef)
+    .maybeSingle();
+
+  if (!review) return { ok: false as const, status: 404, code: "thread_not_found" };
+  if (!["sent", "unknown"].includes(String(review.status))) {
+    return { ok: false as const, status: 409, code: "thread_not_sent", reviewStatus: review.status };
+  }
+
+  if (normalizeEmail(input.fromEmail) !== normalizeEmail(review.recipient_email)) {
+    return { ok: false as const, status: 403, code: "sender_mismatch" };
+  }
+
+  // Stabil dedupe FÖRE alla sidoeffekter.
+  const sourceRef = `nurture-inbound:${(input.messageId ?? "").trim() || stableHash(input.body)}`;
+  const { data: duplicate } = await ctx.supabase
+    .from(MESSAGES)
+    .select("id")
+    .eq("lead_id", review.lead_id)
+    .eq("direction", "inbound")
+    .eq("source_ref", sourceRef)
+    .maybeSingle();
+  if (duplicate) {
+    return {
+      ok: true as const,
+      status: 200,
+      code: "duplicate",
+      duplicate: true,
+      reviewId: review.id,
+      leadId: review.lead_id,
+      customerId: review.customer_id,
+      notificationSent: false as const,
+      externalEffect: false as const,
+    };
+  }
+
+  const result = await registerNurtureReplyCore(ctx, {
+    leadId: review.lead_id,
+    body: input.body,
+    source: "make_growth_reply",
+    sourceRef,
+    makeContext: null,
+  });
+
+  return {
+    ok: true as const,
+    status: 200,
+    code: "registered",
+    duplicate: false,
+    reviewId: review.id,
+    leadId: review.lead_id,
+    customerId: review.customer_id,
+    conversationId: result.conversationId,
+    classification: result.classification,
+    effect: {
+      stop: result.effect.stop,
+      humanTakeover: result.effect.humanTakeover,
+      upgradeSignal: result.effect.upgradeSignal,
+      reason: result.effect.reason,
+    },
+    previousIntent: result.previousIntent,
+    newIntent: result.intent,
+    nurtureStatus: result.state.status,
+    outcome: result.effect.outcome,
+    stored: result.inboundStored,
+    notificationSent: false as const,
+    externalEffect: false as const,
+  };
+}
