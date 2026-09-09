@@ -63,6 +63,9 @@ export type NurtureReviewRow = {
   content_fingerprint: string;
   source_fingerprint: string;
   source_revision: string;
+  reason: string;
+  human_takeover: boolean;
+  intent_score: number;
   status: string;
   blocked_reason: string;
   execution_mode: string;
