@@ -844,3 +844,129 @@ describe("makeContext-kontraktet", () => {
     }
   });
 });
+
+/**
+ * TEST/REVIEW-bryggan för nurture (plan-nurture-test).
+ * Ingen extern effekt får uppstå: inga mail, notiser eller bokningar.
+ */
+const INCOMPLETE_ANSWERS = { behov: "Takrenovering", postnummer: "503 30", ager_fastigheten: "Ja" };
+
+function nurtureState(answers: Record<string, string>, outcomes: string[] = [], mode = "test") {
+  const state = baseState(answers);
+  state["customer_profiles"] = [
+    { customer_id: CUSTOMER_ID, ai_assistant_enabled: true, execution_mode: mode },
+  ];
+  state["growth_outcomes"] = outcomes.map((t, i) => ({
+    id: `n-${i}`,
+    lead_id: LEAD_ID,
+    customer_id: CUSTOMER_ID,
+    outcome_type: t,
+    outcome_value: null,
+    revenue_value: null,
+  }));
+  state["growth_nurture_state"] = [];
+  return state;
+}
+
+async function planNurture(state: Record<string, Row[]>, body: unknown = { leadId: LEAD_ID }) {
+  const res = await handleGrowthApi(
+    "plan-nurture-test",
+    withEnv(signedRequest("plan-nurture-test", body)),
+    deps(state),
+  );
+  return { res, body: (await res.json()) as any };
+}
+
+describe("plan-nurture-test", () => {
+  it("kräver giltig signatur och avvisar replay", async () => {
+    const bad = await handleGrowthApi(
+      "plan-nurture-test",
+      signedRequest("plan-nurture-test", { leadId: LEAD_ID }, { secret: "fel" }),
+      deps(nurtureState(INCOMPLETE_ANSWERS)),
+    );
+    expect(bad.status).toBe(401);
+
+    const state = nurtureState(INCOMPLETE_ANSWERS);
+    const eventId = "nurture-dup";
+    const first = await handleGrowthApi(
+      "plan-nurture-test",
+      withEnv(signedRequest("plan-nurture-test", { leadId: LEAD_ID }, { eventId })),
+      deps(state),
+    );
+    expect(first.status).toBe(200);
+    const second = await handleGrowthApi(
+      "plan-nurture-test",
+      withEnv(signedRequest("plan-nurture-test", { leadId: LEAD_ID }, { eventId })),
+      deps(state),
+    );
+    expect(second.status).toBe(409);
+  });
+
+  it("avvisar okända fält i nyttolasten", async () => {
+    const { res } = await planNurture(nurtureState(INCOMPLETE_ANSWERS), {
+      leadId: LEAD_ID,
+      route: "ai_full",
+      score: 100,
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("avvisar makeContext som pekar på fel kund", async () => {
+    const { res } = await planNurture(nurtureState(INCOMPLETE_ANSWERS), {
+      leadId: LEAD_ID,
+      makeContext: { ...MAKE_CONTEXT, customerId: "33333333-3333-4333-8333-333333333333" },
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it("LÅG/NORMAL får kundriktad preview utan extern effekt", async () => {
+    const { body } = await planNurture(nurtureState(INCOMPLETE_ANSWERS), {
+      leadId: LEAD_ID,
+      makeContext: MAKE_CONTEXT,
+    });
+    expect(["LÅG", "NORMAL"]).toContain(body.intent.level);
+    expect(body.eligible).toBe(true);
+    expect(body.questions.length).toBeGreaterThan(0);
+    expect(body.questions.length).toBeLessThanOrEqual(3);
+    expect(body.preview.body.startsWith("Hej!")).toBe(true);
+    expect(body.preview.body).toContain("Testkund");
+    for (const word of ["ai_light", "ai_full", "tier", "score", "route", "kr", "pris"]) {
+      expect(body.preview.body.toLowerCase()).not.toContain(word.toLowerCase());
+    }
+    expect(body.notificationSent).toBe(false);
+    expect(body.externalEffect).toBe(false);
+  });
+
+  it("hittar inte på frågor när underlaget är komplett", async () => {
+    const { body } = await planNurture(nurtureState(COMPLETE_ANSWERS));
+    expect(body.questions).toEqual([]);
+    expect(body.eligible).toBe(false);
+    expect(body.preview).toBeNull();
+  });
+
+  it("HÖG/AKUT får aldrig nurture-preview", async () => {
+    const { body } = await planNurture(
+      nurtureState(INCOMPLETE_ANSWERS, ["replied", "meeting_booked", "quote_sent"]),
+    );
+    expect(["HÖG", "AKUT"]).toContain(body.intent.level);
+    expect(body.eligible).toBe(false);
+    expect(body.preview).toBeNull();
+    expect(body.externalEffect).toBe(false);
+  });
+
+  it("pris/offert ger mänsklig handläggning i stället för kundutkast", async () => {
+    const { body } = await planNurture(
+      nurtureState({ ...INCOMPLETE_ANSWERS, projektbeskrivning: "Vad kostar det? Vi vill ha offert och avtal." }),
+    );
+    expect(body.humanTakeover).toBe(true);
+    expect(body.eligible).toBe(false);
+    expect(body.preview).toBeNull();
+  });
+
+  it("kund som skulle vara live kan ändå inte utlösa något utskick", async () => {
+    const { body } = await planNurture(nurtureState(INCOMPLETE_ANSWERS, [], "live"));
+    expect(["test", "review"]).toContain(body.executionMode);
+    expect(body.notificationSent).toBe(false);
+    expect(body.externalEffect).toBe(false);
+  });
+});
