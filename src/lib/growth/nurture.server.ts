@@ -454,6 +454,10 @@ export async function registerNurtureReplyCore(
     previousIntent: existing?.intent_level ?? null,
     intent,
     state: row,
+    conversationId: conversation.id,
+    sourceRef,
+    inboundStored: inbound.stored,
+    inboundDuplicate: inbound.duplicate,
     /** Aldrig ett utskick: bara en intern flagga. */
     notificationSent: false as const,
     externalEffect: false as const,
