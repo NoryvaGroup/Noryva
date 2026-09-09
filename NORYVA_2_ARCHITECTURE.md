@@ -338,3 +338,21 @@ HÖG/AKUT, human takeover och komplett underlag ger `preview: null`.
 
 - `src/lib/growth/nurture-preview.ts` – ren utkastbyggare.
 - `src/routes/api/public/growth/plan-nurture-test.ts` – routefil.
+
+### Maskin-till-maskin-brygga för test: `POST /api/public/growth/register-nurture-reply-test`
+
+Samma HMAC-headers, replayskydd och throttling som övriga Growth-endpoints.
+Återanvänder `registerNurtureReplyCore`: svaret PII-maskeras, klassificeras
+deterministiskt och registrerar utfall/intent-omräkning. Endast test/granskning
+– endpointen har ingen mail-, SMS-, boknings- eller notifieringsväg.
+
+Request (strict): `{ "leadId": "<uuid>", "body": "<svarstext, 1–4000 tecken>", "makeContext"?: ... }`.
+`makeContext.customerId` måste matcha lagrat `lead.customer_id` (annars 403).
+
+Response: `{ ok, classification, effect { stop, humanTakeover, upgradeSignal, reason },
+previousIntent, newIntent, nurtureStatus, outcome, notificationSent: false,
+externalEffect: false }`.
+
+Policy: `avbojer` → stop/cancelled; pris/offert/förhandling/klagomål/juridik →
+humanTakeover + stop; positivt svar → upgradeSignal; mötesvilja →
+upgradeSignal + utfall `meeting_booked`; neutralt svar → ingen uppgradering.
