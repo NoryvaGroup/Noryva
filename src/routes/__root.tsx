@@ -84,7 +84,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "Noryva hjälper företag att få fler kvalificerade kunder genom digital annonsering, leadgenerering, automatisering och konverteringsoptimering.",
       },
       { name: "author", content: "Noryva" },
-      { name: "theme-color", content: "#151719" },
+      { name: "theme-color", content: "#FAF7F2" },
       {
         name: "google-site-verification",
         content: "JADYkfjIhYIMHO0j8azC0cXDl2exizbVtz-UJekPyz0",
