@@ -148,6 +148,9 @@ function signedRequest(
   const headers: Record<string, string> = {
     "content-type": "application/json",
     "x-noryva-event-id": options.eventId ?? `evt-${Math.random().toString(36).slice(2)}`,
+    // Unik IP per anrop så att den avsedda in-memory-throttlingen inte
+    // stör testsviten (den testas separat).
+    "x-forwarded-for": `10.0.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`,
   };
   if (!options.omit) {
     headers["x-noryva-timestamp"] = ts;
