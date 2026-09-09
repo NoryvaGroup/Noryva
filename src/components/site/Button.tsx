@@ -23,6 +23,31 @@ export function CtaLink({
   return <a className={cn(base, styles[variant], className)} {...props} />;
 }
 
+/** Intern navigering med samma knappstil som CtaLink. */
+export function CtaTo({
+  to,
+  variant = "primary",
+  className,
+  children,
+  onClick,
+}: {
+  to: string;
+  variant?: Variant;
+  className?: string;
+  children: ReactNode;
+  onClick?: () => void;
+}) {
+  return (
+    <Link
+      to={to}
+      onClick={onClick}
+      className={cn(base, styles[variant], className)}
+    >
+      {children}
+    </Link>
+  );
+}
+
 export function CtaButton({
   variant = "primary",
   className,
