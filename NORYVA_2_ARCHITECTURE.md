@@ -316,3 +316,25 @@ Spärrar:
   skickas i den här versionen (`notificationSent: false`).
 - `assertExecutableMode` körs före varje statusändring – endast `test`/`review`.
   Status `sent` betyder "markerad som skickad i test/granskning".
+
+### Maskin-till-maskin-brygga för test: `POST /api/public/growth/plan-nurture-test`
+
+Samma HMAC-headers, replayskydd (`x-noryva-event-id`) och throttling som övriga
+Growth-endpoints. Endast test/granskning – endpointen har ingen mail-, SMS-,
+boknings- eller notifieringsväg och kan därför inte ge extern effekt.
+
+Request (strict): `{ "leadId": "<uuid>", "makeContext"?: { customerId, serviceArea, localPostalPrefix?, regionalPostalPrefix? } }`.
+Inga klientstyrda score/route/modellfält och inga overrides av lagrade svar.
+`makeContext.customerId` måste matcha lagrat `lead.customer_id` (annars 403).
+
+Response: `{ ok, eligible, intent { score, level, reason }, status, reason,
+questions, nextStepAt, humanTakeover, executionMode, preview { subject, body } | null,
+notificationSent: false, externalEffect: false }`.
+
+`preview.body` är det exakta kundriktade mailet vi skulle kunna skicka senare:
+kort svenska, börjar med `Hej!`, 1–3 frågor endast när underlaget verkligen
+saknas, inga priser eller löften, signerat med kundens företagsnamn.
+HÖG/AKUT, human takeover och komplett underlag ger `preview: null`.
+
+- `src/lib/growth/nurture-preview.ts` – ren utkastbyggare.
+- `src/routes/api/public/growth/plan-nurture-test.ts` – routefil.

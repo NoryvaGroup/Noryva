@@ -29,6 +29,8 @@ import {
 } from "./service.server";
 import { computeIntent } from "./intent";
 import { needsHumanTakeover } from "@/lib/ai-sales/policy";
+import { buildNurturePreview } from "./nurture-preview";
+import type { MakeContext } from "./make-contract";
 
 const TABLE = "growth_nurture_state";
 
@@ -66,9 +68,10 @@ const TERMINAL_STATUSES: NurtureStatus[] = ["cancelled"];
 export async function planNurtureCore(
   ctx: GrowthContext,
   leadId: string,
-  options: { now?: Date } = {},
+  options: { now?: Date; makeContext?: MakeContext | null } = {},
 ) {
-  const bundle = await loadLeadBundle(ctx, leadId);
+  // Samma auktoritativa underlag som route/analyze – intent kan inte divergera.
+  const bundle = await loadLeadBundle(ctx, leadId, { makeContext: options.makeContext ?? null });
   const { lead, profile, qualification, context: aiContext, geography } = bundle;
 
   const outcomes = await readLeadOutcomes(ctx, lead.id);
@@ -83,8 +86,18 @@ export async function planNurtureCore(
     readExecutionMode(profile.executionMode ?? "review"),
   );
 
+  const humanTakeover = needsHumanTakeover(aiContext);
+  const companyName = aiContext.companyName ?? "";
+
   if (existing && (TERMINAL_STATUSES.includes(existing.status) || existing.status === "replied")) {
-    return { ok: true as const, changed: false, intent, state: existing };
+    return {
+      ok: true as const,
+      changed: false,
+      intent,
+      state: existing,
+      humanTakeover,
+      companyName,
+    };
   }
 
   const geographyVerified =
@@ -93,7 +106,7 @@ export async function planNurtureCore(
   const plan = buildNurturePlan({
     intentLevel: intent.level,
     terminal: intent.terminal,
-    humanTakeover: needsHumanTakeover(aiContext),
+    humanTakeover,
     missingInformation: aiContext.missingInformation ?? [],
     geographyVerified,
     executionMode,
@@ -121,7 +134,46 @@ export async function planNurtureCore(
 
   await ctx.supabase.from(TABLE).upsert(row, { onConflict: "lead_id" });
 
-  return { ok: true as const, changed: true, intent, state: row, plan };
+  return { ok: true as const, changed: true, intent, state: row, plan, humanTakeover, companyName };
+}
+
+/**
+ * TEST/REVIEW-brygga för Make.
+ *
+ * Planerar nurture och returnerar ett kundriktat utkast som INTE skickas.
+ * `externalEffect` är alltid false: modulen har ingen mail-, SMS-, boknings-
+ * eller notifieringsväg. Körläget normaliseras till test/review innan något
+ * annat sker, så en kund som skulle vara live kan ändå inte utlösa utskick.
+ */
+export async function previewNurtureTestCore(
+  ctx: GrowthContext,
+  leadId: string,
+  options: { now?: Date; makeContext?: MakeContext | null } = {},
+) {
+  const planned = await planNurtureCore(ctx, leadId, options);
+  const state = planned.state;
+  const eligible = state.status !== "cancelled" && (state.questions ?? []).length > 0;
+
+  const preview = buildNurturePreview({
+    questions: state.questions ?? [],
+    companyName: planned.companyName,
+    blocked: !eligible || planned.humanTakeover,
+  });
+
+  return {
+    ok: true as const,
+    eligible: eligible && preview !== null,
+    intent: { score: planned.intent.score, level: planned.intent.level, reason: planned.intent.reason },
+    status: state.status,
+    reason: state.reason,
+    questions: state.questions ?? [],
+    nextStepAt: state.next_step_at,
+    humanTakeover: planned.humanTakeover,
+    executionMode: state.execution_mode,
+    preview,
+    notificationSent: false as const,
+    externalEffect: false as const,
+  };
 }
 
 /** Leads vars planerade uppföljningstillfälle har passerat. Inga utskick. */
