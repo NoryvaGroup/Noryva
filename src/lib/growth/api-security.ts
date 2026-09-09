@@ -27,7 +27,8 @@ export type GrowthOperation =
   | "analyze-lead"
   | "assign-variant"
   | "register-outcome"
-  | "growth-recommendation";
+  | "growth-recommendation"
+  | "plan-nurture-test";
 
 /**
  * `makeContext` är frivilligt. Utan det är beteendet identiskt med tidigare
@@ -56,6 +57,9 @@ export const GROWTH_API_SCHEMAS = {
     })
     .strict(),
   "growth-recommendation": z.object({ experimentId: z.string().uuid() }).strict(),
+  // Endast test/granskning: planerar nurture och returnerar ett utkast som
+  // aldrig skickas. Inga klientstyrda score/route/modellfält.
+  "plan-nurture-test": leadWithMakeContext,
 } as const satisfies Record<GrowthOperation, z.ZodTypeAny>;
 
 export type VerifyResult =

@@ -32,6 +32,7 @@ import { Route as TestOffertSlugRouteImport } from './routes/test.offert.$slug'
 import { Route as ApiPublicGrowthAnalyzeLeadRouteImport } from './routes/api/public/growth/analyze-lead'
 import { Route as ApiPublicGrowthAssignVariantRouteImport } from './routes/api/public/growth/assign-variant'
 import { Route as ApiPublicGrowthGrowthRecommendationRouteImport } from './routes/api/public/growth/growth-recommendation'
+import { Route as ApiPublicGrowthPlanNurtureTestRouteImport } from './routes/api/public/growth/plan-nurture-test'
 import { Route as ApiPublicGrowthRegisterOutcomeRouteImport } from './routes/api/public/growth/register-outcome'
 import { Route as ApiPublicGrowthRouteLeadRouteImport } from './routes/api/public/growth/route-lead'
 
@@ -158,6 +159,12 @@ const ApiPublicGrowthGrowthRecommendationRoute =
     path: '/api/public/growth/growth-recommendation',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicGrowthPlanNurtureTestRoute =
+  ApiPublicGrowthPlanNurtureTestRouteImport.update({
+    id: '/api/public/growth/plan-nurture-test',
+    path: '/api/public/growth/plan-nurture-test',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicGrowthRegisterOutcomeRoute =
   ApiPublicGrowthRegisterOutcomeRouteImport.update({
     id: '/api/public/growth/register-outcome',
@@ -194,6 +201,7 @@ export interface FileRoutesByFullPath {
   '/api/public/growth/analyze-lead': typeof ApiPublicGrowthAnalyzeLeadRoute
   '/api/public/growth/assign-variant': typeof ApiPublicGrowthAssignVariantRoute
   '/api/public/growth/growth-recommendation': typeof ApiPublicGrowthGrowthRecommendationRoute
+  '/api/public/growth/plan-nurture-test': typeof ApiPublicGrowthPlanNurtureTestRoute
   '/api/public/growth/register-outcome': typeof ApiPublicGrowthRegisterOutcomeRoute
   '/api/public/growth/route-lead': typeof ApiPublicGrowthRouteLeadRoute
 }
@@ -220,6 +228,7 @@ export interface FileRoutesByTo {
   '/api/public/growth/analyze-lead': typeof ApiPublicGrowthAnalyzeLeadRoute
   '/api/public/growth/assign-variant': typeof ApiPublicGrowthAssignVariantRoute
   '/api/public/growth/growth-recommendation': typeof ApiPublicGrowthGrowthRecommendationRoute
+  '/api/public/growth/plan-nurture-test': typeof ApiPublicGrowthPlanNurtureTestRoute
   '/api/public/growth/register-outcome': typeof ApiPublicGrowthRegisterOutcomeRoute
   '/api/public/growth/route-lead': typeof ApiPublicGrowthRouteLeadRoute
 }
@@ -248,6 +257,7 @@ export interface FileRoutesById {
   '/api/public/growth/analyze-lead': typeof ApiPublicGrowthAnalyzeLeadRoute
   '/api/public/growth/assign-variant': typeof ApiPublicGrowthAssignVariantRoute
   '/api/public/growth/growth-recommendation': typeof ApiPublicGrowthGrowthRecommendationRoute
+  '/api/public/growth/plan-nurture-test': typeof ApiPublicGrowthPlanNurtureTestRoute
   '/api/public/growth/register-outcome': typeof ApiPublicGrowthRegisterOutcomeRoute
   '/api/public/growth/route-lead': typeof ApiPublicGrowthRouteLeadRoute
 }
@@ -276,6 +286,7 @@ export interface FileRouteTypes {
     | '/api/public/growth/analyze-lead'
     | '/api/public/growth/assign-variant'
     | '/api/public/growth/growth-recommendation'
+    | '/api/public/growth/plan-nurture-test'
     | '/api/public/growth/register-outcome'
     | '/api/public/growth/route-lead'
   fileRoutesByTo: FileRoutesByTo
@@ -302,6 +313,7 @@ export interface FileRouteTypes {
     | '/api/public/growth/analyze-lead'
     | '/api/public/growth/assign-variant'
     | '/api/public/growth/growth-recommendation'
+    | '/api/public/growth/plan-nurture-test'
     | '/api/public/growth/register-outcome'
     | '/api/public/growth/route-lead'
   id:
@@ -329,6 +341,7 @@ export interface FileRouteTypes {
     | '/api/public/growth/analyze-lead'
     | '/api/public/growth/assign-variant'
     | '/api/public/growth/growth-recommendation'
+    | '/api/public/growth/plan-nurture-test'
     | '/api/public/growth/register-outcome'
     | '/api/public/growth/route-lead'
   fileRoutesById: FileRoutesById
@@ -350,6 +363,7 @@ export interface RootRouteChildren {
   ApiPublicGrowthAnalyzeLeadRoute: typeof ApiPublicGrowthAnalyzeLeadRoute
   ApiPublicGrowthAssignVariantRoute: typeof ApiPublicGrowthAssignVariantRoute
   ApiPublicGrowthGrowthRecommendationRoute: typeof ApiPublicGrowthGrowthRecommendationRoute
+  ApiPublicGrowthPlanNurtureTestRoute: typeof ApiPublicGrowthPlanNurtureTestRoute
   ApiPublicGrowthRegisterOutcomeRoute: typeof ApiPublicGrowthRegisterOutcomeRoute
   ApiPublicGrowthRouteLeadRoute: typeof ApiPublicGrowthRouteLeadRoute
 }
@@ -517,6 +531,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicGrowthGrowthRecommendationRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/growth/plan-nurture-test': {
+      id: '/api/public/growth/plan-nurture-test'
+      path: '/api/public/growth/plan-nurture-test'
+      fullPath: '/api/public/growth/plan-nurture-test'
+      preLoaderRoute: typeof ApiPublicGrowthPlanNurtureTestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/growth/register-outcome': {
       id: '/api/public/growth/register-outcome'
       path: '/api/public/growth/register-outcome'
@@ -576,6 +597,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicGrowthAssignVariantRoute: ApiPublicGrowthAssignVariantRoute,
   ApiPublicGrowthGrowthRecommendationRoute:
     ApiPublicGrowthGrowthRecommendationRoute,
+  ApiPublicGrowthPlanNurtureTestRoute: ApiPublicGrowthPlanNurtureTestRoute,
   ApiPublicGrowthRegisterOutcomeRoute: ApiPublicGrowthRegisterOutcomeRoute,
   ApiPublicGrowthRouteLeadRoute: ApiPublicGrowthRouteLeadRoute,
 }
