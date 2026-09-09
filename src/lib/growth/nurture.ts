@@ -178,15 +178,16 @@ export function buildNurturePlan(input: NurturePlanInput): NurturePlan {
   }
 
   const questions = buildNurtureQuestions(input);
-  const nextStepAt = questions.length > 0 ? nextNurtureStepAt(input.intentLevel, input.now) : null;
+  // Ett komplett men svagt lead kastas inte: det får en mjuk "håll varmt"-uppföljning.
+  const nextStepAt = nextNurtureStepAt(input.intentLevel, input.now);
 
   return {
     eligible: true,
-    status: questions.length > 0 ? "pending" : "cancelled",
+    status: "pending",
     reason:
       questions.length > 0
         ? eligibility.reason
-        : "Underlaget är komplett – ingen kompletteringsfråga behövs.",
+        : "Underlaget är komplett – mjuk uppföljning för att hålla leadet varmt.",
     questions,
     nextStepAt,
     executionMode: mode,
