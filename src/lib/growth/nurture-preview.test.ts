@@ -14,12 +14,23 @@ describe("nurture-preview", () => {
     expect(preview!.body.split(/\s+/).length).toBeLessThan(80);
   });
 
-  it("returnerar null utan frågor, utan företagsnamn eller när leadet är blockerat", () => {
-    expect(buildNurturePreview({ questions: [], companyName: "Testkund" })).toBeNull();
+  it("bygger ett neutralt håll varmt-mail när inga frågor saknas", () => {
+    const preview = buildNurturePreview({ questions: [], companyName: "Testkund" });
+    expect(preview).not.toBeNull();
+    expect(preview!.subject).toBe("Uppföljning på din förfrågan");
+    expect(preview!.body).toContain("fortfarande är aktuellt");
+    expect(preview!.body).not.toContain("?");
+    expect(preview!.body.trimEnd().endsWith("Testkund")).toBe(true);
+    expect(preview!.body.split(/\s+/).length).toBeLessThan(80);
+  });
+
+  it("returnerar null utan företagsnamn eller när leadet är blockerat", () => {
     expect(buildNurturePreview({ questions: ["Fråga?"], companyName: " " })).toBeNull();
+    expect(buildNurturePreview({ questions: [], companyName: " " })).toBeNull();
     expect(
       buildNurturePreview({ questions: ["Fråga?"], companyName: "Testkund", blocked: true }),
     ).toBeNull();
+    expect(buildNurturePreview({ questions: [], companyName: "Testkund", blocked: true })).toBeNull();
   });
 
   it("tar aldrig med fler än tre frågor", () => {

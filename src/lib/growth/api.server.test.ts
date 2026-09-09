@@ -990,11 +990,15 @@ describe("plan-nurture-test", () => {
     expect(body.externalEffect).toBe(false);
   });
 
-  it("hittar inte på frågor när underlaget är komplett", async () => {
+  it("hittar inte på frågor när underlaget är komplett, men håller leadet varmt", async () => {
     const { body } = await planNurture(nurtureState(COMPLETE_ANSWERS));
     expect(body.questions).toEqual([]);
-    expect(body.eligible).toBe(false);
-    expect(body.preview).toBeNull();
+    expect(body.eligible).toBe(true);
+    expect(body.preview).not.toBeNull();
+    expect(body.preview.subject).toBe("Uppföljning på din förfrågan");
+    expect(body.preview.body).not.toContain("?");
+    expect(body.notificationSent).toBe(false);
+    expect(body.externalEffect).toBe(false);
   });
 
   it("HÖG/AKUT får aldrig nurture-preview", async () => {
