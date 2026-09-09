@@ -162,6 +162,14 @@ async function runOperation(
         recommendation: report.recommendation,
       };
     }
+
+    case "plan-nurture-test": {
+      // Ren test/granskningsoperation: inget mail, ingen bokning, ingen notis.
+      const { previewNurtureTestCore } = await import("./nurture.server");
+      return previewNurtureTestCore(ctx, data.leadId, {
+        makeContext: data.makeContext ?? null,
+      });
+    }
   }
 }
 
