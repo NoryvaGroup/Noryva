@@ -755,6 +755,12 @@ export async function failNurtureReviewCore(
  * Tråden identifieras av transportens meddelande-id (In-Reply-To/References) –
  * aldrig av ämnesrad. Avsändaren måste vara exakt den bundna mottagaren.
  * Kund och lead härleds från den lagrade posten, aldrig från anropet.
+ *
+ * IDEMPOTENS: databasen reserverar meddelande-id:t innan någon sidoeffekt
+ * sker. Två samtidiga leveranser av samma svar kan därför inte tillämpa
+ * effekten två gånger; den andra får det lagrade resultatet eller ett
+ * "behandlas redan"-svar. Misslyckas behandlingen markeras reservationen som
+ * misslyckad och kan köras om – anropet rapporteras ALDRIG som lyckat.
  */
 export async function registerReviewedNurtureReplyCore(
   ctx: GrowthContext,
@@ -766,6 +772,13 @@ export async function registerReviewedNurtureReplyCore(
   },
 ) {
   const threadRef = input.inReplyTo.trim();
+  // Ett stabilt meddelande-id krävs. En texthash räcker inte: två olika svar
+  // med samma text skulle deduplicera bort varandra.
+  const messageId = (input.messageId ?? "").trim();
+  if (!messageId) {
+    return { ok: false as const, status: 400, code: "message_id_required" };
+  }
+
   const { data: review } = await ctx.supabase
     .from(TABLE)
     .select("*")
@@ -781,59 +794,86 @@ export async function registerReviewedNurtureReplyCore(
     return { ok: false as const, status: 403, code: "sender_mismatch" };
   }
 
-  // Stabil dedupe FÖRE alla sidoeffekter.
-  const sourceRef = `nurture-inbound:${(input.messageId ?? "").trim() || stableHash(input.body)}`;
-  const { data: duplicate } = await ctx.supabase
-    .from(MESSAGES)
-    .select("id")
-    .eq("lead_id", review.lead_id)
-    .eq("direction", "inbound")
-    .eq("source_ref", sourceRef)
-    .maybeSingle();
-  if (duplicate) {
-    return {
-      ok: true as const,
-      status: 200,
-      code: "duplicate",
-      duplicate: true,
-      reviewId: review.id,
-      leadId: review.lead_id,
-      customerId: review.customer_id,
-      notificationSent: false as const,
-      externalEffect: false as const,
-    };
-  }
-
-  const result = await registerNurtureReplyCore(ctx, {
-    leadId: review.lead_id,
-    body: input.body,
-    source: "make_growth_reply",
-    sourceRef,
-    makeContext: null,
-  });
-
-  return {
-    ok: true as const,
-    status: 200,
-    code: "registered",
-    duplicate: false,
+  const sourceRef = `nurture-inbound:${messageId}`;
+  const base = {
     reviewId: review.id,
     leadId: review.lead_id,
     customerId: review.customer_id,
-    conversationId: result.conversationId,
-    classification: result.classification,
-    effect: {
-      stop: result.effect.stop,
-      humanTakeover: result.effect.humanTakeover,
-      upgradeSignal: result.effect.upgradeSignal,
-      reason: result.effect.reason,
-    },
-    previousIntent: result.previousIntent,
-    newIntent: result.intent,
-    nurtureStatus: result.state.status,
-    outcome: result.effect.outcome,
-    stored: result.inboundStored,
     notificationSent: false as const,
     externalEffect: false as const,
   };
+
+  // Atomär reservation FÖRE varje sidoeffekt.
+  const { data: reservation, error: reserveError } = await ctx.supabase.rpc("reserve_nurture_inbound", {
+    p_review_id: review.id,
+    p_lead_id: review.lead_id,
+    p_source_ref: sourceRef,
+  });
+  if (reserveError) throw new Error(reserveError.message);
+  const state = String((reservation as any)?.state ?? "");
+
+  if (state === "done") {
+    const stored = ((reservation as any)?.result ?? {}) as Record<string, unknown>;
+    return { ok: true as const, status: 200, code: "duplicate", duplicate: true, ...base, ...stored };
+  }
+  if (state === "in_progress") {
+    return { ok: false as const, status: 409, code: "in_progress", ...base };
+  }
+  if (state !== "reserved") {
+    return { ok: false as const, status: 400, code: "invalid_reservation", ...base };
+  }
+
+  try {
+    const result = await registerNurtureReplyCore(ctx, {
+      leadId: review.lead_id,
+      body: input.body,
+      source: "make_growth_reply",
+      sourceRef,
+      makeContext: null,
+    });
+
+    const payload = {
+      conversationId: result.conversationId,
+      classification: result.classification,
+      effect: {
+        stop: result.effect.stop,
+        humanTakeover: result.effect.humanTakeover,
+        upgradeSignal: result.effect.upgradeSignal,
+        reason: result.effect.reason,
+      },
+      previousIntent: result.previousIntent,
+      newIntent: result.intent,
+      nurtureStatus: result.state.status,
+      outcome: result.effect.outcome,
+      stored: result.inboundStored,
+    };
+
+    const { error: finishError } = await ctx.supabase.rpc("finish_nurture_inbound", {
+      p_source_ref: sourceRef,
+      p_ok: true,
+      p_result: payload,
+    });
+    // Ett fel här får inte tystas: reservationen står kvar och svaret får
+    // köras om, men anropet redovisas inte som klart.
+    if (finishError) {
+      return { ok: false as const, status: 500, code: "not_finalized", ...base };
+    }
+
+    return { ok: true as const, status: 200, code: "registered", duplicate: false, ...base, ...payload };
+  } catch (error) {
+    await ctx.supabase.rpc("finish_nurture_inbound", {
+      p_source_ref: sourceRef,
+      p_ok: false,
+      p_result: { error: "processing_failed" },
+    });
+    return {
+      ok: false as const,
+      status: 500,
+      code: "processing_failed",
+      message: (error as Error).message,
+      ...base,
+    };
+  }
+}
+
 }
