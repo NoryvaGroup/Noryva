@@ -1,9 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { useState } from "react";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { getGrowthDashboard } from "@/lib/growth.functions";
-import { getNurtureQueue } from "@/lib/nurture.functions";
+import {
+  approveNurtureReview,
+  cancelNurtureReview,
+  getNurtureQueue,
+  getNurtureReviews,
+  refreshNurtureReviews,
+} from "@/lib/nurture.functions";
 import { NURTURE_STATUS_LABEL, type NurtureStatus } from "@/lib/growth/nurture";
 import { EXPERIMENT_TYPE_LABEL, type ExperimentType } from "@/lib/growth/experiments";
 
@@ -198,6 +205,10 @@ function GrowthPage() {
 
           <NurtureSection />
 
+          <NurtureReviewSection />
+
+
+
 
           <section>
             <h2 className="mb-3 text-sm font-semibold">Senaste optimizer-rekommendationer</h2>
@@ -292,6 +303,183 @@ function NurtureSection() {
           </table>
         </div>
       ) : null}
+    </section>
+  );
+}
+
+const REVIEW_STATUS_LABEL: Record<string, string> = {
+  pending_review: "Väntar på granskning",
+  blocked: "Spärrad",
+  approved: "Godkänd – väntar på utskick",
+  claimed: "Hämtad för utskick",
+  sent: "Skickad",
+  failed: "Misslyckades (inget mail gick iväg)",
+  unknown: "Okänt utfall – kontrollera manuellt",
+  cancelled: "Avslagen",
+};
+
+/**
+ * Granskningskö: här står exakt det mail som skickas, till exakt den mottagare
+ * som finns lagrad på förfrågan. Ingenting skickas förrän en administratör
+ * trycker "Godkänn och skicka". Avslag skickar aldrig något.
+ */
+function NurtureReviewSection() {
+  const queryClient = useQueryClient();
+  const fetchReviews = useServerFn(getNurtureReviews);
+  const approve = useServerFn(approveNurtureReview);
+  const cancel = useServerFn(cancelNurtureReview);
+  const refresh = useServerFn(refreshNurtureReviews);
+  const [notice, setNotice] = useState<string>("");
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["nurture-reviews"],
+    queryFn: () => fetchReviews(),
+  });
+
+  const invalidate = () => {
+    void queryClient.invalidateQueries({ queryKey: ["nurture-reviews"] });
+    void queryClient.invalidateQueries({ queryKey: ["nurture-queue"] });
+  };
+
+  const refreshMutation = useMutation({
+    mutationFn: () => refresh(),
+    onSuccess: (r: any) => {
+      setNotice(`Uppdaterad: ${r.created} nya, ${r.updated} ändrade, ${r.skipped} hoppades över.`);
+      invalidate();
+    },
+    onError: (e: Error) => setNotice(`Kunde inte uppdatera kön: ${e.message}`),
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: (vars: { reviewId: string; fingerprint: string }) => approve({ data: vars }),
+    onSuccess: (r: any) => {
+      setNotice(r.message);
+      invalidate();
+    },
+    onError: (e: Error) => setNotice(`Godkännandet gick inte igenom: ${e.message}`),
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: (vars: { reviewId: string }) => cancel({ data: vars }),
+    onSuccess: () => {
+      setNotice("Avslagen. Inget mail skickades.");
+      invalidate();
+    },
+    onError: (e: Error) => setNotice(`Kunde inte avslå: ${e.message}`),
+  });
+
+  const busy = approveMutation.isPending || cancelMutation.isPending || refreshMutation.isPending;
+
+  return (
+    <section>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-sm font-semibold">Granskning före utskick</h2>
+        <button
+          type="button"
+          onClick={() => refreshMutation.mutate()}
+          disabled={busy}
+          className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium disabled:opacity-50"
+        >
+          {refreshMutation.isPending ? "Uppdaterar …" : "Uppdatera förfallna"}
+        </button>
+      </div>
+
+      <p className="mb-3 text-xs text-muted-foreground">
+        Mailet nedan är exakt det som skickas. Mottagaren kommer från förfrågan – den går inte att
+        ändra här. Svar går till info@noryva.se.
+        {data ? (
+          <>
+            {" "}
+            Utskicksbrygga: {data.bridgeConfigured ? "konfigurerad" : "saknas"} · Externa utskick:{" "}
+            {data.externalSendEnabled ? "på" : "av (endast testmottagare)"}.
+          </>
+        ) : null}
+      </p>
+
+      {notice ? <p className="mb-3 text-xs text-foreground">{notice}</p> : null}
+      {isLoading ? <p className="text-sm text-muted-foreground">Hämtar granskningskön …</p> : null}
+      {error ? (
+        <p className="text-sm text-destructive">Kunde inte hämta kön: {(error as Error).message}</p>
+      ) : null}
+      {data && data.items.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Inget väntar på granskning just nu.</p>
+      ) : null}
+
+      <div className="space-y-3">
+        {(data?.items ?? []).map((r: any) => (
+          <div key={r.id} className="rounded-xl border border-border bg-card p-4">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">
+                {REVIEW_STATUS_LABEL[r.status] ?? r.status}
+              </span>
+              <span>Förfrågan {String(r.lead_id).slice(0, 8)}</span>
+              <span>{r.company_name || "Okänd kund"}</span>
+              <span>Intent {r.intent_level}</span>
+              <span>Planerad {new Date(r.due_at).toLocaleString("sv-SE")}</span>
+            </div>
+
+            {r.blocked_reason ? (
+              <p className="mt-2 rounded-lg border border-amber-500/40 bg-amber-500/5 p-2 text-xs">
+                Spärrad: {r.blocked_reason}
+              </p>
+            ) : null}
+
+            <dl className="mt-3 space-y-1 text-xs">
+              <div>
+                <dt className="inline text-muted-foreground">Till: </dt>
+                <dd className="inline font-medium">{r.recipient_email || "– saknas –"}</dd>
+              </div>
+              <div>
+                <dt className="inline text-muted-foreground">Ämne: </dt>
+                <dd className="inline font-medium">{r.subject || "– saknas –"}</dd>
+              </div>
+            </dl>
+            <pre className="mt-2 whitespace-pre-wrap rounded-lg border border-border bg-muted/30 p-3 text-xs">
+              {r.body || "– ingen text –"}
+            </pre>
+
+            {(r.questions ?? []).length > 0 ? (
+              <ul className="mt-2 list-disc pl-5 text-xs text-muted-foreground">
+                {(r.questions as string[]).map((q) => (
+                  <li key={q}>{q}</li>
+                ))}
+              </ul>
+            ) : null}
+
+            {r.transport_message_id ? (
+              <p className="mt-2 font-mono text-[11px] text-muted-foreground">
+                Meddelande-id: {r.transport_message_id}
+              </p>
+            ) : null}
+            {r.failure_reason ? (
+              <p className="mt-2 text-xs text-destructive">{r.failure_reason}</p>
+            ) : null}
+
+            {r.status === "pending_review" ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() =>
+                    approveMutation.mutate({ reviewId: r.id, fingerprint: r.content_fingerprint })
+                  }
+                  className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
+                >
+                  Godkänn och skicka
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => cancelMutation.mutate({ reviewId: r.id })}
+                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium disabled:opacity-50"
+                >
+                  Avslå
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ))}
+      </div>
     </section>
   );
 }

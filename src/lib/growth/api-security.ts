@@ -29,7 +29,12 @@ export type GrowthOperation =
   | "register-outcome"
   | "growth-recommendation"
   | "plan-nurture-test"
-  | "register-nurture-reply-test";
+  | "register-nurture-reply-test"
+  | "due-nurture-reviews"
+  | "claim-nurture-review"
+  | "complete-nurture-review"
+  | "fail-nurture-review"
+  | "register-reviewed-nurture-reply";
 
 /**
  * `makeContext` är frivilligt. Utan det är beteendet identiskt med tidigare
@@ -70,6 +75,42 @@ export const GROWTH_API_SCHEMAS = {
       /** Valfritt id från Make för idempotens. Bakåtkompatibelt. */
       sourceRef: z.string().trim().min(1).max(120).optional(),
       makeContext: makeContextSchema.optional(),
+    })
+    .strict(),
+
+  // --- Granskad uppföljning (review outbox). Ingen av dessa kan aktivera
+  // live-läge; utskicket görs av Make efter att en administratör godkänt. ---
+
+  /** Bygger/uppdaterar granskningsposter för förfallna uppföljningar. */
+  "due-nurture-reviews": z
+    .object({ limit: z.number().int().min(1).max(25).optional() })
+    .strict(),
+  /** Hämtar ETT godkänt utskick. Sändbart innehåll lämnas ut exakt en gång. */
+  "claim-nurture-review": z.object({ reviewId: z.string().uuid() }).strict(),
+  /** Bokför ett bekräftat utskick. Kräver transportens meddelande-id. */
+  "complete-nurture-review": z
+    .object({
+      reviewId: z.string().uuid(),
+      attemptId: z.string().uuid(),
+      transportMessageId: z.string().trim().min(1).max(400),
+    })
+    .strict(),
+  /** Bokför ett misslyckat försök. Släpper aldrig posten för nytt försök. */
+  "fail-nurture-review": z
+    .object({
+      reviewId: z.string().uuid(),
+      attemptId: z.string().uuid(),
+      outcome: z.enum(["not_sent", "unknown"]).optional(),
+      reason: z.string().trim().max(400).optional(),
+    })
+    .strict(),
+  /** Inkommande svar på ett verkligt skickat mail. Tråd via meddelande-id. */
+  "register-reviewed-nurture-reply": z
+    .object({
+      inReplyTo: z.string().trim().min(1).max(400),
+      fromEmail: z.string().trim().email().max(254),
+      body: z.string().trim().min(1).max(8000),
+      messageId: z.string().trim().min(1).max(400).optional(),
     })
     .strict(),
 } as const satisfies Record<GrowthOperation, z.ZodTypeAny>;

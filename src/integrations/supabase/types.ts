@@ -1126,6 +1126,121 @@ export type Database = {
           },
         ]
       }
+      nurture_reviews: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          attempt_id: string | null
+          blocked_reason: string
+          body: string
+          claimed_at: string | null
+          company_name: string
+          content_fingerprint: string
+          conversation_id: string | null
+          created_at: string
+          customer_id: string
+          due_at: string
+          execution_mode: string
+          failed_at: string | null
+          failure_reason: string
+          id: string
+          intent_level: string
+          lead_id: string
+          occurrence_key: string
+          questions: Json
+          recipient_email: string
+          sent_at: string | null
+          source_fingerprint: string
+          status: string
+          step_index: number
+          subject: string
+          transport_message_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          attempt_id?: string | null
+          blocked_reason?: string
+          body?: string
+          claimed_at?: string | null
+          company_name?: string
+          content_fingerprint: string
+          conversation_id?: string | null
+          created_at?: string
+          customer_id: string
+          due_at: string
+          execution_mode?: string
+          failed_at?: string | null
+          failure_reason?: string
+          id?: string
+          intent_level?: string
+          lead_id: string
+          occurrence_key: string
+          questions?: Json
+          recipient_email?: string
+          sent_at?: string | null
+          source_fingerprint?: string
+          status?: string
+          step_index?: number
+          subject?: string
+          transport_message_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          attempt_id?: string | null
+          blocked_reason?: string
+          body?: string
+          claimed_at?: string | null
+          company_name?: string
+          content_fingerprint?: string
+          conversation_id?: string | null
+          created_at?: string
+          customer_id?: string
+          due_at?: string
+          execution_mode?: string
+          failed_at?: string | null
+          failure_reason?: string
+          id?: string
+          intent_level?: string
+          lead_id?: string
+          occurrence_key?: string
+          questions?: Json
+          recipient_email?: string
+          sent_at?: string | null
+          source_fingerprint?: string
+          status?: string
+          step_index?: number
+          subject?: string
+          transport_message_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nurture_reviews_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nurture_reviews_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nurture_reviews_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales_actions: {
         Row: {
           action_type: string
@@ -1246,6 +1361,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      approve_nurture_review: {
+        Args: { p_fingerprint: string; p_review_id: string }
+        Returns: Json
+      }
+      cancel_nurture_review: {
+        Args: { p_reason: string; p_review_id: string }
+        Returns: Json
+      }
       claim_growth_analysis: {
         Args: { p_analysis_version: string; p_lead_id: string }
         Returns: string
@@ -1253,6 +1376,24 @@ export type Database = {
       claim_lead_delivery: {
         Args: { p_lead_id: string; p_stale_seconds?: number }
         Returns: string
+      }
+      claim_nurture_review: { Args: { p_review_id: string }; Returns: Json }
+      complete_nurture_review: {
+        Args: {
+          p_attempt_id: string
+          p_review_id: string
+          p_transport_message_id: string
+        }
+        Returns: Json
+      }
+      fail_nurture_review: {
+        Args: {
+          p_attempt_id: string
+          p_outcome: string
+          p_reason: string
+          p_review_id: string
+        }
+        Returns: Json
       }
       get_public_landing: { Args: { p_slug: string }; Returns: Json }
       has_role: {
