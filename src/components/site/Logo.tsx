@@ -16,8 +16,7 @@ export function Logo({ className }: { className?: string }) {
         aria-hidden="true"
         width="1983"
         height="793"
-        className="absolute inset-0 size-full object-contain brightness-0 invert"
-        style={{ clipPath: "inset(0 0 0 30%)" }}
+        className="absolute inset-0 size-full object-contain brightness-0 invert [clip-path:inset(0_0_0_30%)]"
       />
     </span>
   );
