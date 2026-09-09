@@ -28,7 +28,7 @@ function FlowVisual() {
       <svg viewBox="0 0 620 130" className="mt-8 w-full" role="img" aria-label="Illustration av flödet från annons till affärsmöjlighet">
         <defs>
           <linearGradient id="flowLine" x1="0" x2="1">
-            <stop offset="0%" stopColor="oklch(0.5 0.11 255)" stopOpacity="0.12" />
+            <stop offset="0%" stopColor="oklch(0.5 0.11 255)" stopOpacity="0.3" />
             <stop offset="100%" stopColor="oklch(0.5 0.11 255)" stopOpacity="0.9" />
           </linearGradient>
         </defs>
