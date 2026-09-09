@@ -61,6 +61,7 @@ export type NurtureReviewRow = {
   questions: string[];
   content_fingerprint: string;
   source_fingerprint: string;
+  source_revision: string;
   status: string;
   blocked_reason: string;
   execution_mode: string;
@@ -103,6 +104,10 @@ export type BuiltReview = {
   executionMode: string;
   contentFingerprint: string;
   sourceFingerprint: string;
+  /** Databasens avtryck av underlaget. Facit vid godkännande och hämtning. */
+  sourceRevision: string;
+  /** Databasens auktoritativa spärrorsak, tom sträng när inget hindrar. */
+  sqlBlockedReason: string;
 };
 
 /**
@@ -150,8 +155,15 @@ export async function buildReviewCandidate(
     blocked: false,
   });
 
+  const { data: sourceRow } = await ctx.supabase.rpc("nurture_source_revision", {
+    p_lead_id: state.lead_id,
+    p_lock: false,
+  });
+  const source = (sourceRow ?? {}) as { ok?: boolean; reason?: string; revision?: string };
+  const sqlBlockedReason = source.ok === true ? "" : String(source.reason ?? "Underlaget kunde inte prövas.");
+
   const optedOut = (state.last_reply_intent ?? "") === "avbojer";
-  const blockedReason = evaluateReviewGate({
+  const tsBlockedReason = evaluateReviewGate({
     intentLevel: intent.level,
     terminal: intent.terminal,
     humanTakeover: needsHumanTakeover(bundle.context) || state.human_takeover === true,
@@ -163,6 +175,8 @@ export async function buildReviewCandidate(
     hasPreview: preview !== null,
     executionMode: state.execution_mode,
   });
+  // Databasens prövning väger tyngst; TS-lagret är ett extra skyddsnät.
+  const blockedReason = sqlBlockedReason || tsBlockedReason;
 
   const dueAt = state.next_step_at;
   const subject = preview?.subject ?? "";
@@ -184,6 +198,8 @@ export async function buildReviewCandidate(
     questions,
     blockedReason,
     executionMode: state.execution_mode,
+    sourceRevision: String(source.revision ?? ""),
+    sqlBlockedReason,
     contentFingerprint: reviewFingerprint({
       leadId: state.lead_id,
       customerId: state.customer_id,
@@ -239,6 +255,7 @@ async function upsertReview(
     questions: candidate.questions,
     content_fingerprint: candidate.contentFingerprint,
     source_fingerprint: candidate.sourceFingerprint,
+    source_revision: candidate.sourceRevision,
     status: candidate.blockedReason ? "blocked" : "pending_review",
     blocked_reason: candidate.blockedReason,
     execution_mode: candidate.executionMode,
@@ -267,7 +284,8 @@ async function upsertReview(
     return { row: existing as NurtureReviewRow, created: false, updated: false };
   }
   if (existing.content_fingerprint === candidate.contentFingerprint &&
-      existing.blocked_reason === candidate.blockedReason) {
+      existing.blocked_reason === candidate.blockedReason &&
+      (existing as any).source_revision === candidate.sourceRevision) {
     return { row: existing as NurtureReviewRow, created: false, updated: false };
   }
 
@@ -417,6 +435,7 @@ export async function approveNurtureReviewCore(
   const { data: rpc, error } = await ctx.supabase.rpc("approve_nurture_review", {
     p_review_id: existing.id,
     p_fingerprint: input.expectedFingerprint,
+    p_source_revision: candidate.sourceRevision,
   });
   if (error) {
     return { ok: false, code: "error", message: error.message, reviewId: existing.id };
@@ -543,6 +562,7 @@ export async function claimNurtureReviewCore(
 
   const { data, error } = await ctx.supabase.rpc("claim_nurture_review", {
     p_review_id: existing.id,
+    p_source_revision: candidate.sourceRevision,
   });
   if (error) throw new Error(error.message);
   const result = (data ?? {}) as Record<string, any>;
@@ -597,38 +617,8 @@ export async function completeNurtureReviewCore(
     };
   }
 
-  // Logg av det VERKLIGA utskicket, idempotent på transportens meddelande-id.
-  const conversationId = result["conversationId"];
-  if (conversationId) {
-    const sourceRef = `nurture-transport:${input.transportMessageId}`;
-    const { data: existing } = await ctx.supabase
-      .from(MESSAGES)
-      .select("id")
-      .eq("conversation_id", conversationId)
-      .eq("source_ref", sourceRef)
-      .maybeSingle();
-    if (!existing) {
-      const review = await readReview(ctx, input.reviewId);
-      await ctx.supabase.from(MESSAGES).insert({
-        conversation_id: conversationId,
-        lead_id: result["leadId"],
-        customer_id: result["customerId"],
-        direction: "outbound",
-        channel: "email",
-        redacted_body: `${review?.subject ?? ""}\n\n${review?.body ?? ""}`,
-        intent: "nurture_followup",
-        confidence: 1,
-        escalate: false,
-        escalation_reason: "",
-        suggested_action: "send_followup",
-        source_ref: sourceRef,
-      });
-      await ctx.supabase
-        .from("conversations")
-        .update({ stage: "contacted", last_event_at: new Date().toISOString() })
-        .eq("id", conversationId);
-    }
-  }
+  // Konversationslogg och stegräkning sker i samma SQL-transaktion som
+  // statusövergången – inget efterarbete kan gå förlorat här.
 
   return {
     ok: true as const,

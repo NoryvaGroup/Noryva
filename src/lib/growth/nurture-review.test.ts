@@ -203,11 +203,37 @@ function makeSupabase() {
     switch (name) {
       case "has_role":
         return { data: true, error: null };
+      case "nurture_source_revision": {
+        const lead = state["leads"]!.find((l) => l["id"] === args["p_lead_id"])!;
+        const n = state["growth_nurture_state"]!.find((x) => x["lead_id"] === args["p_lead_id"]);
+        const conv = state["conversations"]!.find((c) => c["lead_id"] === args["p_lead_id"]);
+        let reason = "";
+        if (!n) reason = "Ingen uppföljningsplan finns för förfrågan.";
+        else if (n["status"] === "cancelled") reason = "Uppföljningen är avslutad.";
+        else if (n["status"] === "replied") reason = "Leadet har svarat – hanteras i konversationen.";
+        else if (n["human_takeover"] === true) reason = "Kräver mänsklig handläggning.";
+        else if (n["last_reply_intent"] === "avbojer") reason = "Leadet har tackat nej.";
+        else if (conv?.["human_owner"]) reason = "Konversationen har en mänsklig ägare.";
+        const revision = JSON.stringify([
+          lead?.["customer_id"],
+          n?.["status"],
+          n?.["steps_taken"],
+          n?.["human_takeover"],
+          n?.["last_reply_intent"],
+          n?.["next_step_at"],
+          n?.["questions"],
+          conv?.["human_owner"] ?? "",
+          conv?.["stage"] ?? "",
+        ]);
+        return { data: { ok: reason === "", reason, revision }, error: null };
+      }
       case "approve_nurture_review": {
         const r = find();
         if (!r) return { data: { ok: false, code: "not_found" }, error: null };
         if (r["content_fingerprint"] !== args["p_fingerprint"])
           return { data: { ok: false, code: "stale" }, error: null };
+        if (r["source_revision"] !== args["p_source_revision"])
+          return { data: { ok: false, code: "stale_source" }, error: null };
         if (r["status"] !== "pending_review")
           return { data: { ok: false, code: "invalid_status", status: r["status"] }, error: null };
         if (r["blocked_reason"]) return { data: { ok: false, code: "blocked" }, error: null };
@@ -227,6 +253,8 @@ function makeSupabase() {
         if (!r) return { data: { ok: false, code: "not_found" }, error: null };
         if (r["status"] !== "approved")
           return { data: { ok: false, code: "not_claimable", status: r["status"] }, error: null };
+        if (args["p_source_revision"] != null && r["source_revision"] !== args["p_source_revision"])
+          return { data: { ok: false, code: "stale_source" }, error: null };
         const attempt = uuid();
         Object.assign(r, { status: "claimed", attempt_id: attempt });
         return {
@@ -268,9 +296,23 @@ function makeSupabase() {
           transport_message_id: String(args["p_transport_message_id"]).trim(),
         });
         const n = (state["growth_nurture_state"] ??= []).find((x) => x["lead_id"] === r["lead_id"]);
-        if (n && !["replied", "cancelled"].includes(n["status"])) {
-          n["status"] = "sent";
+        if (n) {
           n["steps_taken"] = (n["steps_taken"] ?? 0) + 1;
+          if (!["replied", "cancelled"].includes(n["status"])) n["status"] = "sent";
+        }
+        const sourceRef = `nurture-transport:${String(args["p_transport_message_id"]).trim()}`;
+        const msgs = (state["conversation_messages"] ??= []);
+        if (r["conversation_id"] && !msgs.some((m) => m["source_ref"] === sourceRef)) {
+          msgs.push({
+            id: uuid(),
+            conversation_id: r["conversation_id"],
+            lead_id: r["lead_id"],
+            customer_id: r["customer_id"],
+            direction: "outbound",
+            channel: "email",
+            redacted_body: `${r["subject"]}\n\n${r["body"]}`,
+            source_ref: sourceRef,
+          });
         }
         return {
           data: {
@@ -523,6 +565,42 @@ describe("granskningskö – serverflöde", () => {
     const again = await claimNurtureReviewCore(ctx, { reviewId: test["id"] }, {});
     expect(again.ok).toBe(false);
     expect(again.code).toBe("not_claimable");
+  });
+
+  it("avvisar godkännande när underlaget ändrats utan att texten ändrats", async () => {
+    const { supabase, state } = makeSupabase();
+    const ctx = ctxOf(supabase);
+    const review = await seedReview(ctx, state, LEAD_A);
+    // Underlaget ändras (konversationens läge) utan att mailtexten påverkas.
+    state["conversations"]![0]!["stage"] = "meeting_booked";
+
+    const result = await approveNurtureReviewCore(
+      ctx,
+      { reviewId: review["id"], expectedFingerprint: review["content_fingerprint"] },
+      ENV_ON,
+      okDispatch,
+    );
+    expect(result.ok).toBe(false);
+    expect(result.code).toBe("stale_source");
+    expect(review["status"]).toBe("pending_review");
+  });
+
+  it("spärrar hämtningen när en mänsklig ägare tillkommer efter godkännandet", async () => {
+    const { supabase, state } = makeSupabase();
+    const ctx = ctxOf(supabase);
+    const review = await seedReview(ctx, state, LEAD_A);
+    await approveNurtureReviewCore(
+      ctx,
+      { reviewId: review["id"], expectedFingerprint: review["content_fingerprint"] },
+      ENV_ON,
+      okDispatch,
+    );
+    state["conversations"]![0]!["human_owner"] = "55555555-5555-4555-8555-555555555555";
+
+    const claim = await claimNurtureReviewCore(ctx, { reviewId: review["id"] }, {});
+    expect(claim.ok).toBe(false);
+    expect(claim.code).toBe("blocked");
+    expect(review["status"]).toBe("blocked");
   });
 
   it("bokför utskick en gång, räknar steg en gång och är idempotent vid omtagning", async () => {
