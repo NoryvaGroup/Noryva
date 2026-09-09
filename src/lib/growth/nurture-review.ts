@@ -26,7 +26,10 @@ export type NurtureReviewStatus =
   | "unknown"
   | "cancelled";
 
-/** Stabil, icke-kryptografisk hash för idempotens- och avtrycksnycklar. */
+/**
+ * Stabil, icke-kryptografisk hash. Används ENDAST för idempotensnycklar
+ * (source_ref), aldrig för avtryck som avgör om ett utskick får godkännas.
+ */
 export function stableHash(value: string): string {
   let h = 2166136261;
   for (let i = 0; i < value.length; i += 1) {
@@ -35,6 +38,15 @@ export function stableHash(value: string): string {
   }
   return (h >>> 0).toString(16).padStart(8, "0");
 }
+
+/** Kryptografiskt avtryck (SHA-256, hex). Kollisionssäkert underlag. */
+export async function sha256Hex(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 
 const EMAIL_RE = /^[\w.+-]+@[\w-]+\.[\w.-]+$/;
 
@@ -63,42 +75,72 @@ export type FingerprintInput = {
 };
 
 /**
- * Avtryck av exakt det innehåll en administratör ser. Ändras underlaget måste
- * posten granskas på nytt – ett gammalt godkännande kan aldrig återanvändas.
+ * Avtryck av exakt det innehåll en administratör ser. Kryptografiskt (SHA-256)
+ * över kanoniserad data. Ändras underlaget måste posten granskas på nytt –
+ * ett gammalt godkännande kan aldrig återanvändas.
  */
-export function reviewFingerprint(input: FingerprintInput): string {
-  const parts = [
-    input.leadId,
-    input.customerId,
-    normalizeEmail(input.recipientEmail),
-    input.subject,
-    input.body,
-    (input.questions ?? []).join("|"),
-    input.dueAt,
-  ].join("\u0000");
-  return stableHash(parts);
-}
-
-/** Avtryck av det underlag posten byggdes av (profil, kund, intent, utfall). */
-export function sourceFingerprint(input: {
-  intentLevel: string;
-  intentScore: number;
-  nurtureStatus: string;
-  stepsTaken: number;
-  executionMode: string;
-  customerStatus: string;
-}): string {
-  return stableHash(
-    [
-      input.intentLevel,
-      String(input.intentScore),
-      input.nurtureStatus,
-      String(input.stepsTaken),
-      input.executionMode,
-      input.customerStatus,
-    ].join("\u0000"),
+export async function reviewFingerprint(input: FingerprintInput): Promise<string> {
+  return sha256Hex(
+    JSON.stringify({
+      v: 2,
+      leadId: input.leadId,
+      customerId: input.customerId,
+      recipientEmail: normalizeEmail(input.recipientEmail),
+      subject: input.subject,
+      body: input.body,
+      questions: input.questions ?? [],
+      dueAt: input.dueAt,
+    }),
   );
 }
+
+export type SourceFingerprintInput = {
+  intentLevel: string;
+  intentScore: number;
+  intentTerminal: boolean;
+  nurtureStatus: string;
+  stepsTaken: number;
+  humanTakeover: boolean;
+  lastReplyIntent: string;
+  executionMode: string;
+  customerStatus: string;
+  /** Kanoniserad lagrad lead-payload. */
+  leadPayload: unknown;
+  /** Kundprofilens beslutspåverkande delar. */
+  profile: unknown;
+  /** Registrerade utfall, i stabil ordning. */
+  outcomes: string[];
+  conversationHumanOwner: string;
+};
+
+/**
+ * Avtryck av HELA det underlag posten byggdes av: payload, profil, utfall,
+ * intent, konversationsägare. Kryptografiskt, så en ändring aldrig kan
+ * kollidera bort.
+ */
+export async function sourceFingerprint(input: SourceFingerprintInput): Promise<string> {
+  return sha256Hex(
+    JSON.stringify({
+      v: 2,
+      intentLevel: input.intentLevel,
+      intentScore: input.intentScore,
+      intentTerminal: input.intentTerminal,
+      nurtureStatus: input.nurtureStatus,
+      stepsTaken: input.stepsTaken,
+      humanTakeover: input.humanTakeover,
+      lastReplyIntent: input.lastReplyIntent,
+      executionMode: input.executionMode,
+      customerStatus: input.customerStatus,
+      leadPayload: input.leadPayload ?? null,
+      profile: input.profile ?? null,
+      outcomes: [...(input.outcomes ?? [])].sort(),
+      conversationHumanOwner: input.conversationHumanOwner,
+    }),
+  );
+}
+
+/** Intent-nivåer som över huvud taget får hamna i granskningskön. */
+export const ALLOWED_REVIEW_INTENT_LEVELS = ["LÅG", "NORMAL"];
 
 export type ReviewGateInput = {
   intentLevel: string;
@@ -114,13 +156,19 @@ export type ReviewGateInput = {
   recipientEmail: string;
   hasPreview: boolean;
   executionMode: string;
+  /** Planerat tillfälle. Saknas eller ligger i framtiden = inte godkännbart. */
+  dueAt?: string | null;
+  now?: Date;
 };
 
 /** Tom sträng = inget hinder. Annars en läsbar spärrorsak på svenska. */
 export function evaluateReviewGate(input: ReviewGateInput): string {
-  const level = (input.intentLevel ?? "").toUpperCase();
-  if (level === "HÖG" || level === "AKUT") {
-    return `Intent ${level} hanteras personligen – inget automatiskt utskick.`;
+  const level = (input.intentLevel ?? "").trim().toUpperCase();
+  // Allowlist: bara LÅG och NORMAL passerar. Okänd eller saknad nivå spärrar.
+  if (!ALLOWED_REVIEW_INTENT_LEVELS.includes(level)) {
+    return level === ""
+      ? "Intent saknas för förfrågan – kör om analysen innan uppföljning."
+      : `Intent ${level} hanteras personligen – inget automatiskt utskick.`;
   }
   if (input.terminal) return "Utfallet är avgjort – ingen uppföljning skickas.";
   if (input.humanTakeover) return "Kräver mänsklig handläggning (pris, avtal eller känslig fråga).";
@@ -136,8 +184,16 @@ export function evaluateReviewGate(input: ReviewGateInput): string {
   if (input.executionMode !== "test" && input.executionMode !== "review") {
     return "Ogiltigt körläge – endast test och granskning tillåts.";
   }
+  if (input.dueAt !== undefined) {
+    const due = input.dueAt ? Date.parse(input.dueAt) : NaN;
+    if (!Number.isFinite(due)) return "Inget uppföljningstillfälle är planerat.";
+    if (due > (input.now ?? new Date()).getTime()) {
+      return "Uppföljningstillfället har inte inträffat än.";
+    }
+  }
   return "";
 }
+
 
 /** Läser en boolesk flagga. Saknad eller okänd flagga betyder alltid AV. */
 export function readBooleanFlag(value: string | undefined): boolean {
