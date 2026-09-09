@@ -110,7 +110,8 @@ export const GROWTH_API_SCHEMAS = {
       inReplyTo: z.string().trim().min(1).max(400),
       fromEmail: z.string().trim().email().max(254),
       body: z.string().trim().min(1).max(8000),
-      messageId: z.string().trim().min(1).max(400).optional(),
+      // Stabilt transport-id krävs: en texthash räcker inte som dedupe-nyckel.
+      messageId: z.string().trim().min(1).max(400),
     })
     .strict(),
 } as const satisfies Record<GrowthOperation, z.ZodTypeAny>;

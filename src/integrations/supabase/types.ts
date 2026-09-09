@@ -1126,6 +1126,57 @@ export type Database = {
           },
         ]
       }
+      nurture_inbound_events: {
+        Row: {
+          attempts: number
+          created_at: string
+          id: string
+          lead_id: string
+          result: Json
+          review_id: string
+          source_ref: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          id?: string
+          lead_id: string
+          result?: Json
+          review_id: string
+          source_ref: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          id?: string
+          lead_id?: string
+          result?: Json
+          review_id?: string
+          source_ref?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nurture_inbound_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nurture_inbound_events_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "nurture_reviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       nurture_reviews: {
         Row: {
           approved_at: string | null
@@ -1143,11 +1194,14 @@ export type Database = {
           execution_mode: string
           failed_at: string | null
           failure_reason: string
+          human_takeover: boolean
           id: string
           intent_level: string
+          intent_score: number
           lead_id: string
           occurrence_key: string
           questions: Json
+          reason: string
           recipient_email: string
           sent_at: string | null
           source_fingerprint: string
@@ -1174,11 +1228,14 @@ export type Database = {
           execution_mode?: string
           failed_at?: string | null
           failure_reason?: string
+          human_takeover?: boolean
           id?: string
           intent_level?: string
+          intent_score?: number
           lead_id: string
           occurrence_key: string
           questions?: Json
+          reason?: string
           recipient_email?: string
           sent_at?: string | null
           source_fingerprint?: string
@@ -1205,11 +1262,14 @@ export type Database = {
           execution_mode?: string
           failed_at?: string | null
           failure_reason?: string
+          human_takeover?: boolean
           id?: string
           intent_level?: string
+          intent_score?: number
           lead_id?: string
           occurrence_key?: string
           questions?: Json
+          reason?: string
           recipient_email?: string
           sent_at?: string | null
           source_fingerprint?: string
@@ -1405,6 +1465,10 @@ export type Database = {
         }
         Returns: Json
       }
+      finish_nurture_inbound: {
+        Args: { p_ok: boolean; p_result: Json; p_source_ref: string }
+        Returns: Json
+      }
       get_public_landing: { Args: { p_slug: string }; Returns: Json }
       has_role: {
         Args: {
@@ -1415,6 +1479,10 @@ export type Database = {
       }
       nurture_source_revision: {
         Args: { p_lead_id: string; p_lock?: boolean }
+        Returns: Json
+      }
+      reserve_nurture_inbound: {
+        Args: { p_lead_id: string; p_review_id: string; p_source_ref: string }
         Returns: Json
       }
     }

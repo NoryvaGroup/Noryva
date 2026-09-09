@@ -414,15 +414,26 @@ function NurtureReviewSection() {
               </span>
               <span>Förfrågan {String(r.lead_id).slice(0, 8)}</span>
               <span>{r.company_name || "Okänd kund"}</span>
-              <span>Intent {r.intent_level}</span>
+              <span>
+                Intent {r.intent_level}
+                {typeof r.intent_score === "number" ? ` (${r.intent_score})` : ""}
+              </span>
               <span>Planerad {new Date(r.due_at).toLocaleString("sv-SE")}</span>
+              {r.human_takeover ? (
+                <span className="font-medium text-amber-600">Mänsklig handläggning</span>
+              ) : null}
             </div>
+
+            {r.reason ? (
+              <p className="mt-2 text-xs text-muted-foreground">Bedömning: {r.reason}</p>
+            ) : null}
 
             {r.blocked_reason ? (
               <p className="mt-2 rounded-lg border border-amber-500/40 bg-amber-500/5 p-2 text-xs">
                 Spärrad: {r.blocked_reason}
               </p>
             ) : null}
+
 
             <dl className="mt-3 space-y-1 text-xs">
               <div>

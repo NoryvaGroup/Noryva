@@ -17,6 +17,7 @@ import { readStoredPayload } from "@/lib/landing/make-adapter";
 import {
   loadLeadBundle,
   readLeadOutcomes,
+  recomputeIntentCore,
   type GrowthContext,
 } from "./service.server";
 import {
@@ -62,6 +63,9 @@ export type NurtureReviewRow = {
   content_fingerprint: string;
   source_fingerprint: string;
   source_revision: string;
+  reason: string;
+  human_takeover: boolean;
+  intent_score: number;
   status: string;
   blocked_reason: string;
   execution_mode: string;
@@ -90,7 +94,7 @@ export function recipientFromLead(payload: unknown): string {
 export type BuiltReview = {
   leadId: string;
   customerId: string;
-  conversationId: string;
+  conversationId: string | null;
   dueAt: string | null;
   stepIndex: number;
   intentLevel: string;
@@ -101,6 +105,10 @@ export type BuiltReview = {
   body: string;
   questions: string[];
   blockedReason: string;
+  /** Uppföljningsplanens egen motivering (visas för administratören). */
+  reason: string;
+  /** Faktisk flagga för mänsklig handläggning, inte bara indirekt spärrorsak. */
+  humanTakeover: boolean;
   executionMode: string;
   contentFingerprint: string;
   sourceFingerprint: string;
@@ -110,10 +118,23 @@ export type BuiltReview = {
   sqlBlockedReason: string;
 };
 
+/** Läser lagrad uppföljningsplan utan att skriva. */
+async function readNurtureState(ctx: GrowthContext, leadId: string) {
+  const { data } = await ctx.supabase
+    .from("growth_nurture_state")
+    .select("*")
+    .eq("lead_id", leadId)
+    .maybeSingle();
+  return (data as Record<string, any> | null) ?? null;
+}
+
 /**
  * Bygger den auktoritativa granskningsposten för ett lead utifrån live-data.
- * Deterministisk och utan modellanrop. Används både vid skapande, godkännande
- * och hämtning så att alla tre ser exakt samma underlag.
+ *
+ * HELT LÄSANDE: ingen planering, ingen upsert, ingen konversation skapas.
+ * Funktionen körs vid godkännande och hämtning, där en skrivning skulle kunna
+ * nollställa en redan godkänd post. Endast den schemalagda planeringen
+ * (refreshDueNurtureReviewsCore) får skriva.
  */
 export async function buildReviewCandidate(
   ctx: GrowthContext,
@@ -121,8 +142,6 @@ export async function buildReviewCandidate(
   options: { now?: Date } = {},
 ): Promise<BuiltReview> {
   const now = options.now ?? new Date();
-  const planned = await planNurtureCore(ctx, leadId, { now });
-  const state = planned.state;
 
   const bundle = await loadLeadBundle(ctx, leadId);
   const outcomes = await readLeadOutcomes(ctx, leadId);
@@ -132,90 +151,104 @@ export async function buildReviewCandidate(
     outcomes,
   });
 
+  const state = await readNurtureState(ctx, leadId);
+  const customerId = String(state?.["customer_id"] ?? bundle.lead.customer_id);
+
   const { data: customer } = await ctx.supabase
     .from("customers")
     .select("id, name, status")
-    .eq("id", state.customer_id)
+    .eq("id", customerId)
     .maybeSingle();
 
-  const conversation = await ensureConversationCore(ctx, {
-    id: state.lead_id,
-    customer_id: state.customer_id,
-  });
   const { data: conversationRow } = await ctx.supabase
     .from("conversations")
     .select("id, human_owner")
-    .eq("id", conversation.id)
+    .eq("lead_id", leadId)
     .maybeSingle();
 
   const recipientEmail = recipientFromLead(bundle.lead.payload);
-  const preview = buildNurturePreview({
-    questions: state.questions ?? [],
-    companyName: planned.companyName,
-    blocked: false,
-  });
+  const questions: string[] = (state?.["questions"] as string[]) ?? [];
+  const companyName = bundle.context.companyName ?? "";
+  const preview = state
+    ? buildNurturePreview({ questions, companyName, blocked: false })
+    : null;
 
   const { data: sourceRow } = await ctx.supabase.rpc("nurture_source_revision", {
-    p_lead_id: state.lead_id,
+    p_lead_id: leadId,
     p_lock: false,
   });
   const source = (sourceRow ?? {}) as { ok?: boolean; reason?: string; revision?: string };
   const sqlBlockedReason = source.ok === true ? "" : String(source.reason ?? "Underlaget kunde inte prövas.");
 
-  const optedOut = (state.last_reply_intent ?? "") === "avbojer";
-  const tsBlockedReason = evaluateReviewGate({
-    intentLevel: intent.level,
-    terminal: intent.terminal,
-    humanTakeover: needsHumanTakeover(bundle.context) || state.human_takeover === true,
-    conversationHumanOwner: conversationRow?.human_owner ?? null,
-    optedOut,
-    nurtureStatus: state.status,
-    customerStatus: String(customer?.status ?? ""),
-    recipientEmail,
-    hasPreview: preview !== null,
-    executionMode: state.execution_mode,
-  });
+  const humanTakeover = needsHumanTakeover(bundle.context) || state?.["human_takeover"] === true;
+  const optedOut = String(state?.["last_reply_intent"] ?? "") === "avbojer";
+  const dueAt = (state?.["next_step_at"] as string | null) ?? null;
+  const executionMode = String(state?.["execution_mode"] ?? "review");
+
+  const tsBlockedReason = state
+    ? evaluateReviewGate({
+        intentLevel: intent.level,
+        terminal: intent.terminal,
+        humanTakeover,
+        conversationHumanOwner: conversationRow?.human_owner ?? null,
+        optedOut,
+        nurtureStatus: String(state["status"] ?? ""),
+        customerStatus: String(customer?.status ?? ""),
+        recipientEmail,
+        hasPreview: preview !== null,
+        executionMode,
+        dueAt,
+        now,
+      })
+    : "Ingen uppföljningsplan finns för förfrågan.";
   // Databasens prövning väger tyngst; TS-lagret är ett extra skyddsnät.
   const blockedReason = sqlBlockedReason || tsBlockedReason;
 
-  const dueAt = state.next_step_at;
   const subject = preview?.subject ?? "";
   const body = preview?.body ?? "";
-  const questions = state.questions ?? [];
 
   return {
-    leadId: state.lead_id,
-    customerId: state.customer_id,
-    conversationId: conversation.id,
+    leadId,
+    customerId,
+    conversationId: (conversationRow?.id as string | undefined) ?? null,
     dueAt,
-    stepIndex: state.steps_taken ?? 0,
+    stepIndex: Number(state?.["steps_taken"] ?? 0),
     intentLevel: intent.level,
     intentScore: intent.score,
-    companyName: planned.companyName,
+    companyName,
     recipientEmail,
     subject,
     body,
     questions,
     blockedReason,
-    executionMode: state.execution_mode,
+    reason: String(state?.["reason"] ?? ""),
+    humanTakeover,
+    executionMode,
     sourceRevision: String(source.revision ?? ""),
     sqlBlockedReason,
-    contentFingerprint: reviewFingerprint({
-      leadId: state.lead_id,
-      customerId: state.customer_id,
+    contentFingerprint: await reviewFingerprint({
+      leadId,
+      customerId,
       recipientEmail,
       subject,
       body,
       questions,
       dueAt: dueAt ?? "",
     }),
-    sourceFingerprint: sourceFingerprint({
+    sourceFingerprint: await sourceFingerprint({
       intentLevel: intent.level,
       intentScore: intent.score,
-      nurtureStatus: state.status,
-      stepsTaken: state.steps_taken ?? 0,
-      executionMode: state.execution_mode,
+      intentTerminal: intent.terminal,
+      nurtureStatus: String(state?.["status"] ?? ""),
+      stepsTaken: Number(state?.["steps_taken"] ?? 0),
+      humanTakeover,
+      lastReplyIntent: String(state?.["last_reply_intent"] ?? ""),
+      executionMode,
       customerStatus: String(customer?.status ?? ""),
+      leadPayload: bundle.lead.payload,
+      profile: bundle.profile,
+      outcomes: (outcomes ?? []).map((o: any) => `${o?.outcome_type ?? o?.stage ?? ""}:${o?.id ?? ""}`),
+      conversationHumanOwner: String(conversationRow?.human_owner ?? ""),
     }),
   };
 }
@@ -248,6 +281,7 @@ async function upsertReview(
     step_index: candidate.stepIndex,
     due_at: candidate.dueAt,
     intent_level: candidate.intentLevel,
+    intent_score: candidate.intentScore,
     company_name: candidate.companyName,
     recipient_email: candidate.recipientEmail,
     subject: candidate.subject,
@@ -258,6 +292,8 @@ async function upsertReview(
     source_revision: candidate.sourceRevision,
     status: candidate.blockedReason ? "blocked" : "pending_review",
     blocked_reason: candidate.blockedReason,
+    reason: candidate.reason,
+    human_takeover: candidate.humanTakeover,
     execution_mode: candidate.executionMode,
   };
 
@@ -289,18 +325,36 @@ async function upsertReview(
     return { row: existing as NurtureReviewRow, created: false, updated: false };
   }
 
+  // Compare-and-swap i databasen: uppdateringen träffar bara om posten
+  // fortfarande står i samma granskningsbara status med samma innehåll.
+  // En samtidig refresh kan därför aldrig backa ett godkännande, en hämtning
+  // eller ett avslag till "pending_review".
   const { data } = await writer
     .supabase.from(TABLE)
     .update(payload)
     .eq("id", existing.id)
+    .in("status", MUTABLE_STATUSES)
+    .eq("content_fingerprint", existing.content_fingerprint)
     .select("*")
     .maybeSingle();
-  return { row: (data as NurtureReviewRow) ?? (existing as NurtureReviewRow), created: false, updated: true };
+  if (!data) {
+    const { data: fresh } = await writer
+      .supabase.from(TABLE)
+      .select("*")
+      .eq("id", existing.id)
+      .maybeSingle();
+    return { row: (fresh as NurtureReviewRow) ?? (existing as NurtureReviewRow), created: false, updated: false };
+  }
+  return { row: data as NurtureReviewRow, created: false, updated: true };
 }
 
 /**
  * Deterministisk, begränsad batch: bygger/uppdaterar granskningsposter för de
  * uppföljningar vars tillfälle passerat. Ingen extern effekt.
+ *
+ * SVÄLTSKYDD: kandidaterna som redan har en låst (godkänd/hämtad/skickad/
+ * avslagen) post för samma tillfälle hoppas över och förbrukar ingen plats i
+ * batchen, så leads längre bak i kön kommer fram.
  */
 export async function refreshDueNurtureReviewsCore(
   ctx: GrowthContext,
@@ -310,14 +364,24 @@ export async function refreshDueNurtureReviewsCore(
   const limit = Math.min(Math.max(1, options.limit ?? 10), 25);
   const writer = options.writer ?? ctx;
 
-  const due = await dueNurtureItemsCore(ctx, { now, limit });
+  // Skanna bredare än batchen så att redan hanterade tillfällen inte blockerar.
+  const due = await dueNurtureItemsCore(ctx, { now, limit: Math.min(limit * 5, 100) });
   let created = 0;
   let updated = 0;
   let skipped = 0;
+  let examined = 0;
   const reviewIds: string[] = [];
 
   for (const item of due.items) {
+    if (created + updated + reviewIds.length >= limit * 2 || examined >= limit * 5) break;
+    if (reviewIds.length >= limit) break;
+    examined += 1;
     try {
+      // Endast här får underlaget skrivas: planering och intent-omräkning.
+      await planNurtureCore(ctx, item.lead_id, { now });
+      await recomputeIntentCore(ctx, item.lead_id);
+      await ensureConversationCore(ctx, { id: item.lead_id, customer_id: item.customer_id });
+
       const candidate = await buildReviewCandidate(ctx, item.lead_id, { now });
       const result = await upsertReview(writer, candidate, now);
       if (!result.row) {
@@ -326,6 +390,10 @@ export async function refreshDueNurtureReviewsCore(
       }
       if (result.created) created += 1;
       else if (result.updated) updated += 1;
+      else if (!MUTABLE_STATUSES.includes(result.row.status)) {
+        // Redan låst post – räknas inte mot batchen.
+        continue;
+      }
       reviewIds.push(result.row.id);
     } catch {
       skipped += 1;
@@ -335,7 +403,7 @@ export async function refreshDueNurtureReviewsCore(
   return {
     ok: true as const,
     now: now.toISOString(),
-    examined: due.items.length,
+    examined,
     created,
     updated,
     skipped,
@@ -345,15 +413,25 @@ export async function refreshDueNurtureReviewsCore(
   };
 }
 
-/** Läslista för adminvyn. Kräver att anroparen redan verifierat behörighet. */
+/**
+ * Läslista för adminvyn. Explicit projektion: interna transportfält som
+ * attempt_id och source_revision lämnar aldrig servern.
+ */
+const REVIEW_ADMIN_COLUMNS =
+  "id, lead_id, customer_id, conversation_id, occurrence_key, step_index, due_at, " +
+  "intent_level, intent_score, company_name, recipient_email, subject, body, questions, " +
+  "content_fingerprint, status, blocked_reason, reason, human_takeover, execution_mode, " +
+  "approved_by, approved_at, transport_message_id, sent_at, failure_reason, updated_at";
+
 export async function listNurtureReviewsCore(ctx: GrowthContext, limit = 50) {
   const { data } = await ctx.supabase
     .from(TABLE)
-    .select("*")
+    .select(REVIEW_ADMIN_COLUMNS)
     .order("due_at", { ascending: true })
     .limit(Math.min(Math.max(1, limit), 100));
-  return { items: (data ?? []) as NurtureReviewRow[] };
+  return { items: (data ?? []) as unknown as NurtureReviewRow[] };
 }
+
 
 async function readReview(ctx: GrowthContext, reviewId: string): Promise<NurtureReviewRow | null> {
   const { data } = await ctx.supabase.from(TABLE).select("*").eq("id", reviewId).maybeSingle();
@@ -431,6 +509,17 @@ export async function approveNurtureReviewCore(
       contentFingerprint: candidate.contentFingerprint,
     };
   }
+  // Underlaget (payload, profil, utfall, intent) måste också vara oförändrat.
+  if (candidate.sourceRevision !== (existing.source_revision ?? "")) {
+    await upsertReview(writer, candidate, input.now ?? new Date());
+    return {
+      ok: false,
+      code: "stale_source",
+      message: "Underlaget bakom mailet har ändrats. Granska posten på nytt.",
+      reviewId: existing.id,
+      contentFingerprint: candidate.contentFingerprint,
+    };
+  }
 
   const { data: rpc, error } = await ctx.supabase.rpc("approve_nurture_review", {
     p_review_id: existing.id,
@@ -462,9 +551,11 @@ export async function approveNurtureReviewCore(
       : "Godkänd, men utskicksbryggan svarade inte. Utskicket ligger kvar som godkänt.",
     reviewId: existing.id,
     dispatched: sent.ok,
-    ...(sent.error ? { dispatchError: sent.error } : {}),
+    // Aldrig råa nätverksfel: de kan innehålla brygg-URL:en (en hemlighet).
+    ...(sent.ok ? {} : { dispatchError: "Utskicksbryggan gick inte att nå." }),
   };
 }
+
 
 /** Skickar ENDAST reviewId till Make. Aldrig mottagare eller brödtext. */
 async function dispatchReviewToBridge(
@@ -485,9 +576,11 @@ async function dispatchReviewToBridge(
     const response = await fetch(url, { method: "POST", headers, body });
     if (!response.ok) return { ok: false, error: `Bryggan svarade ${response.status}.` };
     return { ok: true };
-  } catch (error) {
-    return { ok: false, error: (error as Error).message };
+  } catch {
+    // Aldrig felmeddelandet: det kan innehålla den hemliga brygg-URL:en.
+    return { ok: false, error: "Utskicksbryggan gick inte att nå." };
   }
+
 }
 
 async function hmacHex(secret: string, payload: string): Promise<string> {
@@ -559,6 +652,10 @@ export async function claimNurtureReviewCore(
   if (candidate.contentFingerprint !== existing.content_fingerprint) {
     return { ok: false as const, status: 409, code: "stale" };
   }
+  if (candidate.sourceRevision !== (existing.source_revision ?? "")) {
+    return { ok: false as const, status: 409, code: "stale_source" };
+  }
+
 
   const { data, error } = await ctx.supabase.rpc("claim_nurture_review", {
     p_review_id: existing.id,
@@ -661,6 +758,12 @@ export async function failNurtureReviewCore(
  * Tråden identifieras av transportens meddelande-id (In-Reply-To/References) –
  * aldrig av ämnesrad. Avsändaren måste vara exakt den bundna mottagaren.
  * Kund och lead härleds från den lagrade posten, aldrig från anropet.
+ *
+ * IDEMPOTENS: databasen reserverar meddelande-id:t innan någon sidoeffekt
+ * sker. Två samtidiga leveranser av samma svar kan därför inte tillämpa
+ * effekten två gånger; den andra får det lagrade resultatet eller ett
+ * "behandlas redan"-svar. Misslyckas behandlingen markeras reservationen som
+ * misslyckad och kan köras om – anropet rapporteras ALDRIG som lyckat.
  */
 export async function registerReviewedNurtureReplyCore(
   ctx: GrowthContext,
@@ -672,6 +775,13 @@ export async function registerReviewedNurtureReplyCore(
   },
 ) {
   const threadRef = input.inReplyTo.trim();
+  // Ett stabilt meddelande-id krävs. En texthash räcker inte: två olika svar
+  // med samma text skulle deduplicera bort varandra.
+  const messageId = (input.messageId ?? "").trim();
+  if (!messageId) {
+    return { ok: false as const, status: 400, code: "message_id_required" };
+  }
+
   const { data: review } = await ctx.supabase
     .from(TABLE)
     .select("*")
@@ -687,59 +797,85 @@ export async function registerReviewedNurtureReplyCore(
     return { ok: false as const, status: 403, code: "sender_mismatch" };
   }
 
-  // Stabil dedupe FÖRE alla sidoeffekter.
-  const sourceRef = `nurture-inbound:${(input.messageId ?? "").trim() || stableHash(input.body)}`;
-  const { data: duplicate } = await ctx.supabase
-    .from(MESSAGES)
-    .select("id")
-    .eq("lead_id", review.lead_id)
-    .eq("direction", "inbound")
-    .eq("source_ref", sourceRef)
-    .maybeSingle();
-  if (duplicate) {
-    return {
-      ok: true as const,
-      status: 200,
-      code: "duplicate",
-      duplicate: true,
-      reviewId: review.id,
-      leadId: review.lead_id,
-      customerId: review.customer_id,
-      notificationSent: false as const,
-      externalEffect: false as const,
-    };
-  }
-
-  const result = await registerNurtureReplyCore(ctx, {
-    leadId: review.lead_id,
-    body: input.body,
-    source: "make_growth_reply",
-    sourceRef,
-    makeContext: null,
-  });
-
-  return {
-    ok: true as const,
-    status: 200,
-    code: "registered",
-    duplicate: false,
+  const sourceRef = `nurture-inbound:${messageId}`;
+  const base = {
     reviewId: review.id,
     leadId: review.lead_id,
     customerId: review.customer_id,
-    conversationId: result.conversationId,
-    classification: result.classification,
-    effect: {
-      stop: result.effect.stop,
-      humanTakeover: result.effect.humanTakeover,
-      upgradeSignal: result.effect.upgradeSignal,
-      reason: result.effect.reason,
-    },
-    previousIntent: result.previousIntent,
-    newIntent: result.intent,
-    nurtureStatus: result.state.status,
-    outcome: result.effect.outcome,
-    stored: result.inboundStored,
     notificationSent: false as const,
     externalEffect: false as const,
   };
+
+  // Atomär reservation FÖRE varje sidoeffekt.
+  const { data: reservation, error: reserveError } = await ctx.supabase.rpc("reserve_nurture_inbound", {
+    p_review_id: review.id,
+    p_lead_id: review.lead_id,
+    p_source_ref: sourceRef,
+  });
+  if (reserveError) throw new Error(reserveError.message);
+  const state = String((reservation as any)?.state ?? "");
+
+  if (state === "done") {
+    const stored = ((reservation as any)?.result ?? {}) as Record<string, unknown>;
+    return { ok: true as const, status: 200, code: "duplicate", duplicate: true, ...base, ...stored };
+  }
+  if (state === "in_progress") {
+    return { ok: false as const, status: 409, code: "in_progress", ...base };
+  }
+  if (state !== "reserved") {
+    return { ok: false as const, status: 400, code: "invalid_reservation", ...base };
+  }
+
+  try {
+    const result = await registerNurtureReplyCore(ctx, {
+      leadId: review.lead_id,
+      body: input.body,
+      source: "make_growth_reply",
+      sourceRef,
+      makeContext: null,
+    });
+
+    const payload = {
+      conversationId: result.conversationId,
+      classification: result.classification,
+      effect: {
+        stop: result.effect.stop,
+        humanTakeover: result.effect.humanTakeover,
+        upgradeSignal: result.effect.upgradeSignal,
+        reason: result.effect.reason,
+      },
+      previousIntent: result.previousIntent,
+      newIntent: result.intent,
+      nurtureStatus: result.state.status,
+      outcome: result.effect.outcome,
+      stored: result.inboundStored,
+    };
+
+    const { error: finishError } = await ctx.supabase.rpc("finish_nurture_inbound", {
+      p_source_ref: sourceRef,
+      p_ok: true,
+      p_result: payload,
+    });
+    // Ett fel här får inte tystas: reservationen står kvar och svaret får
+    // köras om, men anropet redovisas inte som klart.
+    if (finishError) {
+      return { ok: false as const, status: 500, code: "not_finalized", ...base };
+    }
+
+    return { ok: true as const, status: 200, code: "registered", duplicate: false, ...base, ...payload };
+  } catch (error) {
+    await ctx.supabase.rpc("finish_nurture_inbound", {
+      p_source_ref: sourceRef,
+      p_ok: false,
+      p_result: { error: "processing_failed" },
+    });
+    return {
+      ok: false as const,
+      status: 500,
+      code: "processing_failed",
+      message: (error as Error).message,
+      ...base,
+    };
+  }
 }
+
