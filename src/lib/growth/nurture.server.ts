@@ -370,7 +370,13 @@ export async function setNurtureStatusCore(
  */
 export async function registerNurtureReplyCore(
   ctx: GrowthContext,
-  input: { leadId: string; body: string; source?: string; makeContext?: MakeContext | null },
+  input: {
+    leadId: string;
+    body: string;
+    source?: string;
+    sourceRef?: string | undefined;
+    makeContext?: MakeContext | null;
+  },
 ) {
   // makeContext kastas LeadBindingError om kunden inte matchar lagrat lead.
   const { lead } = await loadLeadBundle(ctx, input.leadId, {
@@ -397,6 +403,36 @@ export async function registerNurtureReplyCore(
     execution_mode: existing?.execution_mode ?? "review",
   };
   await ctx.supabase.from(TABLE).upsert(row, { onConflict: "lead_id" });
+
+  // Svaret lagras alltid maskerat på samma konversation. Idempotent via
+  // source_ref: valfritt Make-id, annars hash av det maskerade svaret.
+  const conversation = await ensureConversationCore(ctx, {
+    id: lead.id,
+    customer_id: lead.customer_id,
+  });
+  const sourceRef = (input.sourceRef ?? "").trim() || `nurture-reply:${stableHash(redacted)}`;
+  const inbound = await insertMessageOnce(ctx, {
+    conversationId: conversation.id,
+    leadId: lead.id,
+    customerId: lead.customer_id,
+    direction: "inbound",
+    redactedBody: redacted,
+    intent: classification.intent,
+    confidence: classification.confidence,
+    escalate: classification.escalate,
+    escalationReason: classification.escalationReason,
+    suggestedAction: classification.suggestedAction,
+    sourceRef,
+  });
+  if (inbound.stored) {
+    const stage: ConversationStage = effect.stop
+      ? "closed"
+      : effect.outcome === "meeting_booked"
+        ? "meeting_booked"
+        : "replied";
+    await touchConversation(ctx, conversation.id, stage);
+  }
+
 
   // Idempotent via outcomeKey – samma svarstyp två gånger skapar inget nytt.
   let intent = null;
