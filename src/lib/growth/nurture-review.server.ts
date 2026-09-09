@@ -649,6 +649,10 @@ export async function claimNurtureReviewCore(
   if (candidate.contentFingerprint !== existing.content_fingerprint) {
     return { ok: false as const, status: 409, code: "stale" };
   }
+  if (candidate.sourceRevision !== (existing.source_revision ?? "")) {
+    return { ok: false as const, status: 409, code: "stale_source" };
+  }
+
 
   const { data, error } = await ctx.supabase.rpc("claim_nurture_review", {
     p_review_id: existing.id,
