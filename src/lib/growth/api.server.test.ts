@@ -37,6 +37,7 @@ function makeSupabase(state: Record<string, Row[]>) {
           const res: any = {
             select: () => res,
             maybeSingle: async () => ({ data: { id: `${table}-id` }, error: null }),
+            single: async () => ({ data: { id: `${table}-id`, stage: "new" }, error: null }),
             then: (resolve: any) => resolve({ data: null, error: null }),
           };
           return res;

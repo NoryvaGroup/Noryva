@@ -179,6 +179,7 @@ async function runOperation(
         leadId: data.leadId,
         body: data.body,
         source: GROWTH_API_SOURCE,
+        sourceRef: data.sourceRef,
         makeContext: data.makeContext ?? null,
       });
       return {
@@ -194,6 +195,10 @@ async function runOperation(
         newIntent: result.intent,
         nurtureStatus: result.state.status,
         outcome: result.effect.outcome,
+        conversationId: result.conversationId,
+        sourceRef: result.sourceRef,
+        stored: result.inboundStored,
+        duplicate: result.inboundDuplicate,
         notificationSent: false,
         externalEffect: false,
       };
