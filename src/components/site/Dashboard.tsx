@@ -59,8 +59,8 @@ export function Dashboard() {
             <svg viewBox="0 0 400 100" className="mt-6 w-full" aria-hidden="true">
               <defs>
                 <linearGradient id="dashLine" x1="0" x2="1">
-                  <stop offset="0%" stopColor="oklch(0.74 0.16 268)" stopOpacity="0.15" />
-                  <stop offset="100%" stopColor="oklch(0.74 0.16 268)" stopOpacity="0.9" />
+                  <stop offset="0%" stopColor="oklch(0.5 0.11 255)" stopOpacity="0.15" />
+                  <stop offset="100%" stopColor="oklch(0.5 0.11 255)" stopOpacity="0.9" />
                 </linearGradient>
               </defs>
               <path d={linePoints} fill="none" stroke="url(#dashLine)" strokeWidth="2" strokeLinecap="round" />

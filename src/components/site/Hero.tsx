@@ -28,8 +28,8 @@ function FlowVisual() {
       <svg viewBox="0 0 620 130" className="mt-8 w-full" role="img" aria-label="Illustration av flödet från annons till affärsmöjlighet">
         <defs>
           <linearGradient id="flowLine" x1="0" x2="1">
-            <stop offset="0%" stopColor="oklch(0.74 0.16 268)" stopOpacity="0.12" />
-            <stop offset="100%" stopColor="oklch(0.74 0.16 268)" stopOpacity="0.9" />
+            <stop offset="0%" stopColor="oklch(0.5 0.11 255)" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="oklch(0.5 0.11 255)" stopOpacity="0.9" />
           </linearGradient>
         </defs>
 
@@ -41,7 +41,7 @@ function FlowVisual() {
             y1="4"
             x2={110 + i * 130}
             y2="96"
-            stroke="oklch(1 0 0 / 0.05)"
+            stroke="oklch(0.27 0.014 262 / 0.07)"
             strokeWidth="1"
           />
         ))}
@@ -51,13 +51,13 @@ function FlowVisual() {
         {/* noder */}
         {nodes.map((node) => (
           <g key={node.label}>
-            <circle cx={node.x} cy={node.y} r="10" fill="oklch(0.74 0.16 268 / 0.12)" />
-            <circle cx={node.x} cy={node.y} r="4" fill="oklch(0.74 0.16 268)" />
+            <circle cx={node.x} cy={node.y} r="10" fill="oklch(0.5 0.11 255 / 0.14)" />
+            <circle cx={node.x} cy={node.y} r="4" fill="oklch(0.5 0.11 255)" />
             <text
               x={node.x}
               y={node.y + 34}
               textAnchor="middle"
-              fill="oklch(0.74 0.012 260)"
+              fill="oklch(0.48 0.012 262)"
               fontSize="11"
               fontFamily="inherit"
             >
@@ -67,10 +67,10 @@ function FlowVisual() {
         ))}
 
         {/* ljuspunkt som rör sig genom flödet */}
-        <circle r="5" fill="oklch(0.9 0.1 268)" className="motion-dot">
+        <circle r="5" fill="oklch(0.5 0.11 255)" className="motion-dot">
           <animateMotion dur="5s" repeatCount="indefinite" path={path} />
         </circle>
-        <circle r="10" fill="oklch(0.74 0.16 268 / 0.25)" className="motion-dot">
+        <circle r="10" fill="oklch(0.5 0.11 255 / 0.22)" className="motion-dot">
           <animateMotion dur="5s" repeatCount="indefinite" path={path} />
         </circle>
       </svg>
