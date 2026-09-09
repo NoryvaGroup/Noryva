@@ -258,7 +258,7 @@ export async function previewNurtureTestCore(
 ) {
   const planned = await planNurtureCore(ctx, leadId, options);
   const state = planned.state;
-  const eligible = state.status !== "cancelled" && (state.questions ?? []).length > 0;
+  const eligible = state.status !== "cancelled";
 
   const preview = buildNurturePreview({
     questions: state.questions ?? [],
