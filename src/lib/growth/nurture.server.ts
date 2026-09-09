@@ -266,6 +266,31 @@ export async function previewNurtureTestCore(
     blocked: !eligible || planned.humanTakeover,
   });
 
+  // Konversationen finns alltid för spårbarhet – även när inget utkast skapas.
+  const conversation = await ensureConversationCore(ctx, {
+    id: state.lead_id,
+    customer_id: state.customer_id,
+  });
+
+  // Utkastet loggas som utgående meddelande. Det är ETT UTKAST, inget utskick.
+  let outbound: { stored: boolean; duplicate: boolean; sourceRef: string } | null = null;
+  if (preview) {
+    outbound = await insertMessageOnce(ctx, {
+      conversationId: conversation.id,
+      leadId: state.lead_id,
+      customerId: state.customer_id,
+      direction: "outbound",
+      redactedBody: `${preview.subject}\n\n${preview.body}`,
+      intent: "nurture_followup",
+      confidence: 1,
+      escalate: false,
+      escalationReason: "",
+      suggestedAction: "send_followup",
+      sourceRef: `nurture-preview:${stableHash(`${preview.subject}\n${preview.body}`)}`,
+    });
+    if (outbound.stored) await touchConversation(ctx, conversation.id, "draft_ready");
+  }
+
   return {
     ok: true as const,
     eligible: eligible && preview !== null,
@@ -277,10 +302,14 @@ export async function previewNurtureTestCore(
     humanTakeover: planned.humanTakeover,
     executionMode: state.execution_mode,
     preview,
+    conversationId: conversation.id,
+    outboundStored: outbound?.stored ?? false,
+    outboundDuplicate: outbound?.duplicate ?? false,
     notificationSent: false as const,
     externalEffect: false as const,
   };
 }
+
 
 /** Leads vars planerade uppföljningstillfälle har passerat. Inga utskick. */
 export async function dueNurtureItemsCore(
