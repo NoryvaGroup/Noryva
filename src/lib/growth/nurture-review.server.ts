@@ -61,6 +61,7 @@ export type NurtureReviewRow = {
   questions: string[];
   content_fingerprint: string;
   source_fingerprint: string;
+  source_revision: string;
   status: string;
   blocked_reason: string;
   execution_mode: string;
