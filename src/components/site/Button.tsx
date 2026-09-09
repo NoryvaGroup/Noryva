@@ -1,4 +1,5 @@
-import type { AnchorHTMLAttributes, ButtonHTMLAttributes } from "react";
+import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from "react";
+import { Link } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 
 const base =
@@ -20,6 +21,31 @@ export function CtaLink({
   ...props
 }: AnchorHTMLAttributes<HTMLAnchorElement> & { variant?: Variant }) {
   return <a className={cn(base, styles[variant], className)} {...props} />;
+}
+
+/** Intern navigering med samma knappstil som CtaLink. */
+export function CtaTo({
+  to,
+  variant = "primary",
+  className,
+  children,
+  onClick,
+}: {
+  to: string;
+  variant?: Variant;
+  className?: string;
+  children: ReactNode;
+  onClick?: () => void;
+}) {
+  return (
+    <Link
+      to={to}
+      onClick={onClick}
+      className={cn(base, styles[variant], className)}
+    >
+      {children}
+    </Link>
+  );
 }
 
 export function CtaButton({

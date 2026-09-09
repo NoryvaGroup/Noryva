@@ -13,8 +13,11 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as CookiesRouteImport } from './routes/cookies'
+import { Route as FaqRouteImport } from './routes/faq'
 import { Route as IntegritetspolicyRouteImport } from './routes/integritetspolicy'
+import { Route as KontaktRouteImport } from './routes/kontakt'
 import { Route as McpRouteImport } from './routes/mcp'
+import { Route as OmRouteImport } from './routes/om'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as TakoffertRouteImport } from './routes/takoffert'
 import { Route as VillkorRouteImport } from './routes/villkor'
@@ -56,14 +59,29 @@ const CookiesRoute = CookiesRouteImport.update({
   path: '/cookies',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FaqRoute = FaqRouteImport.update({
+  id: '/faq',
+  path: '/faq',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IntegritetspolicyRoute = IntegritetspolicyRouteImport.update({
   id: '/integritetspolicy',
   path: '/integritetspolicy',
   getParentRoute: () => rootRouteImport,
 } as any)
+const KontaktRoute = KontaktRouteImport.update({
+  id: '/kontakt',
+  path: '/kontakt',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const McpRoute = McpRouteImport.update({
   id: '/mcp',
   path: '/mcp',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OmRoute = OmRouteImport.update({
+  id: '/om',
+  path: '/om',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -189,8 +207,11 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/cookies': typeof CookiesRoute
+  '/faq': typeof FaqRoute
   '/integritetspolicy': typeof IntegritetspolicyRoute
+  '/kontakt': typeof KontaktRoute
   '/mcp': typeof McpRoute
+  '/om': typeof OmRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/takoffert': typeof TakoffertRoute
   '/villkor': typeof VillkorRoute
@@ -217,8 +238,11 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/cookies': typeof CookiesRoute
+  '/faq': typeof FaqRoute
   '/integritetspolicy': typeof IntegritetspolicyRoute
+  '/kontakt': typeof KontaktRoute
   '/mcp': typeof McpRoute
+  '/om': typeof OmRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/takoffert': typeof TakoffertRoute
   '/villkor': typeof VillkorRoute
@@ -247,8 +271,11 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/cookies': typeof CookiesRoute
+  '/faq': typeof FaqRoute
   '/integritetspolicy': typeof IntegritetspolicyRoute
+  '/kontakt': typeof KontaktRoute
   '/mcp': typeof McpRoute
+  '/om': typeof OmRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/takoffert': typeof TakoffertRoute
   '/villkor': typeof VillkorRoute
@@ -277,8 +304,11 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/cookies'
+    | '/faq'
     | '/integritetspolicy'
+    | '/kontakt'
     | '/mcp'
+    | '/om'
     | '/sitemap.xml'
     | '/takoffert'
     | '/villkor'
@@ -305,8 +335,11 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/cookies'
+    | '/faq'
     | '/integritetspolicy'
+    | '/kontakt'
     | '/mcp'
+    | '/om'
     | '/sitemap.xml'
     | '/takoffert'
     | '/villkor'
@@ -334,8 +367,11 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/cookies'
+    | '/faq'
     | '/integritetspolicy'
+    | '/kontakt'
     | '/mcp'
+    | '/om'
     | '/sitemap.xml'
     | '/takoffert'
     | '/villkor'
@@ -364,8 +400,11 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   CookiesRoute: typeof CookiesRoute
+  FaqRoute: typeof FaqRoute
   IntegritetspolicyRoute: typeof IntegritetspolicyRoute
+  KontaktRoute: typeof KontaktRoute
   McpRoute: typeof McpRoute
+  OmRoute: typeof OmRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TakoffertRoute: typeof TakoffertRoute
   VillkorRoute: typeof VillkorRoute
@@ -412,6 +451,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CookiesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/faq': {
+      id: '/faq'
+      path: '/faq'
+      fullPath: '/faq'
+      preLoaderRoute: typeof FaqRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/integritetspolicy': {
       id: '/integritetspolicy'
       path: '/integritetspolicy'
@@ -419,11 +465,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IntegritetspolicyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/kontakt': {
+      id: '/kontakt'
+      path: '/kontakt'
+      fullPath: '/kontakt'
+      preLoaderRoute: typeof KontaktRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/mcp': {
       id: '/mcp'
       path: '/mcp'
       fullPath: '/mcp'
       preLoaderRoute: typeof McpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/om': {
+      id: '/om'
+      path: '/om'
+      fullPath: '/om'
+      preLoaderRoute: typeof OmRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sitemap.xml': {
@@ -604,8 +664,11 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   CookiesRoute: CookiesRoute,
+  FaqRoute: FaqRoute,
   IntegritetspolicyRoute: IntegritetspolicyRoute,
+  KontaktRoute: KontaktRoute,
   McpRoute: McpRoute,
+  OmRoute: OmRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TakoffertRoute: TakoffertRoute,
   VillkorRoute: VillkorRoute,

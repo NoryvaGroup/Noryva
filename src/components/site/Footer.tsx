@@ -2,12 +2,11 @@ import { Link } from "@tanstack/react-router";
 import { Logo } from "./Logo";
 
 const nav = [
-  { href: "/#tjanster", label: "Tjänster" },
-  { href: "/#process", label: "Så fungerar det" },
-  { href: "/#resultat", label: "Resultat" },
-  { href: "/#om", label: "Om Noryva" },
-  { href: "/#faq", label: "FAQ" },
-  { href: "/#kontakt", label: "Kontakt" },
+  { href: "/#sa-fungerar", label: "Så fungerar det", route: false },
+  { href: "/#vad-ni-far", label: "Vad ni får", route: false },
+  { href: "/om", label: "Om Noryva", route: true },
+  { href: "/faq", label: "FAQ", route: true },
+  { href: "/kontakt", label: "Kontakt", route: true },
 ];
 
 export function Footer() {
@@ -26,12 +25,21 @@ export function Footer() {
           <ul className="mt-4 space-y-2.5">
             {nav.map((l) => (
               <li key={l.href}>
-                <a
-                  href={l.href}
-                  className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  {l.label}
-                </a>
+                {l.route ? (
+                  <Link
+                    to={l.href}
+                    className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    {l.label}
+                  </Link>
+                ) : (
+                  <a
+                    href={l.href}
+                    className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    {l.label}
+                  </a>
+                )}
               </li>
             ))}
           </ul>

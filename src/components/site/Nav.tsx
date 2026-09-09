@@ -1,16 +1,16 @@
 import { useEffect, useState } from "react";
 import { ArrowRight, Menu, X } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import { Logo } from "./Logo";
-import { CtaLink } from "./Button";
+import { CtaTo } from "./Button";
 import { cn } from "@/lib/utils";
 
 const links = [
-  { href: "/#tjanster", label: "Tjänster" },
-  { href: "/#process", label: "Så fungerar det" },
-  { href: "/#resultat", label: "Resultat" },
-  { href: "/#om", label: "Om Noryva" },
-  { href: "/#faq", label: "FAQ" },
-  { href: "/#kontakt", label: "Kontakt" },
+  { href: "/#sa-fungerar", label: "Så fungerar det", route: false },
+  { href: "/#vad-ni-far", label: "Vad ni får", route: false },
+  { href: "/om", label: "Om Noryva", route: true },
+  { href: "/faq", label: "FAQ", route: true },
+  { href: "/kontakt", label: "Kontakt", route: true },
 ];
 
 export function Nav() {
@@ -31,6 +31,10 @@ export function Nav() {
     };
   }, [open]);
 
+  const desktopClass =
+    "rounded-full px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  const mobileClass = "block border-b border-border/60 py-4 text-base text-foreground";
+
   return (
     <header
       className={cn(
@@ -41,30 +45,33 @@ export function Nav() {
       )}
     >
       <nav aria-label="Huvudmeny" className="container-x flex h-[68px] items-center justify-between">
-        <a
-          href="/#top"
+        <Link
+          to="/"
           className="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <Logo />
-        </a>
+        </Link>
 
         <ul className="hidden items-center gap-1 lg:flex">
           {links.map((l) => (
             <li key={l.href}>
-              <a
-                href={l.href}
-                className="rounded-full px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                {l.label}
-              </a>
+              {l.route ? (
+                <Link to={l.href} className={desktopClass}>
+                  {l.label}
+                </Link>
+              ) : (
+                <a href={l.href} className={desktopClass}>
+                  {l.label}
+                </a>
+              )}
             </li>
           ))}
         </ul>
 
         <div className="hidden lg:block">
-          <CtaLink href="/#kontakt" className="px-5 py-2.5">
-            Boka kostnadsfri genomgång <ArrowRight size={15} />
-          </CtaLink>
+          <CtaTo to="/kontakt" className="px-5 py-2.5">
+            Testa 30 dagar gratis <ArrowRight size={15} />
+          </CtaTo>
         </div>
 
         <button
@@ -83,20 +90,22 @@ export function Nav() {
           <ul className="container-x flex flex-col py-4">
             {links.map((l) => (
               <li key={l.href}>
-                <a
-                  href={l.href}
-                  onClick={() => setOpen(false)}
-                  className="block border-b border-border/60 py-4 text-base text-foreground"
-                >
-                  {l.label}
-                </a>
+                {l.route ? (
+                  <Link to={l.href} onClick={() => setOpen(false)} className={mobileClass}>
+                    {l.label}
+                  </Link>
+                ) : (
+                  <a href={l.href} onClick={() => setOpen(false)} className={mobileClass}>
+                    {l.label}
+                  </a>
+                )}
               </li>
             ))}
           </ul>
           <div className="container-x pb-6">
-            <CtaLink href="/#kontakt" onClick={() => setOpen(false)} className="w-full py-4 text-base">
-              Boka kostnadsfri genomgång <ArrowRight size={17} />
-            </CtaLink>
+            <CtaTo to="/kontakt" onClick={() => setOpen(false)} className="w-full py-4 text-base">
+              Testa 30 dagar gratis <ArrowRight size={17} />
+            </CtaTo>
           </div>
         </div>
       )}
