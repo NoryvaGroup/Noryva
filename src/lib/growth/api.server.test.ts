@@ -148,6 +148,9 @@ function signedRequest(
   const headers: Record<string, string> = {
     "content-type": "application/json",
     "x-noryva-event-id": options.eventId ?? `evt-${Math.random().toString(36).slice(2)}`,
+    // Unik IP per anrop så att den avsedda in-memory-throttlingen inte
+    // stör testsviten (den testas separat).
+    "x-forwarded-for": `10.0.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`,
   };
   if (!options.omit) {
     headers["x-noryva-timestamp"] = ts;
@@ -970,6 +973,142 @@ describe("plan-nurture-test", () => {
   it("kund som skulle vara live kan ändå inte utlösa något utskick", async () => {
     const { body } = await planNurture(nurtureState(INCOMPLETE_ANSWERS, [], "live"));
     expect(["test", "review"]).toContain(body.executionMode);
+    expect(body.notificationSent).toBe(false);
+    expect(body.externalEffect).toBe(false);
+  });
+});
+
+/**
+ * TEST/REVIEW-bryggan för inkommande svar (register-nurture-reply-test).
+ * Ingen extern effekt får uppstå: inga mail, notiser eller bokningar.
+ */
+async function replyNurture(state: Record<string, Row[]>, body: unknown) {
+  const res = await handleGrowthApi(
+    "register-nurture-reply-test",
+    withEnv(signedRequest("register-nurture-reply-test", body)),
+    deps(state),
+  );
+  return { res, body: (await res.json()) as any };
+}
+
+describe("register-nurture-reply-test", () => {
+  it("kräver giltig signatur och avvisar replay", async () => {
+    const bad = await handleGrowthApi(
+      "register-nurture-reply-test",
+      signedRequest(
+        "register-nurture-reply-test",
+        { leadId: LEAD_ID, body: "Tack för mailet!" },
+        { secret: "fel" },
+      ),
+      deps(nurtureState(INCOMPLETE_ANSWERS)),
+    );
+    expect(bad.status).toBe(401);
+
+    const state = nurtureState(INCOMPLETE_ANSWERS);
+    const eventId = "reply-dup";
+    const first = await handleGrowthApi(
+      "register-nurture-reply-test",
+      withEnv(signedRequest("register-nurture-reply-test", { leadId: LEAD_ID, body: "Hej" }, { eventId })),
+      deps(state),
+    );
+    expect(first.status).toBe(200);
+    const second = await handleGrowthApi(
+      "register-nurture-reply-test",
+      withEnv(signedRequest("register-nurture-reply-test", { leadId: LEAD_ID, body: "Hej" }, { eventId })),
+      deps(state),
+    );
+    expect(second.status).toBe(409);
+  });
+
+  it("avvisar ogiltig nyttolast och okända fält", async () => {
+    const empty = await replyNurture(nurtureState(INCOMPLETE_ANSWERS), { leadId: LEAD_ID, body: "" });
+    expect(empty.res.status).toBe(400);
+
+    const injected = await replyNurture(nurtureState(INCOMPLETE_ANSWERS), {
+      leadId: LEAD_ID,
+      body: "Intresserad",
+      route: "ai_full",
+      score: 100,
+    });
+    expect(injected.res.status).toBe(400);
+  });
+
+  it("avvisar makeContext som pekar på fel kund", async () => {
+    const { res } = await replyNurture(nurtureState(INCOMPLETE_ANSWERS), {
+      leadId: LEAD_ID,
+      body: "Berätta gärna mer",
+      makeContext: { ...MAKE_CONTEXT, customerId: "33333333-3333-4333-8333-333333333333" },
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it("nej tack stoppar uppföljningen utan extern effekt", async () => {
+    const { body } = await replyNurture(nurtureState(INCOMPLETE_ANSWERS), {
+      leadId: LEAD_ID,
+      body: "Nej tack, vi är inte intresserade.",
+      makeContext: MAKE_CONTEXT,
+    });
+    expect(body.ok).toBe(true);
+    expect(body.classification.intent).toBe("avbojer");
+    expect(body.effect.stop).toBe(true);
+    expect(body.effect.humanTakeover).toBe(false);
+    expect(body.nurtureStatus).toBe("cancelled");
+    expect(body.outcome).toBe("replied");
+    expect(body.notificationSent).toBe(false);
+    expect(body.externalEffect).toBe(false);
+  });
+
+  it("pris/offert ger mänsklig handläggning och stop", async () => {
+    const { body } = await replyNurture(nurtureState(INCOMPLETE_ANSWERS), {
+      leadId: LEAD_ID,
+      body: "Vad kostar det? Skicka en offert.",
+    });
+    expect(body.classification.intent).toBe("pris_offert");
+    expect(body.effect.humanTakeover).toBe(true);
+    expect(body.effect.stop).toBe(true);
+    expect(body.notificationSent).toBe(false);
+    expect(body.externalEffect).toBe(false);
+  });
+
+  it("positivt svar ger uppgraderingssignal utan notifiering", async () => {
+    const { body } = await replyNurture(nurtureState(INCOMPLETE_ANSWERS), {
+      leadId: LEAD_ID,
+      body: "Vi är intresserade, berätta mer.",
+      makeContext: MAKE_CONTEXT,
+    });
+    expect(body.effect.upgradeSignal).toBe(true);
+    expect(body.outcome).toBe("replied");
+    expect(body.newIntent.level).toBeDefined();
+    expect(body.notificationSent).toBe(false);
+    expect(body.externalEffect).toBe(false);
+  });
+
+  it("mötesvilja ger uppgraderingssignal och meeting-utfall", async () => {
+    const { body } = await replyNurture(nurtureState(INCOMPLETE_ANSWERS), {
+      leadId: LEAD_ID,
+      body: "Kan vi boka ett möte nästa vecka?",
+    });
+    expect(body.classification.intent).toBe("vill_boka");
+    expect(body.effect.upgradeSignal).toBe(true);
+    expect(body.outcome).toBe("meeting_booked");
+    expect(body.externalEffect).toBe(false);
+  });
+
+  it("neutralt svar ger ingen falsk uppgradering", async () => {
+    const { body } = await replyNurture(nurtureState(INCOMPLETE_ANSWERS), {
+      leadId: LEAD_ID,
+      body: "Tack för informationen, vi återkommer.",
+    });
+    expect(body.effect.upgradeSignal).toBe(false);
+    expect(body.effect.humanTakeover).toBe(false);
+    expect(body.externalEffect).toBe(false);
+  });
+
+  it("kund som skulle vara live kan ändå inte utlösa någon extern effekt", async () => {
+    const { body } = await replyNurture(nurtureState(INCOMPLETE_ANSWERS, [], "live"), {
+      leadId: LEAD_ID,
+      body: "Vi är intresserade.",
+    });
     expect(body.notificationSent).toBe(false);
     expect(body.externalEffect).toBe(false);
   });

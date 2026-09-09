@@ -28,7 +28,8 @@ export type GrowthOperation =
   | "assign-variant"
   | "register-outcome"
   | "growth-recommendation"
-  | "plan-nurture-test";
+  | "plan-nurture-test"
+  | "register-nurture-reply-test";
 
 /**
  * `makeContext` är frivilligt. Utan det är beteendet identiskt med tidigare
@@ -60,6 +61,15 @@ export const GROWTH_API_SCHEMAS = {
   // Endast test/granskning: planerar nurture och returnerar ett utkast som
   // aldrig skickas. Inga klientstyrda score/route/modellfält.
   "plan-nurture-test": leadWithMakeContext,
+  // Endast test/granskning: registrerar ett inkommande svar PII-maskerat och
+  // kör deterministisk klassificering. Ingen extern effekt möjlig.
+  "register-nurture-reply-test": z
+    .object({
+      leadId: z.string().uuid(),
+      body: z.string().trim().min(1).max(4000),
+      makeContext: makeContextSchema.optional(),
+    })
+    .strict(),
 } as const satisfies Record<GrowthOperation, z.ZodTypeAny>;
 
 export type VerifyResult =
