@@ -61,7 +61,7 @@ export function Process() {
           <div className="mt-14">
             <CtaTo to="/kontakt" className="py-4 sm:py-3.5">
               Boka kostnadsfri genomgång <ArrowRight size={17} />
-            </CtaLink>
+            </CtaTo>
           </div>
         </Reveal>
       </div>
