@@ -155,9 +155,9 @@ BEGIN
   RETURN jsonb_build_object(
     'ok', v_reason = '',
     'reason', v_reason,
-    'revision', encode(digest(concat_ws('|',
+    'revision', encode(extensions.digest(concat_ws('|',
       v_lead.customer_id::text,
-      encode(digest(COALESCE(v_lead.payload::text, ''), 'sha256'), 'hex'),
+      encode(extensions.digest(COALESCE(v_lead.payload::text, ''), 'sha256'), 'hex'),
       COALESCE(v_customer.status, ''),
       COALESCE(v_customer.name, ''),
       COALESCE(v_profile.execution_mode, ''),
