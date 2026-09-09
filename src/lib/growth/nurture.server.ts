@@ -235,9 +235,12 @@ export async function setNurtureStatusCore(
  */
 export async function registerNurtureReplyCore(
   ctx: GrowthContext,
-  input: { leadId: string; body: string; source?: string },
+  input: { leadId: string; body: string; source?: string; makeContext?: MakeContext | null },
 ) {
-  const { lead } = await loadLeadBundle(ctx, input.leadId);
+  // makeContext kastas LeadBindingError om kunden inte matchar lagrat lead.
+  const { lead } = await loadLeadBundle(ctx, input.leadId, {
+    makeContext: input.makeContext ?? null,
+  });
   const redacted = redactText(input.body ?? "");
   const classification = classifyReplyDeterministic(redacted);
   const effect = applyReplyToNurture(classification);
@@ -277,10 +280,12 @@ export async function registerNurtureReplyCore(
     ok: true as const,
     classification,
     effect,
+    previousIntent: existing?.intent_level ?? null,
     intent,
     state: row,
     /** Aldrig ett utskick: bara en intern flagga. */
     notificationSent: false as const,
+    externalEffect: false as const,
     redactedBody: redacted,
   };
 }

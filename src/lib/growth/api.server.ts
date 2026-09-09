@@ -170,6 +170,34 @@ async function runOperation(
         makeContext: data.makeContext ?? null,
       });
     }
+
+    case "register-nurture-reply-test": {
+      // Ren test/granskningsoperation: registrerar ett svar PII-maskerat och
+      // kör befintlig deterministisk klassificering. Ingen extern effekt.
+      const { registerNurtureReplyCore } = await import("./nurture.server");
+      const result = await registerNurtureReplyCore(ctx, {
+        leadId: data.leadId,
+        body: data.body,
+        source: GROWTH_API_SOURCE,
+        makeContext: data.makeContext ?? null,
+      });
+      return {
+        ok: true,
+        classification: result.classification,
+        effect: {
+          stop: result.effect.stop,
+          humanTakeover: result.effect.humanTakeover,
+          upgradeSignal: result.effect.upgradeSignal,
+          reason: result.effect.reason,
+        },
+        previousIntent: result.previousIntent,
+        newIntent: result.intent,
+        nurtureStatus: result.state.status,
+        outcome: result.effect.outcome,
+        notificationSent: false,
+        externalEffect: false,
+      };
+    }
   }
 }
 
