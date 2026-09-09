@@ -198,6 +198,12 @@ export const submitPublicLead = createServerFn({ method: "POST" })
         ? scoreVaruautomat(readStoredPayload(rawPayload).answers ?? answers)
         : null;
 
+    // Signerad kundlänk för "Markera som kontaktad". Pekar alltid på Noryva.
+    const actionSecret = runtimeEnvFromRequest(getRequest())["NORYVA_LEAD_ACTION_SECRET"];
+    const kontaktadUrl = actionSecret
+      ? buildContactUrl({ secret: actionSecret, leadId: leadId! })
+      : "";
+
     // Servermetadata sist så att inga dynamiska fältnycklar kan skriva över dem.
     const body = {
       ...fields,
@@ -212,6 +218,8 @@ export const submitPublicLead = createServerFn({ method: "POST" })
       mottagare: customer.recipient_email,
       submitted_at: createdAt ?? new Date().toISOString(),
       source: `noryva_offert_${customer.industry}`,
+      kontaktad_url: kontaktadUrl,
+      kund_status: "Ny",
     };
 
     try {
