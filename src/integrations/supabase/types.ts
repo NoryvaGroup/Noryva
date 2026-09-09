@@ -1151,6 +1151,7 @@ export type Database = {
           recipient_email: string
           sent_at: string | null
           source_fingerprint: string
+          source_revision: string
           status: string
           step_index: number
           subject: string
@@ -1181,6 +1182,7 @@ export type Database = {
           recipient_email?: string
           sent_at?: string | null
           source_fingerprint?: string
+          source_revision?: string
           status?: string
           step_index?: number
           subject?: string
@@ -1211,6 +1213,7 @@ export type Database = {
           recipient_email?: string
           sent_at?: string | null
           source_fingerprint?: string
+          source_revision?: string
           status?: string
           step_index?: number
           subject?: string
@@ -1362,7 +1365,11 @@ export type Database = {
     }
     Functions: {
       approve_nurture_review: {
-        Args: { p_fingerprint: string; p_review_id: string }
+        Args: {
+          p_fingerprint: string
+          p_review_id: string
+          p_source_revision: string
+        }
         Returns: Json
       }
       cancel_nurture_review: {
@@ -1377,7 +1384,10 @@ export type Database = {
         Args: { p_lead_id: string; p_stale_seconds?: number }
         Returns: string
       }
-      claim_nurture_review: { Args: { p_review_id: string }; Returns: Json }
+      claim_nurture_review: {
+        Args: { p_review_id: string; p_source_revision?: string }
+        Returns: Json
+      }
       complete_nurture_review: {
         Args: {
           p_attempt_id: string
@@ -1402,6 +1412,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      nurture_source_revision: {
+        Args: { p_lead_id: string; p_lock?: boolean }
+        Returns: Json
       }
     }
     Enums: {
