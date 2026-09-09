@@ -781,6 +781,52 @@ describe("makeContext-kontraktet", () => {
     expect(n.migration_contract).toBe(null);
     expect(n.qualification.source).not.toContain("make-migration");
   });
+});
+
+/* ------------------------------------------------------------------ *
+ * Geografi från kundprofilen (utan makeContext)
+ * ------------------------------------------------------------------ */
+
+function profileGeoState(postnummer: string) {
+  const state = baseState({ ...COMPLETE_ANSWERS, postnummer, ager_fastigheten: "Ja" });
+  state["customer_profiles"] = [
+    {
+      customer_id: CUSTOMER_ID,
+      ai_assistant_enabled: true,
+      execution_mode: "test",
+      local_postal_prefix: "50",
+      regional_postal_prefix: "51",
+    },
+  ];
+  return state;
+}
+
+async function geographyFor(postnummer: string) {
+  const res = await handleGrowthApi(
+    "route-lead",
+    withEnv(signedRequest("route-lead", { leadId: LEAD_ID })),
+    depsNoSecret(profileGeoState(postnummer)),
+  );
+  return ((await res.json()) as any).normalized.qualification.geography;
+}
+
+describe("postnummerstyrd geografi från kundprofilen", () => {
+  it("50-prefix ger local och configured=true", async () => {
+    expect(await geographyFor("503 30")).toMatchObject({ verdict: "local", configured: true });
+  });
+
+  it("51-prefix ger regional", async () => {
+    expect(await geographyFor("51234")).toMatchObject({ verdict: "regional", configured: true });
+  });
+
+  it("Göteborgspostnummer ger outside – aldrig ortsnamnstolkning", async () => {
+    expect(await geographyFor("41118")).toMatchObject({ verdict: "outside", configured: true });
+  });
+
+  it("saknat postnummer ger unknown", async () => {
+    expect(await geographyFor("")).toMatchObject({ verdict: "unknown", configured: true });
+  });
+});
 
   it("kundutkastet riktar sig till kunden och signeras med företagsnamnet", async () => {
     const res = await handleGrowthApi(
