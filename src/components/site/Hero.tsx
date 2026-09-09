@@ -133,10 +133,10 @@ export function Hero() {
 
           <Reveal delay={180}>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-              <CtaLink href="/#kontakt" className="py-4 sm:py-3.5">
+              <CtaTo to="/kontakt" className="py-4 sm:py-3.5">
                 Boka kostnadsfri genomgång <ArrowRight size={17} />
               </CtaLink>
-              <CtaLink href="/#process" variant="ghost" className="py-4 sm:py-3.5">
+              <CtaLink href="/#sa-fungerar" variant="ghost" className="py-4 sm:py-3.5">
                 Se hur det fungerar <ArrowDown size={16} />
               </CtaLink>
             </div>
