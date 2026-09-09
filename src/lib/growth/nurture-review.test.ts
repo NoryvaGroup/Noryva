@@ -750,7 +750,7 @@ describe("inkommande svar på skickad uppföljning", () => {
       messageId: "<in-1@example.com>",
     };
 
-    const first = await registerReviewedNurtureReplyCore(ctx, payload);
+    const first: any = await registerReviewedNurtureReplyCore(ctx, payload);
     expect(first.ok).toBe(true);
     expect(first.code).toBe("registered");
     expect(first.notificationSent).toBe(false);
