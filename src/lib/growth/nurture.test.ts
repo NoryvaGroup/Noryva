@@ -40,12 +40,31 @@ describe("nurture-policy", () => {
 });
 
 describe("frågegenerering", () => {
-  it("hittar aldrig på frågor när inget saknas", () => {
+  it("hittar aldrig på frågor när inget saknas, men planerar mjuk uppföljning", () => {
     expect(buildNurtureQuestions({ missingInformation: [] })).toEqual([]);
-    const plan = buildNurturePlan({ ...base, missingInformation: [] });
+    const plan = buildNurturePlan({
+      ...base,
+      missingInformation: [],
+      now: new Date("2026-01-01T00:00:00.000Z"),
+    });
     expect(plan.questions).toEqual([]);
-    expect(plan.status).toBe("cancelled");
-    expect(plan.nextStepAt).toBeNull();
+    expect(plan.eligible).toBe(true);
+    expect(plan.status).toBe("pending");
+    expect(plan.nextStepAt).toBe("2026-01-04T00:00:00.000Z");
+  });
+
+  it("blockerade leads får fortfarande ingen plan", () => {
+    for (const blocked of [
+      { ...base, intentLevel: "HÖG" as const },
+      { ...base, terminal: true },
+      { ...base, humanTakeover: true },
+      { ...base, optedOut: true },
+    ]) {
+      const plan = buildNurturePlan({ ...blocked, missingInformation: [] });
+      expect(plan.eligible).toBe(false);
+      expect(plan.status).toBe("cancelled");
+      expect(plan.nextStepAt).toBeNull();
+    }
   });
 
   it("ger max tre frågor och återanvänder analysens frågor först", () => {
