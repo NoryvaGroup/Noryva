@@ -434,7 +434,7 @@ describe("granskningsspärrar (rena funktioner)", () => {
     expect(externalSendDecision({ enabled: true, storedRecipient: "kund@example.com" }).allowed).toBe(true);
   });
 
-  it("avtryck och nycklar är deterministiska", () => {
+  it("avtryck och nycklar är deterministiska", async () => {
     const input = {
       leadId: LEAD_A,
       customerId: CUST_A,
