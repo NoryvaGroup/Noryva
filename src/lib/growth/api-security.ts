@@ -67,6 +67,8 @@ export const GROWTH_API_SCHEMAS = {
     .object({
       leadId: z.string().uuid(),
       body: z.string().trim().min(1).max(4000),
+      /** Valfritt id från Make för idempotens. Bakåtkompatibelt. */
+      sourceRef: z.string().trim().min(1).max(120).optional(),
       makeContext: makeContextSchema.optional(),
     })
     .strict(),
