@@ -573,9 +573,11 @@ async function dispatchReviewToBridge(
     const response = await fetch(url, { method: "POST", headers, body });
     if (!response.ok) return { ok: false, error: `Bryggan svarade ${response.status}.` };
     return { ok: true };
-  } catch (error) {
-    return { ok: false, error: (error as Error).message };
+  } catch {
+    // Aldrig felmeddelandet: det kan innehålla den hemliga brygg-URL:en.
+    return { ok: false, error: "Utskicksbryggan gick inte att nå." };
   }
+
 }
 
 async function hmacHex(secret: string, payload: string): Promise<string> {
