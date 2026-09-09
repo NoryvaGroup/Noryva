@@ -15,6 +15,7 @@ import {
   applyReplyToNurture,
   buildNurturePlan,
   canTransitionNurture,
+  isLegacyCompleteCancelled,
   nextNurtureStepAt,
   nurtureStatusSchema,
   type NurtureStatus,
