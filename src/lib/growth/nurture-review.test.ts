@@ -477,7 +477,7 @@ describe("granskningskö – serverflöde", () => {
     const { supabase, state } = makeSupabase();
     const ctx = ctxOf(supabase);
     const review = await seedReview(ctx, state, LEAD_A);
-    state["growth_nurture_state"]!.find((n) => n["lead_id"] === LEAD_A)!["human_takeover"] = true;
+    state["conversations"]![0]!["human_owner"] = "55555555-5555-4555-8555-555555555555";
 
     const result = await approveNurtureReviewCore(
       ctx,
