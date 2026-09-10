@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  AGENT_EXTERNAL_ACTIONS_ENABLED,
   assertTransition,
+  evaluateApprovalDecision,
   canTransition,
   routeEvent,
   runSalesWorker,
