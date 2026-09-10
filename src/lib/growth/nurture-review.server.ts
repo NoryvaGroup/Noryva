@@ -39,6 +39,21 @@ import {
   stableHash,
 } from "./nurture-review";
 import type { RuntimeEnv } from "./runtime-env";
+import { evaluateOutboundIdentity, rowToMailChannel, type MailChannel } from "./mail-channel";
+
+/**
+ * Läser kundens avsändaridentitet (read-only). Fail closed: saknas raden finns
+ * ingen identitet – aldrig fallback till info@noryva.se eller recipients.
+ */
+async function readMailChannel(ctx: GrowthContext, customerId: string): Promise<MailChannel> {
+  const { data, error } = await ctx.supabase
+    .from("customer_mail_channels")
+    .select("provider, sender_email, sender_name, reply_to_email, inbound_route_key, connection_alias, status, verified_at")
+    .eq("customer_id", customerId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return rowToMailChannel(data as Record<string, unknown> | null);
+}
 
 const TABLE = "nurture_reviews";
 const MESSAGES = "conversation_messages";
