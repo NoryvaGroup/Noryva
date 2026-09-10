@@ -221,7 +221,7 @@ describe("agents-process-test", () => {
     expect(JSON.stringify(body)).not.toMatch(/@|Anna/);
 
     const types = state["agent_task_events"]!.map((e) => e["event_type"]);
-    expect(types).toEqual(["task_started", "result_saved", "task_verified"]);
+    expect(types).toEqual(["task_started", "llm_call", "result_saved", "task_verified"]);
     for (const e of state["agent_task_events"]!) {
       expect(["agent", "system"]).toContain(e["actor"]);
       expect(JSON.stringify(e)).not.toMatch(/@|Anna/);
