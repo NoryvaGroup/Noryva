@@ -1,65 +1,29 @@
-# CTO / Systems Improvement Agent – v1 (REVIEW-läge)
+# Backend-hardening: säkert utskickskontrakt och manuell avstämning
 
-Första interna agenten som granskar Noryva-systemet självt i stället för ett lead.
-Analyserar → föreslår → skapar ett färdigt implementationPrompt. Ingen kodändring,
-ingen publicering, inga externa actions. Allt stannar i "Väntar granskning".
+Sista produktionshärdningen för uppföljningsutskicken. Inga designändringar, inga formulärändringar, ingen publicering.
 
 ## Vad som byggs
 
-**1. Minsta säkra migration**
-`agent_tasks.task_type` får ett nytt tillåtet värde: `cto_improvement_review`.
-Inget annat rörs; `lead_id` är redan valfritt så interna uppgifter utan lead fungerar.
-Rollback = återställ CHECK-villkoret till nuvarande fyra värden.
+### 1. Strikt kontrakt för vem som får ta emot ett utskick
+Nytt rent regelmodul `src/lib/growth/review-contract.ts`:
+- Kunden härleds ur granskningsposten och förfrågan. Skiljer de sig åt stoppas utskicket (`customer_mismatch`).
+- Mottagaren måste vara exakt den adress som ligger lagrad på förfrågan (`recipient_mismatch`). Ingen fallback till info@noryva.se eller någon annan kunds adress.
+- Kundens mailidentitet måste vara verifierad och ha avsändaradress, svarsadress och anslutningsalias (`mail_identity_unverified`). Saknad, utkast eller avstängd identitet spärrar.
 
-**2. Säker telemetri-läsning** (`src/lib/agents/improvement.server.ts`)
-Endast aggregerad drift-metadata:
-- `agent_tasks`: antal per status, verifiering, godkännandeläge, uppgiftstyp
-- `agent_task_events`: antal per händelsetyp, andel LLM-reserv
-- `ai_cost_events`: antal och summerad uppskattad kostnad per route/tier
-- `inbound_webhook_events`: antal och andel med verifierad signatur
-- `leads`: enbart antal per `delivery_status` (inga payloads)
+Kontraktet körs på två ställen i `nurture-review.server.ts`:
+- vid **godkännande** (efter befintlig stale-kontroll av innehåll och underlag) – posten spärras i stället för att godkännas,
+- vid **hämtning för utskick** (före den atomära hämtningen) – inget innehåll lämnas ut.
 
-Inga kontaktuppgifter, inga lead-payloads, ingen mailtext, inga kund-id:n i resultatet.
+### 2. Manuell avstämning av fastnade utskick
+Ny databasfunktion `reconcile_nurture_review` (endast administratör) plus `reconcileNurtureReviewCore` och adminserverfunktionen `reconcileNurtureReview`:
+- lägen `SENT` / `NOT_SENT` / `UNKNOWN`, endast från status hämtad eller osäker,
+- `SENT` kräver transportens meddelande-id och bokför steg och konversationslogg exakt en gång; upprepning ger samma svar utan dubblett,
+- inget läge släpper någonsin posten tillbaka för nytt automatiskt utskick.
 
-**3. Ett (1) OpenAI-anrop** via befintlig `callOpenAiStructured` (`gpt-5.4-mini`),
-strikt JSON-schema, ingen retry, timeout → konservativ deterministisk reserv.
-
-Resultatform:
-```text
-summary, healthScore (0-100),
-findings[]        : { area, observation, severity }
-recommendations[] : { title, priority, evidence, risk, suggestedAction }
-implementationPrompt : färdig text att senare ge Lovable vid godkännande
-```
-
-**4. Skapa + kör på begäran**
-- Adminfunktion `createImprovementReview` i `src/lib/agents.functions.ts` (admin-gated).
-- HMAC-skyddad TEST-endpoint `POST /api/public/agents/improvement-review-test`
-  (samma signatur/replay/throttle-lager som övriga Agent Core-endpoints),
-  payload strikt `{ executionMode: "test" }`.
-Idempotensnyckel per dygn: `internal_improvement:<YYYY-MM-DD>` – en review per dag.
-Uppgiften skapas som Systems & QA, `requires_approval=true`, `approval_status=pending`,
-`execution_mode=test`, utan `lead_id`.
-
-**5. Körning och verifiering**
-Återanvänder befintlig `processAgentTaskCore`: samma state machine, samma
-atomiska claim, samma audit (`task_started`, `llm_call`, `result_saved`,
-`task_verified`) – helt PII-fri. QA-reglerna utökas med kontroll av healthScore,
-minst en rekommendation och att implementationPrompt finns.
-
-**6. Agent HQ**
-Minsta möjliga rendering i befintligt resultatkort: summary, hälsopoäng, findings,
-rekommendationer och implementationPrompt (kopieringsbar text). Ingen redesign.
-Specialistkortet för Systems & QA beskrivs som verifiering + intern systemgranskning.
-
-## Säkerhetsgränser
-- `externalEffect: false` överallt; agenten kan inte ändra kod, SQL-data (utöver
-  egen task/audit), Make, mail eller publicering.
-- Godkännande ändrar endast intern status, precis som idag.
-- Max ett LLM-anrop per review, ingen retry-loop.
+### 3. Oförändrat i övrigt
+Planeringen av förfallna uppföljningar fortsätter att bara skapa granskningsposter utan extern effekt.
 
 ## Tester
-Nytt `src/lib/agents/improvement.server.test.ts` plus utökningar i befintliga sviter:
-task utan lead_id, idempotens per dygn, max 1 LLM-anrop, PII-fri kontext/resultat/audit,
-awaiting_review + pending approval, externalEffect false, modellfel → reserv,
-felaktigt execution mode och auth/replay på endpointen. Full svit + typecheck körs.
+Nya fokuserade tester för: kund som inte matchar, mottagare som inte matchar lagrad adress, overifierad mailidentitet vid både godkännande och hämtning, avstämning av osäkert utskick, dubbel bokföring av samma utskick och att inget läge tillåter automatiskt omförsök.
+
+Körs: fokuserade tester, hela testsviten och typkontroll. Ingen publicering.
