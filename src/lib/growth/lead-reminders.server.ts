@@ -121,6 +121,27 @@ export async function dueLeadRemindersCore(
       .eq("lead_id", lead["id"])
       .maybeSingle();
 
+    // Transportstate: redan skickade, pågående och osäkra påminnelser lämnar
+    // listan helt. Supabase är facit – ingen kalkylarksstatus används.
+    const { data: deliveryRow } = await ctx.supabase
+      .from(REMINDER_TABLE)
+      .select("lead_id, kind, status, claimed_at")
+      .eq("lead_id", lead["id"])
+      .eq("kind", REMINDER_KIND)
+      .maybeSingle();
+    const reminderStatus = readReminderStatus(deliveryRow?.["status"]);
+    if (reminderStatus === "sent" || reminderStatus === "unknown") continue;
+    let staleClaim = false;
+    if (reminderStatus === "claimed") {
+      const claimedAt = Date.parse(String(deliveryRow?.["claimed_at"] ?? ""));
+      const fresh =
+        !Number.isNaN(claimedAt) &&
+        now.getTime() - claimedAt < STALE_CLAIM_MINUTES * 60_000;
+      if (fresh) continue;
+      staleClaim = true;
+    }
+
+
     const intentLevel = stateRow?.["intent_level"] ? String(stateRow["intent_level"]) : null;
     const prioritySource = intentLevel ? "growth_lead_state" : "unknown";
     const reminderRecommended = intentLevel ? REMINDER_LEVELS.has(intentLevel) : null;
