@@ -9,6 +9,7 @@
  * nycklar eller andra credentials.
  */
 import { defaultProfile, rowToProfile } from "@/lib/ai-sales/profile";
+import { rowToMailChannel } from "./mail-channel";
 import type { GrowthContext } from "./service.server";
 
 export type CustomerConfigResult =
