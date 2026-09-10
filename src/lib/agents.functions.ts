@@ -8,6 +8,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { buildTaskResult } from "@/lib/agents/run.server";
 import {
   assertTransition,
+  evaluateApprovalDecision,
   routeEvent,
   verifyTaskResult,
   type AgentEvent,
