@@ -211,7 +211,7 @@ export async function deliveryRecoveryCore(
     const { data: customer } = await ctx.supabase
       .from("customers")
       .select(
-        "id, slug, name, industry, schema_version, status, recipient_email, delivery_webhook_url",
+        "id, slug, name, industry, schema_version, status, delivery_webhook_url",
       )
       .eq("id", candidate.customerId)
       .maybeSingle();
@@ -286,7 +286,10 @@ export async function deliveryRecoveryCore(
       idempotency_key: idempotencyKey,
       bransch: customer["industry"],
       schema_version: customer["schema_version"],
-      mottagare: customer["recipient_email"],
+      // Legacyfältet behålls tomt för bakåtkompatibilitet. Facit för
+      // kundnotifiering är customer_profiles.notify_recipients och
+      // avsändaridentitet är customer_mail_channels – aldrig recipient_email.
+      mottagare: "",
       submitted_at: candidate.createdAt ?? now.toISOString(),
       source: `noryva_offert_${customer["industry"]}`,
       kontaktad_url: kontaktadUrl,

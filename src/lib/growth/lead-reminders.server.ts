@@ -38,7 +38,29 @@ export type DueLeadReminder = {
   notifyRecipients: string[];
   recipientsMissing: boolean;
   contactUrl: string | null;
+  /** Transportstate i Supabase – aldrig kalkylarksstatus. */
+  reminderStatus: ReminderStatus;
+  claimable: boolean;
+  needsManualReview: boolean;
 };
+
+/** Enda påminnelsetypen i piloten. */
+export const REMINDER_KIND = "contact_24h";
+export const REMINDER_TABLE = "lead_reminder_deliveries";
+/** En claim som legat längre än så här kräver manuell avstämning. */
+export const STALE_CLAIM_MINUTES = 15;
+
+export type ReminderStatus = "none" | "pending" | "claimed" | "sent" | "failed" | "unknown";
+
+function readReminderStatus(value: unknown): ReminderStatus {
+  return value === "pending" ||
+    value === "claimed" ||
+    value === "sent" ||
+    value === "failed" ||
+    value === "unknown"
+    ? value
+    : "none";
+}
 
 export async function dueLeadRemindersCore(
   ctx: GrowthContext,
@@ -99,6 +121,27 @@ export async function dueLeadRemindersCore(
       .eq("lead_id", lead["id"])
       .maybeSingle();
 
+    // Transportstate: redan skickade, pågående och osäkra påminnelser lämnar
+    // listan helt. Supabase är facit – ingen kalkylarksstatus används.
+    const { data: deliveryRow } = await ctx.supabase
+      .from(REMINDER_TABLE)
+      .select("lead_id, kind, status, claimed_at")
+      .eq("lead_id", lead["id"])
+      .eq("kind", REMINDER_KIND)
+      .maybeSingle();
+    const reminderStatus = readReminderStatus(deliveryRow?.["status"]);
+    if (reminderStatus === "sent" || reminderStatus === "unknown") continue;
+    let staleClaim = false;
+    if (reminderStatus === "claimed") {
+      const claimedAt = Date.parse(String(deliveryRow?.["claimed_at"] ?? ""));
+      const fresh =
+        !Number.isNaN(claimedAt) &&
+        now.getTime() - claimedAt < STALE_CLAIM_MINUTES * 60_000;
+      if (fresh) continue;
+      staleClaim = true;
+    }
+
+
     const intentLevel = stateRow?.["intent_level"] ? String(stateRow["intent_level"]) : null;
     const prioritySource = intentLevel ? "growth_lead_state" : "unknown";
     const reminderRecommended = intentLevel ? REMINDER_LEVELS.has(intentLevel) : null;
@@ -114,6 +157,10 @@ export async function dueLeadRemindersCore(
     if (customer.recipients.length === 0) {
       reasons.push("Kundens profil saknar sparade mottagare.");
     }
+    if (staleClaim) {
+      reasons.push("Tidigare hämtning har fastnat – kräver manuell avstämning, ingen autoretry.");
+    }
+
 
     reminders.push({
       leadId: String(lead["id"]),
@@ -132,6 +179,9 @@ export async function dueLeadRemindersCore(
       contactUrl: actionSecret
         ? buildContactUrl({ secret: actionSecret, leadId: String(lead["id"]), now })
         : null,
+      reminderStatus,
+      claimable: !staleClaim,
+      needsManualReview: staleClaim,
     });
   }
 
@@ -142,5 +192,142 @@ export async function dueLeadRemindersCore(
     reminders,
     externalEffect: false,
     notificationSent: false,
+  };
+}
+
+/**
+ * Hämtar EN påminnelse för utskick. Hela behörighetskontrollen (lead är
+ * fortfarande "Ny", påminnelsen är förfallen, inte redan skickad/hämtad) sker
+ * atomiskt i SQL. Svaret innehåller endast sändunderlag – ingen lead-PII,
+ * inga hemligheter.
+ */
+export async function claimLeadReminderCore(
+  ctx: GrowthContext,
+  input: { leadId: string; olderThanHours?: number },
+  env: RuntimeEnv,
+  now: Date = new Date(),
+) {
+  const { data, error } = await ctx.supabase.rpc("claim_lead_reminder", {
+    p_lead_id: input.leadId,
+    p_kind: REMINDER_KIND,
+    p_older_than_hours: input.olderThanHours ?? DEFAULT_OLDER_THAN_HOURS,
+    p_stale_claim_minutes: STALE_CLAIM_MINUTES,
+  });
+  if (error) throw new Error(error.message);
+  const result = (data ?? {}) as Record<string, any>;
+  if (result["ok"] !== true) {
+    const code = String(result["code"] ?? "not_claimable");
+    return {
+      ok: false as const,
+      status: code === "not_found" ? 404 : 409,
+      code,
+      externalEffect: false as const,
+      notificationSent: false as const,
+    };
+  }
+
+  const customerId = String(result["customerId"] ?? "");
+  const { data: customerRow } = await ctx.supabase
+    .from("customers")
+    .select("id, name")
+    .eq("id", customerId)
+    .maybeSingle();
+  const { data: profileRow } = await ctx.supabase
+    .from("customer_profiles")
+    .select("customer_id, notify_recipients")
+    .eq("customer_id", customerId)
+    .maybeSingle();
+  const notifyRecipients = Array.isArray(profileRow?.["notify_recipients"])
+    ? (profileRow["notify_recipients"] as string[]).filter(
+        (r) => typeof r === "string" && r.trim() !== "",
+      )
+    : [];
+
+  const { data: stateRow } = await ctx.supabase
+    .from("growth_lead_state")
+    .select("lead_id, intent_level")
+    .eq("lead_id", input.leadId)
+    .maybeSingle();
+
+  const actionSecret = env["NORYVA_LEAD_ACTION_SECRET"];
+
+  return {
+    ok: true as const,
+    status: 200,
+    code: "claimed",
+    reminderId: result["reminderId"],
+    attemptId: result["attemptId"],
+    kind: REMINDER_KIND,
+    leadId: input.leadId,
+    customerId,
+    customerName: String(customerRow?.["name"] ?? ""),
+    notifyRecipients,
+    recipientsMissing: notifyRecipients.length === 0,
+    intentLevel: stateRow?.["intent_level"] ? String(stateRow["intent_level"]) : null,
+    contactUrl: actionSecret
+      ? buildContactUrl({ secret: actionSecret, leadId: input.leadId, now })
+      : null,
+    externalEffect: false as const,
+    notificationSent: false as const,
+  };
+}
+
+/** Bokför bekräftat utskick. Idempotent via (reminderId, attemptId). */
+export async function completeLeadReminderCore(
+  ctx: GrowthContext,
+  input: { reminderId: string; attemptId: string; transportMessageId: string },
+) {
+  const { data, error } = await ctx.supabase.rpc("complete_lead_reminder", {
+    p_reminder_id: input.reminderId,
+    p_attempt_id: input.attemptId,
+    p_transport_message_id: input.transportMessageId,
+  });
+  if (error) throw new Error(error.message);
+  const result = (data ?? {}) as Record<string, any>;
+  if (result["ok"] !== true) {
+    return {
+      ok: false as const,
+      status: String(result["code"]) === "not_found" ? 404 : 409,
+      code: String(result["code"] ?? "invalid"),
+    };
+  }
+  return {
+    ok: true as const,
+    status: 200,
+    code: String(result["code"]),
+    duplicate: result["duplicate"] === true,
+    transportMessageId: result["transportMessageId"],
+  };
+}
+
+/**
+ * Misslyckat försök. `unknown` (standard) betyder att vi inte vet om mailet
+ * gick iväg – posten släpps ALDRIG automatiskt tillbaka för nytt försök.
+ */
+export async function failLeadReminderCore(
+  ctx: GrowthContext,
+  input: { reminderId: string; attemptId: string; outcome?: "not_sent" | "unknown"; reason?: string },
+) {
+  const { data, error } = await ctx.supabase.rpc("fail_lead_reminder", {
+    p_reminder_id: input.reminderId,
+    p_attempt_id: input.attemptId,
+    p_outcome: input.outcome === "not_sent" ? "not_sent" : "unknown",
+    p_reason: (input.reason ?? "").trim(),
+  });
+  if (error) throw new Error(error.message);
+  const result = (data ?? {}) as Record<string, any>;
+  if (result["ok"] !== true) {
+    return {
+      ok: false as const,
+      status: String(result["code"]) === "not_found" ? 404 : 409,
+      code: String(result["code"] ?? "invalid"),
+    };
+  }
+  return {
+    ok: true as const,
+    status: 200,
+    code: String(result["code"]),
+    reminderStatus: String(result["status"] ?? result["code"]),
+    autoRetryAllowed: false as const,
   };
 }

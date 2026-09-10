@@ -35,12 +35,15 @@ import { Route as AuthenticatedAdminProfilerRouteImport } from './routes/_authen
 import { Route as TestOffertSlugRouteImport } from './routes/test.offert.$slug'
 import { Route as ApiPublicGrowthAnalyzeLeadRouteImport } from './routes/api/public/growth/analyze-lead'
 import { Route as ApiPublicGrowthAssignVariantRouteImport } from './routes/api/public/growth/assign-variant'
+import { Route as ApiPublicGrowthClaimLeadReminderRouteImport } from './routes/api/public/growth/claim-lead-reminder'
 import { Route as ApiPublicGrowthClaimNurtureReviewRouteImport } from './routes/api/public/growth/claim-nurture-review'
+import { Route as ApiPublicGrowthCompleteLeadReminderRouteImport } from './routes/api/public/growth/complete-lead-reminder'
 import { Route as ApiPublicGrowthCompleteNurtureReviewRouteImport } from './routes/api/public/growth/complete-nurture-review'
 import { Route as ApiPublicGrowthCustomerConfigRouteImport } from './routes/api/public/growth/customer-config'
 import { Route as ApiPublicGrowthDeliveryRecoveryRouteImport } from './routes/api/public/growth/delivery-recovery'
 import { Route as ApiPublicGrowthDueLeadRemindersRouteImport } from './routes/api/public/growth/due-lead-reminders'
 import { Route as ApiPublicGrowthDueNurtureReviewsRouteImport } from './routes/api/public/growth/due-nurture-reviews'
+import { Route as ApiPublicGrowthFailLeadReminderRouteImport } from './routes/api/public/growth/fail-lead-reminder'
 import { Route as ApiPublicGrowthFailNurtureReviewRouteImport } from './routes/api/public/growth/fail-nurture-review'
 import { Route as ApiPublicGrowthGrowthRecommendationRouteImport } from './routes/api/public/growth/growth-recommendation'
 import { Route as ApiPublicGrowthPlanNurtureTestRouteImport } from './routes/api/public/growth/plan-nurture-test'
@@ -187,10 +190,22 @@ const ApiPublicGrowthAssignVariantRoute =
     path: '/api/public/growth/assign-variant',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicGrowthClaimLeadReminderRoute =
+  ApiPublicGrowthClaimLeadReminderRouteImport.update({
+    id: '/api/public/growth/claim-lead-reminder',
+    path: '/api/public/growth/claim-lead-reminder',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicGrowthClaimNurtureReviewRoute =
   ApiPublicGrowthClaimNurtureReviewRouteImport.update({
     id: '/api/public/growth/claim-nurture-review',
     path: '/api/public/growth/claim-nurture-review',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicGrowthCompleteLeadReminderRoute =
+  ApiPublicGrowthCompleteLeadReminderRouteImport.update({
+    id: '/api/public/growth/complete-lead-reminder',
+    path: '/api/public/growth/complete-lead-reminder',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicGrowthCompleteNurtureReviewRoute =
@@ -221,6 +236,12 @@ const ApiPublicGrowthDueNurtureReviewsRoute =
   ApiPublicGrowthDueNurtureReviewsRouteImport.update({
     id: '/api/public/growth/due-nurture-reviews',
     path: '/api/public/growth/due-nurture-reviews',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicGrowthFailLeadReminderRoute =
+  ApiPublicGrowthFailLeadReminderRouteImport.update({
+    id: '/api/public/growth/fail-lead-reminder',
+    path: '/api/public/growth/fail-lead-reminder',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicGrowthFailNurtureReviewRoute =
@@ -298,12 +319,15 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/api/public/growth/analyze-lead': typeof ApiPublicGrowthAnalyzeLeadRoute
   '/api/public/growth/assign-variant': typeof ApiPublicGrowthAssignVariantRoute
+  '/api/public/growth/claim-lead-reminder': typeof ApiPublicGrowthClaimLeadReminderRoute
   '/api/public/growth/claim-nurture-review': typeof ApiPublicGrowthClaimNurtureReviewRoute
+  '/api/public/growth/complete-lead-reminder': typeof ApiPublicGrowthCompleteLeadReminderRoute
   '/api/public/growth/complete-nurture-review': typeof ApiPublicGrowthCompleteNurtureReviewRoute
   '/api/public/growth/customer-config': typeof ApiPublicGrowthCustomerConfigRoute
   '/api/public/growth/delivery-recovery': typeof ApiPublicGrowthDeliveryRecoveryRoute
   '/api/public/growth/due-lead-reminders': typeof ApiPublicGrowthDueLeadRemindersRoute
   '/api/public/growth/due-nurture-reviews': typeof ApiPublicGrowthDueNurtureReviewsRoute
+  '/api/public/growth/fail-lead-reminder': typeof ApiPublicGrowthFailLeadReminderRoute
   '/api/public/growth/fail-nurture-review': typeof ApiPublicGrowthFailNurtureReviewRoute
   '/api/public/growth/growth-recommendation': typeof ApiPublicGrowthGrowthRecommendationRoute
   '/api/public/growth/plan-nurture-test': typeof ApiPublicGrowthPlanNurtureTestRoute
@@ -339,12 +363,15 @@ export interface FileRoutesByTo {
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/api/public/growth/analyze-lead': typeof ApiPublicGrowthAnalyzeLeadRoute
   '/api/public/growth/assign-variant': typeof ApiPublicGrowthAssignVariantRoute
+  '/api/public/growth/claim-lead-reminder': typeof ApiPublicGrowthClaimLeadReminderRoute
   '/api/public/growth/claim-nurture-review': typeof ApiPublicGrowthClaimNurtureReviewRoute
+  '/api/public/growth/complete-lead-reminder': typeof ApiPublicGrowthCompleteLeadReminderRoute
   '/api/public/growth/complete-nurture-review': typeof ApiPublicGrowthCompleteNurtureReviewRoute
   '/api/public/growth/customer-config': typeof ApiPublicGrowthCustomerConfigRoute
   '/api/public/growth/delivery-recovery': typeof ApiPublicGrowthDeliveryRecoveryRoute
   '/api/public/growth/due-lead-reminders': typeof ApiPublicGrowthDueLeadRemindersRoute
   '/api/public/growth/due-nurture-reviews': typeof ApiPublicGrowthDueNurtureReviewsRoute
+  '/api/public/growth/fail-lead-reminder': typeof ApiPublicGrowthFailLeadReminderRoute
   '/api/public/growth/fail-nurture-review': typeof ApiPublicGrowthFailNurtureReviewRoute
   '/api/public/growth/growth-recommendation': typeof ApiPublicGrowthGrowthRecommendationRoute
   '/api/public/growth/plan-nurture-test': typeof ApiPublicGrowthPlanNurtureTestRoute
@@ -382,12 +409,15 @@ export interface FileRoutesById {
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/api/public/growth/analyze-lead': typeof ApiPublicGrowthAnalyzeLeadRoute
   '/api/public/growth/assign-variant': typeof ApiPublicGrowthAssignVariantRoute
+  '/api/public/growth/claim-lead-reminder': typeof ApiPublicGrowthClaimLeadReminderRoute
   '/api/public/growth/claim-nurture-review': typeof ApiPublicGrowthClaimNurtureReviewRoute
+  '/api/public/growth/complete-lead-reminder': typeof ApiPublicGrowthCompleteLeadReminderRoute
   '/api/public/growth/complete-nurture-review': typeof ApiPublicGrowthCompleteNurtureReviewRoute
   '/api/public/growth/customer-config': typeof ApiPublicGrowthCustomerConfigRoute
   '/api/public/growth/delivery-recovery': typeof ApiPublicGrowthDeliveryRecoveryRoute
   '/api/public/growth/due-lead-reminders': typeof ApiPublicGrowthDueLeadRemindersRoute
   '/api/public/growth/due-nurture-reviews': typeof ApiPublicGrowthDueNurtureReviewsRoute
+  '/api/public/growth/fail-lead-reminder': typeof ApiPublicGrowthFailLeadReminderRoute
   '/api/public/growth/fail-nurture-review': typeof ApiPublicGrowthFailNurtureReviewRoute
   '/api/public/growth/growth-recommendation': typeof ApiPublicGrowthGrowthRecommendationRoute
   '/api/public/growth/plan-nurture-test': typeof ApiPublicGrowthPlanNurtureTestRoute
@@ -425,12 +455,15 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/api/public/growth/analyze-lead'
     | '/api/public/growth/assign-variant'
+    | '/api/public/growth/claim-lead-reminder'
     | '/api/public/growth/claim-nurture-review'
+    | '/api/public/growth/complete-lead-reminder'
     | '/api/public/growth/complete-nurture-review'
     | '/api/public/growth/customer-config'
     | '/api/public/growth/delivery-recovery'
     | '/api/public/growth/due-lead-reminders'
     | '/api/public/growth/due-nurture-reviews'
+    | '/api/public/growth/fail-lead-reminder'
     | '/api/public/growth/fail-nurture-review'
     | '/api/public/growth/growth-recommendation'
     | '/api/public/growth/plan-nurture-test'
@@ -466,12 +499,15 @@ export interface FileRouteTypes {
     | '/admin'
     | '/api/public/growth/analyze-lead'
     | '/api/public/growth/assign-variant'
+    | '/api/public/growth/claim-lead-reminder'
     | '/api/public/growth/claim-nurture-review'
+    | '/api/public/growth/complete-lead-reminder'
     | '/api/public/growth/complete-nurture-review'
     | '/api/public/growth/customer-config'
     | '/api/public/growth/delivery-recovery'
     | '/api/public/growth/due-lead-reminders'
     | '/api/public/growth/due-nurture-reviews'
+    | '/api/public/growth/fail-lead-reminder'
     | '/api/public/growth/fail-nurture-review'
     | '/api/public/growth/growth-recommendation'
     | '/api/public/growth/plan-nurture-test'
@@ -508,12 +544,15 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/'
     | '/api/public/growth/analyze-lead'
     | '/api/public/growth/assign-variant'
+    | '/api/public/growth/claim-lead-reminder'
     | '/api/public/growth/claim-nurture-review'
+    | '/api/public/growth/complete-lead-reminder'
     | '/api/public/growth/complete-nurture-review'
     | '/api/public/growth/customer-config'
     | '/api/public/growth/delivery-recovery'
     | '/api/public/growth/due-lead-reminders'
     | '/api/public/growth/due-nurture-reviews'
+    | '/api/public/growth/fail-lead-reminder'
     | '/api/public/growth/fail-nurture-review'
     | '/api/public/growth/growth-recommendation'
     | '/api/public/growth/plan-nurture-test'
@@ -544,12 +583,15 @@ export interface RootRouteChildren {
   TestOffertSlugRoute: typeof TestOffertSlugRoute
   ApiPublicGrowthAnalyzeLeadRoute: typeof ApiPublicGrowthAnalyzeLeadRoute
   ApiPublicGrowthAssignVariantRoute: typeof ApiPublicGrowthAssignVariantRoute
+  ApiPublicGrowthClaimLeadReminderRoute: typeof ApiPublicGrowthClaimLeadReminderRoute
   ApiPublicGrowthClaimNurtureReviewRoute: typeof ApiPublicGrowthClaimNurtureReviewRoute
+  ApiPublicGrowthCompleteLeadReminderRoute: typeof ApiPublicGrowthCompleteLeadReminderRoute
   ApiPublicGrowthCompleteNurtureReviewRoute: typeof ApiPublicGrowthCompleteNurtureReviewRoute
   ApiPublicGrowthCustomerConfigRoute: typeof ApiPublicGrowthCustomerConfigRoute
   ApiPublicGrowthDeliveryRecoveryRoute: typeof ApiPublicGrowthDeliveryRecoveryRoute
   ApiPublicGrowthDueLeadRemindersRoute: typeof ApiPublicGrowthDueLeadRemindersRoute
   ApiPublicGrowthDueNurtureReviewsRoute: typeof ApiPublicGrowthDueNurtureReviewsRoute
+  ApiPublicGrowthFailLeadReminderRoute: typeof ApiPublicGrowthFailLeadReminderRoute
   ApiPublicGrowthFailNurtureReviewRoute: typeof ApiPublicGrowthFailNurtureReviewRoute
   ApiPublicGrowthGrowthRecommendationRoute: typeof ApiPublicGrowthGrowthRecommendationRoute
   ApiPublicGrowthPlanNurtureTestRoute: typeof ApiPublicGrowthPlanNurtureTestRoute
@@ -744,11 +786,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicGrowthAssignVariantRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/growth/claim-lead-reminder': {
+      id: '/api/public/growth/claim-lead-reminder'
+      path: '/api/public/growth/claim-lead-reminder'
+      fullPath: '/api/public/growth/claim-lead-reminder'
+      preLoaderRoute: typeof ApiPublicGrowthClaimLeadReminderRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/growth/claim-nurture-review': {
       id: '/api/public/growth/claim-nurture-review'
       path: '/api/public/growth/claim-nurture-review'
       fullPath: '/api/public/growth/claim-nurture-review'
       preLoaderRoute: typeof ApiPublicGrowthClaimNurtureReviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/growth/complete-lead-reminder': {
+      id: '/api/public/growth/complete-lead-reminder'
+      path: '/api/public/growth/complete-lead-reminder'
+      fullPath: '/api/public/growth/complete-lead-reminder'
+      preLoaderRoute: typeof ApiPublicGrowthCompleteLeadReminderRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/growth/complete-nurture-review': {
@@ -784,6 +840,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/growth/due-nurture-reviews'
       fullPath: '/api/public/growth/due-nurture-reviews'
       preLoaderRoute: typeof ApiPublicGrowthDueNurtureReviewsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/growth/fail-lead-reminder': {
+      id: '/api/public/growth/fail-lead-reminder'
+      path: '/api/public/growth/fail-lead-reminder'
+      fullPath: '/api/public/growth/fail-lead-reminder'
+      preLoaderRoute: typeof ApiPublicGrowthFailLeadReminderRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/growth/fail-nurture-review': {
@@ -889,14 +952,18 @@ const rootRouteChildren: RootRouteChildren = {
   TestOffertSlugRoute: TestOffertSlugRoute,
   ApiPublicGrowthAnalyzeLeadRoute: ApiPublicGrowthAnalyzeLeadRoute,
   ApiPublicGrowthAssignVariantRoute: ApiPublicGrowthAssignVariantRoute,
+  ApiPublicGrowthClaimLeadReminderRoute: ApiPublicGrowthClaimLeadReminderRoute,
   ApiPublicGrowthClaimNurtureReviewRoute:
     ApiPublicGrowthClaimNurtureReviewRoute,
+  ApiPublicGrowthCompleteLeadReminderRoute:
+    ApiPublicGrowthCompleteLeadReminderRoute,
   ApiPublicGrowthCompleteNurtureReviewRoute:
     ApiPublicGrowthCompleteNurtureReviewRoute,
   ApiPublicGrowthCustomerConfigRoute: ApiPublicGrowthCustomerConfigRoute,
   ApiPublicGrowthDeliveryRecoveryRoute: ApiPublicGrowthDeliveryRecoveryRoute,
   ApiPublicGrowthDueLeadRemindersRoute: ApiPublicGrowthDueLeadRemindersRoute,
   ApiPublicGrowthDueNurtureReviewsRoute: ApiPublicGrowthDueNurtureReviewsRoute,
+  ApiPublicGrowthFailLeadReminderRoute: ApiPublicGrowthFailLeadReminderRoute,
   ApiPublicGrowthFailNurtureReviewRoute: ApiPublicGrowthFailNurtureReviewRoute,
   ApiPublicGrowthGrowthRecommendationRoute:
     ApiPublicGrowthGrowthRecommendationRoute,

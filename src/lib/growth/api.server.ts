@@ -94,6 +94,29 @@ function isOutcome(value: unknown): value is OperationOutcome {
   return typeof value === "object" && value !== null && "__status" in value;
 }
 
+/**
+ * Läser kundkonfiguration för ett lead från samma read-only källa som
+ * `customer-config`. Fail closed: hittas ingen kund blir `customerConfig` null
+ * med tydligt fel – aldrig en gissad mottagare eller legacy recipient_email.
+ */
+async function analyzeCustomerConfig(
+  ctx: GrowthContext,
+  customerId: string,
+): Promise<{ customerConfig: Record<string, unknown> | null; customerConfigError: string | null }> {
+  if (!customerId) {
+    return { customerConfig: null, customerConfigError: "Kundbindning saknas för förfrågan." };
+  }
+  const { customerConfigCore } = await import("./customer-config.server");
+  const result = await customerConfigCore(ctx, customerId);
+  if (result.status !== 200) {
+    return {
+      customerConfig: null,
+      customerConfigError: String((result.body as Record<string, unknown>)["error"] ?? "Kunden hittades inte."),
+    };
+  }
+  return { customerConfig: result.body, customerConfigError: null };
+}
+
 async function runOperation(
   operation: GrowthOperation,
   ctx: GrowthContext,
@@ -149,6 +172,10 @@ async function runOperation(
         runId: result.runId,
         requiresHuman: result.decision.requiresHuman,
         normalized: result.normalized,
+        // Kundkonfiguration härleds ENDAST från leadets verkliga customer_id i
+        // Supabase (makeContext kan aldrig byta kund – fel bindning ger 403).
+        // Ingen fallback till kalkylark eller customers.recipient_email.
+        ...(await analyzeCustomerConfig(ctx, result.normalized.customer_id)),
       };
     }
 
@@ -255,6 +282,40 @@ async function runOperation(
         { olderThanHours: data.olderThanHours, limit: data.limit },
         env,
       );
+    }
+
+    case "claim-lead-reminder": {
+      const { claimLeadReminderCore } = await import("./lead-reminders.server");
+      const result = await claimLeadReminderCore(
+        ctx,
+        { leadId: data.leadId, olderThanHours: data.olderThanHours },
+        env,
+      );
+      const { status, ...body } = result as { status: number } & Record<string, unknown>;
+      return withStatus(status, body);
+    }
+
+    case "complete-lead-reminder": {
+      const { completeLeadReminderCore } = await import("./lead-reminders.server");
+      const result = await completeLeadReminderCore(ctx, {
+        reminderId: data.reminderId,
+        attemptId: data.attemptId,
+        transportMessageId: data.transportMessageId,
+      });
+      const { status, ...body } = result as { status: number } & Record<string, unknown>;
+      return withStatus(status, { ...body, externalEffect: false, notificationSent: false });
+    }
+
+    case "fail-lead-reminder": {
+      const { failLeadReminderCore } = await import("./lead-reminders.server");
+      const result = await failLeadReminderCore(ctx, {
+        reminderId: data.reminderId,
+        attemptId: data.attemptId,
+        outcome: data.outcome,
+        reason: data.reason,
+      });
+      const { status, ...body } = result as { status: number } & Record<string, unknown>;
+      return withStatus(status, body);
     }
 
     case "delivery-recovery": {

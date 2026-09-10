@@ -350,6 +350,66 @@ describe("analyze-lead utan AI", () => {
     expect(body.llmCalls).toBe(0);
     expect(body.requiresHuman).toBe(true);
   });
+
+  it("returnerar kundkonfiguration från leadets verkliga kund, utan hemligheter", async () => {
+    const state = baseState(COMPLETE_ANSWERS);
+    state["customers"] = [
+      {
+        id: CUSTOMER_ID,
+        name: "Testkund",
+        industry: "tak",
+        service_area: "Borås",
+        status: "published",
+        recipient_email: "legacy@example.se",
+        delivery_webhook_url: "https://hook.example.test/hemlig",
+      },
+    ];
+    state["customer_profiles"] = [
+      {
+        customer_id: CUSTOMER_ID,
+        tone: "professionell",
+        language: "sv",
+        lead_prefix: "NORYVA",
+        qualification_profile: {},
+        followup_rules: {},
+        booking_rules: {},
+        notify_recipients: ["kund@example.se"],
+        ai_assistant_enabled: true,
+        execution_mode: "test",
+        local_postal_prefix: "50",
+        regional_postal_prefix: "51",
+      },
+    ];
+    const res = await handleGrowthApi(
+      "analyze-lead",
+      signedRequest("analyze-lead", { leadId: LEAD_ID }),
+      deps(state),
+    );
+    const body = (await res.json()) as any;
+    expect(res.status).toBe(200);
+    expect(body.customerConfigError).toBeNull();
+    expect(body.customerConfig.customerId).toBe(CUSTOMER_ID);
+    expect(body.customerConfig.notifyRecipients).toEqual(["kund@example.se"]);
+    expect(body.customerConfig.executionMode).toBe("test");
+    expect(body.customerConfig.localPostalPrefix).toBe("50");
+    expect(body.customerConfig.mailChannel.verified).toBe(false);
+    const raw = JSON.stringify(body);
+    expect(raw).not.toContain("legacy@example.se");
+    expect(raw).not.toContain("hook.example.test");
+  });
+
+  it("ger customerConfig=null med fel när kunden saknas – ingen fallback", async () => {
+    const state = baseState(COMPLETE_ANSWERS);
+    state["customers"] = [];
+    const res = await handleGrowthApi(
+      "analyze-lead",
+      signedRequest("analyze-lead", { leadId: LEAD_ID }),
+      deps(state),
+    );
+    const body = (await res.json()) as any;
+    expect(body.customerConfig).toBeNull();
+    expect(typeof body.customerConfigError).toBe("string");
+  });
 });
 
 describe("register-outcome", () => {
