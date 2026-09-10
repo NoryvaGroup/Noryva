@@ -82,6 +82,25 @@ Shadow Review-kö från nyliga, verkliga leads utan att köra Sales-workern.
 - Endpointen kör aldrig worker/OpenAI och påverkar inte Make-, mail-, CRM-,
   Growth-, nurture- eller formulärflöden. Processkedjan anropas separat.
 
+`POST /api/public/agents/process-shadow-batch-test` (Auto Process Review Mode)
+processar den kön EN uppgift i taget genom befintlig Sales-worker + QA.
+
+- Payload: `{ executionMode: "test", limit?: 1..3 }` (strict). Batchtaket är 3
+  per körning för kostnadskontroll.
+- Plockar endast `queued` Sales-uppgifter med `source_event=new_lead`,
+  `task_type=sales_draft`, `execution_mode=test` och idempotensnyckel som slutar
+  på `shadow-review-v1`.
+- Återanvänder `processAgentTaskCore`: högst ett OpenAI-anrop per uppgift, ingen
+  retry-loop och befintlig deterministisk fallback vid fel/saknad nyckel.
+- Concurrency: claim sker via villkorad övergång `queued -> in_progress`, så två
+  samtidiga batchar kan aldrig processa samma uppgift dubbelt (förloraren
+  räknas som `skipped`).
+- Ingen auto-approval: kundnära uppgifter stannar i `awaiting_review` med
+  `verification_status=passed` och `approval_status=pending`.
+- Svaret innehåller `scanned`, `processed`, `awaitingReview`, `failed`,
+  `skipped`, `taskIds` och `externalEffect: false` – ingen PII eller mailtext.
+- Audit `shadow_batch_processed` loggar endast metadata.
+
 ## Säkerhetsspärrar
 
 - Alla serverfunktioner kräver inloggad admin (`has_role`).
