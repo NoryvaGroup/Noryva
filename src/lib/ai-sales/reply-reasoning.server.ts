@@ -137,7 +137,7 @@ export async function classifyReplySemantic(
   const currentReply = extractCurrentReply(rawBody);
   const safety = classifyReplyDeterministic(currentReply);
 
-  if (["avbojer", "juridik", "klagomal"].includes(safety.intent)) {
+  if (["avbojer", "juridik", "klagomal", "pris_offert", "forhandling"].includes(safety.intent)) {
     return {
       currentReply,
       classification: withSignals(safety, "safety_rule", fallbackMeta("safety_rule", 0)),
