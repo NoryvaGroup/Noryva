@@ -232,7 +232,7 @@ async function reasonSales(
   }
 }
 
-export type SalesResultWithMeta = SalesWorkerResult & {
+export type SalesResultWithMeta = Omit<SalesWorkerResult, "generatedBy"> & {
   generatedBy: "deterministic" | "llm";
   llm: LlmMeta;
 };
@@ -259,7 +259,7 @@ export async function enrichSalesResult(
     internalNotes: [...data.internalNotes, `Konfidens ${data.confidence.toFixed(2)} (modell).`],
     draft: { subject: data.subject, body: data.body },
     llm: outcome.meta,
-  } as SalesResultWithMeta;
+  };
 }
 
 /* -------------------------------------------------- oklar orchestrering */
