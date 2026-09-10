@@ -149,6 +149,10 @@ async function runOperation(
         runId: result.runId,
         requiresHuman: result.decision.requiresHuman,
         normalized: result.normalized,
+        // Kundkonfiguration härleds ENDAST från leadets verkliga customer_id i
+        // Supabase (makeContext kan aldrig byta kund – fel bindning ger 403).
+        // Ingen fallback till kalkylark eller customers.recipient_email.
+        ...(await analyzeCustomerConfig(ctx, result.normalized.customer_id)),
       };
     }
 
