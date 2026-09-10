@@ -36,6 +36,7 @@ import { Route as AuthenticatedAdminProfilerRouteImport } from './routes/_authen
 import { Route as TestOffertSlugRouteImport } from './routes/test.offert.$slug'
 import { Route as ApiPublicAgentsDispatchTestRouteImport } from './routes/api/public/agents/dispatch-test'
 import { Route as ApiPublicAgentsProcessTestRouteImport } from './routes/api/public/agents/process-test'
+import { Route as ApiPublicAgentsShadowReviewTestRouteImport } from './routes/api/public/agents/shadow-review-test'
 import { Route as ApiPublicGrowthAnalyzeLeadRouteImport } from './routes/api/public/growth/analyze-lead'
 import { Route as ApiPublicGrowthAssignVariantRouteImport } from './routes/api/public/growth/assign-variant'
 import { Route as ApiPublicGrowthClaimLeadReminderRouteImport } from './routes/api/public/growth/claim-lead-reminder'
@@ -199,6 +200,12 @@ const ApiPublicAgentsProcessTestRoute =
     path: '/api/public/agents/process-test',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicAgentsShadowReviewTestRoute =
+  ApiPublicAgentsShadowReviewTestRouteImport.update({
+    id: '/api/public/agents/shadow-review-test',
+    path: '/api/public/agents/shadow-review-test',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicGrowthAnalyzeLeadRoute =
   ApiPublicGrowthAnalyzeLeadRouteImport.update({
     id: '/api/public/growth/analyze-lead',
@@ -341,6 +348,7 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/api/public/agents/dispatch-test': typeof ApiPublicAgentsDispatchTestRoute
   '/api/public/agents/process-test': typeof ApiPublicAgentsProcessTestRoute
+  '/api/public/agents/shadow-review-test': typeof ApiPublicAgentsShadowReviewTestRoute
   '/api/public/growth/analyze-lead': typeof ApiPublicGrowthAnalyzeLeadRoute
   '/api/public/growth/assign-variant': typeof ApiPublicGrowthAssignVariantRoute
   '/api/public/growth/claim-lead-reminder': typeof ApiPublicGrowthClaimLeadReminderRoute
@@ -388,6 +396,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/api/public/agents/dispatch-test': typeof ApiPublicAgentsDispatchTestRoute
   '/api/public/agents/process-test': typeof ApiPublicAgentsProcessTestRoute
+  '/api/public/agents/shadow-review-test': typeof ApiPublicAgentsShadowReviewTestRoute
   '/api/public/growth/analyze-lead': typeof ApiPublicGrowthAnalyzeLeadRoute
   '/api/public/growth/assign-variant': typeof ApiPublicGrowthAssignVariantRoute
   '/api/public/growth/claim-lead-reminder': typeof ApiPublicGrowthClaimLeadReminderRoute
@@ -437,6 +446,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/api/public/agents/dispatch-test': typeof ApiPublicAgentsDispatchTestRoute
   '/api/public/agents/process-test': typeof ApiPublicAgentsProcessTestRoute
+  '/api/public/agents/shadow-review-test': typeof ApiPublicAgentsShadowReviewTestRoute
   '/api/public/growth/analyze-lead': typeof ApiPublicGrowthAnalyzeLeadRoute
   '/api/public/growth/assign-variant': typeof ApiPublicGrowthAssignVariantRoute
   '/api/public/growth/claim-lead-reminder': typeof ApiPublicGrowthClaimLeadReminderRoute
@@ -486,6 +496,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/api/public/agents/dispatch-test'
     | '/api/public/agents/process-test'
+    | '/api/public/agents/shadow-review-test'
     | '/api/public/growth/analyze-lead'
     | '/api/public/growth/assign-variant'
     | '/api/public/growth/claim-lead-reminder'
@@ -533,6 +544,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/api/public/agents/dispatch-test'
     | '/api/public/agents/process-test'
+    | '/api/public/agents/shadow-review-test'
     | '/api/public/growth/analyze-lead'
     | '/api/public/growth/assign-variant'
     | '/api/public/growth/claim-lead-reminder'
@@ -581,6 +593,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/'
     | '/api/public/agents/dispatch-test'
     | '/api/public/agents/process-test'
+    | '/api/public/agents/shadow-review-test'
     | '/api/public/growth/analyze-lead'
     | '/api/public/growth/assign-variant'
     | '/api/public/growth/claim-lead-reminder'
@@ -622,6 +635,7 @@ export interface RootRouteChildren {
   TestOffertSlugRoute: typeof TestOffertSlugRoute
   ApiPublicAgentsDispatchTestRoute: typeof ApiPublicAgentsDispatchTestRoute
   ApiPublicAgentsProcessTestRoute: typeof ApiPublicAgentsProcessTestRoute
+  ApiPublicAgentsShadowReviewTestRoute: typeof ApiPublicAgentsShadowReviewTestRoute
   ApiPublicGrowthAnalyzeLeadRoute: typeof ApiPublicGrowthAnalyzeLeadRoute
   ApiPublicGrowthAssignVariantRoute: typeof ApiPublicGrowthAssignVariantRoute
   ApiPublicGrowthClaimLeadReminderRoute: typeof ApiPublicGrowthClaimLeadReminderRoute
@@ -834,6 +848,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicAgentsProcessTestRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/agents/shadow-review-test': {
+      id: '/api/public/agents/shadow-review-test'
+      path: '/api/public/agents/shadow-review-test'
+      fullPath: '/api/public/agents/shadow-review-test'
+      preLoaderRoute: typeof ApiPublicAgentsShadowReviewTestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/growth/analyze-lead': {
       id: '/api/public/growth/analyze-lead'
       path: '/api/public/growth/analyze-lead'
@@ -1016,6 +1037,7 @@ const rootRouteChildren: RootRouteChildren = {
   TestOffertSlugRoute: TestOffertSlugRoute,
   ApiPublicAgentsDispatchTestRoute: ApiPublicAgentsDispatchTestRoute,
   ApiPublicAgentsProcessTestRoute: ApiPublicAgentsProcessTestRoute,
+  ApiPublicAgentsShadowReviewTestRoute: ApiPublicAgentsShadowReviewTestRoute,
   ApiPublicGrowthAnalyzeLeadRoute: ApiPublicGrowthAnalyzeLeadRoute,
   ApiPublicGrowthAssignVariantRoute: ApiPublicGrowthAssignVariantRoute,
   ApiPublicGrowthClaimLeadReminderRoute: ApiPublicGrowthClaimLeadReminderRoute,

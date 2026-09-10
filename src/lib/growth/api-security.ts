@@ -43,7 +43,8 @@ export type GrowthOperation =
   | "delivery-recovery"
   | "review-reconciliation"
   | "agents-dispatch-test"
-  | "agents-process-test";
+  | "agents-process-test"
+  | "agents-shadow-review-test";
 
 /**
  * `makeContext` är frivilligt. Utan det är beteendet identiskt med tidigare
@@ -186,6 +187,17 @@ export const GROWTH_API_SCHEMAS = {
    * Deterministiskt, idempotent och utan extern effekt.
    */
   "agents-process-test": z.object({ taskId: z.string().uuid() }).strict(),
+  /**
+   * Agent HQ Shadow Review: fyller endast TEST-kön från nyliga verkliga leads.
+   * Batchtaket är hårt begränsat och andra körlägen accepteras inte.
+   */
+  "agents-shadow-review-test": z
+    .object({
+      executionMode: z.literal("test"),
+      limit: z.number().int().min(1).max(10).optional(),
+      recentHours: z.number().int().min(1).max(168).optional(),
+    })
+    .strict(),
 } as const satisfies Record<GrowthOperation, z.ZodTypeAny>;
 
 export type VerifyResult =

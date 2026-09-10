@@ -359,6 +359,15 @@ async function runOperation(
       return withStatus(result.status, result.body);
     }
 
+    case "agents-shadow-review-test": {
+      const { shadowReviewBatchCore } = await import("@/lib/agents/shadow-review.server");
+      return shadowReviewBatchCore(ctx, {
+        executionMode: data.executionMode,
+        limit: data.limit,
+        recentHours: data.recentHours,
+      });
+    }
+
     case "register-reviewed-nurture-reply": {
       const { registerReviewedNurtureReplyCore } = await import("./nurture-review.server");
       const result = await registerReviewedNurtureReplyCore(ctx, {
