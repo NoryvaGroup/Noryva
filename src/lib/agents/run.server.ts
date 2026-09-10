@@ -170,6 +170,22 @@ export async function processAgentTaskCore(
   });
 
   const result = await buildTaskResult(ctx, task);
+  const llm = result["llm"] as Record<string, unknown> | undefined;
+  if (llm) {
+    // Endast metadata: modell, försök, kostnadssignaler. Aldrig prompt eller svar.
+    await audit(ctx, task["id"], "llm_call", "agent", {
+      model: llm["model"],
+      promptVersion: llm["promptVersion"],
+      attempts: llm["attempts"],
+      used: llm["used"],
+      usedFallback: llm["usedFallback"],
+      fallbackReason: llm["fallbackReason"],
+      latencyMs: llm["latencyMs"],
+      inputTokens: llm["inputTokens"],
+      outputTokens: llm["outputTokens"],
+      externalEffect: false,
+    });
+  }
   const nextStatus: TaskStatus = task["requires_approval"] ? "awaiting_review" : "done";
 
   const { error: saveErr } = await ctx.supabase
