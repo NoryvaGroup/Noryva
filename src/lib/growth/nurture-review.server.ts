@@ -796,6 +796,7 @@ export async function registerReviewedNurtureReplyCore(
     body: string;
     messageId?: string | undefined;
   },
+  env?: RuntimeEnv,
 ) {
   const threadRef = input.inReplyTo.trim();
   // Ett stabilt meddelande-id krävs. En texthash räcker inte: två olika svar
@@ -856,6 +857,7 @@ export async function registerReviewedNurtureReplyCore(
       source: "make_growth_reply",
       sourceRef,
       makeContext: null,
+      reasoning: { env: env ?? {} },
     });
 
     const payload = {
