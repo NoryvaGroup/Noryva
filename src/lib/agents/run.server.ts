@@ -6,9 +6,10 @@
  * bokningar, inga Make-anrop – allt är deterministiskt och internt.
  */
 import { defaultProfile, rowToProfile } from "@/lib/ai-sales/profile";
+import { enrichSalesResult, type ReasoningDeps } from "./reasoning.server";
 import { runSalesWorker, verifyTaskResult, type TaskStatus } from "./tasks";
 
-export type AgentRunContext = { supabase: any };
+export type AgentRunContext = { supabase: any; reasoning?: ReasoningDeps };
 
 export const AGENT_TASK_COLUMNS =
   "id, customer_id, lead_id, assigned_agent, task_type, priority, status, instructions, result, verification_status, verification_reasons, requires_approval, approval_status, source_event, idempotency_key, execution_mode, created_at, updated_at";
