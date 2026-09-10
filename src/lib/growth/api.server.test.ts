@@ -1311,7 +1311,9 @@ describe("due-lead-reminders (read-only)", () => {
   async function call(state: Record<string, Row[]>, body: unknown = {}) {
     const res = await handleGrowthApi(
       "due-lead-reminders",
-      signedRequest("due-lead-reminders", body),
+      signedRequest("due-lead-reminders", body, {
+        timestamp: String(Math.floor(NOW.getTime() / 1000)),
+      }),
       deps(state, NOW),
     );
     return { res, body: (await res.json()) as any };
