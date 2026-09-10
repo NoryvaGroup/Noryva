@@ -726,6 +726,16 @@ export async function claimNurtureReviewCore(
     return { ok: false as const, status: 409, code: "stale_source" };
   }
 
+  // Strikt utskickskontrakt PRÖVAS FÖRE hämtningen: fel kund, annan mottagare
+  // än den lagrade eller overifierad mailidentitet ger inget innehåll alls.
+  const { contract, mailChannel } = await checkSendContract(ctx, {
+    leadId: existing.lead_id,
+    reviewCustomerId: existing.customer_id,
+    reviewRecipient: existing.recipient_email,
+  });
+  if (!contract.ok) {
+    return { ok: false as const, status: 409, code: contract.code, reason: contract.reason };
+  }
 
   const { data, error } = await ctx.supabase.rpc("claim_nurture_review", {
     p_review_id: existing.id,
@@ -737,9 +747,8 @@ export async function claimNurtureReviewCore(
     return { ok: false as const, status: 409, code: String(result["code"] ?? "not_claimable") };
   }
 
-  // Avsändaridentitet läses read-only i samma svar så att Make slipper en
-  // extra signerad customer-config-läsning. Ingen fallback, inga credentials.
-  const mailChannel = await readMailChannel(ctx, String(result["customerId"] ?? ""));
+  // Avsändaridentitet ingår i svaret så att Make slipper en extra signerad
+  // customer-config-läsning. Ingen fallback, inga credentials.
   const outbound = evaluateOutboundIdentity(mailChannel);
 
   return {
