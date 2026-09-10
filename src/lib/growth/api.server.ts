@@ -257,6 +257,16 @@ async function runOperation(
       );
     }
 
+    case "delivery-recovery": {
+      const { deliveryRecoveryCore } = await import("./delivery-recovery.server");
+      const result = await deliveryRecoveryCore(
+        ctx,
+        { limit: data.limit, execute: data.execute },
+        env,
+      );
+      return withStatus(result.status, result.body);
+    }
+
     case "customer-config": {
       const { customerConfigCore } = await import("./customer-config.server");
       const result = await customerConfigCore(ctx, data.customerId);
