@@ -58,12 +58,37 @@ const ORCHESTRATOR = {
 };
 
 const SPECIALISTS: { key: AgentName; description: string; active: boolean }[] = [
-  { key: "sales", description: "Kvalificering och internt utkast från befintlig leaddata.", active: true },
+  {
+    key: "sales",
+    description:
+      "Kvalificering och internt utkast från befintlig leaddata. Använder OpenAI-resonemang i testläge, med deterministisk reserv om något fallerar.",
+    active: true,
+  },
   { key: "systems_qa", description: "Verifierar resultat mot regler och kontrollerar leveransstatus.", active: true },
   { key: "customer_success", description: "Uppföljning och påminnelser. Ej aktiverad.", active: false },
   { key: "growth", description: "Experiment och optimeringsförslag. Ej aktiverad.", active: false },
   { key: "admin_finance", description: "Kostnadsöversikt och rapportering. Ej aktiverad.", active: false },
 ];
+
+type LlmMetaRow = {
+  used?: boolean;
+  model?: string;
+  promptVersion?: string;
+  attempts?: number;
+  usedFallback?: boolean;
+  fallbackReason?: string;
+  latencyMs?: number;
+  inputTokens?: number;
+  outputTokens?: number;
+};
+
+type TaskResultRow = {
+  nextStep?: string;
+  internalNotes?: string[];
+  draft?: { subject?: string; body?: string };
+  generatedBy?: string;
+  llm?: LlmMetaRow;
+} | null;
 
 type TaskRow = {
   id: string;
@@ -75,10 +100,53 @@ type TaskRow = {
   verification_status: string;
   verification_reasons: unknown;
   requires_approval: boolean;
-  result: { nextStep?: string } | null;
+  result: TaskResultRow;
 };
 
 type EventRow = { id: string; event_type: string; actor: string; created_at: string };
+
+const FILTERS = [
+  { key: "all", label: "Alla" },
+  { key: "awaiting_review", label: "Väntar granskning" },
+  { key: "done", label: "Klara" },
+  { key: "failed", label: "Fel" },
+] as const;
+type FilterKey = (typeof FILTERS)[number]["key"];
+
+function ResultDetails({ result }: { result: TaskResultRow }) {
+  if (!result) return null;
+  const llm = result.llm;
+  return (
+    <div className="mt-2 space-y-2 text-sm">
+      {result.draft?.subject ? (
+        <p>
+          <span className="text-muted-foreground">Ämne:</span> {result.draft.subject}
+        </p>
+      ) : null}
+      {result.draft?.body ? (
+        <pre className="whitespace-pre-wrap rounded-lg border border-border bg-background p-3 text-xs">
+          {result.draft.body}
+        </pre>
+      ) : null}
+      {result.nextStep ? <p>Föreslaget nästa steg: {result.nextStep}</p> : null}
+      {Array.isArray(result.internalNotes) && result.internalNotes.length > 0 ? (
+        <ul className="list-disc space-y-0.5 pl-5 text-muted-foreground">
+          {result.internalNotes.map((n) => (
+            <li key={n}>{n}</li>
+          ))}
+        </ul>
+      ) : null}
+      {llm ? (
+        <p className="text-xs text-muted-foreground">
+          Källa: {result.generatedBy === "llm" ? "OpenAI-resonemang" : "Deterministisk"} · modell{" "}
+          {llm.model ?? "–"} · försök {llm.attempts ?? 0} ·{" "}
+          {llm.usedFallback ? `reserv (${llm.fallbackReason || "okänd orsak"})` : "ingen reserv"} ·{" "}
+          {llm.inputTokens ?? 0}/{llm.outputTokens ?? 0} tokens · {llm.latencyMs ?? 0} ms
+        </p>
+      ) : null}
+    </div>
+  );
+}
 
 function AgentHqPage() {
   const fetchTasks = useServerFn(listAgentTasks);
@@ -89,10 +157,13 @@ function AgentHqPage() {
   const queryClient = useQueryClient();
   const [leadId, setLeadId] = useState("");
   const [message, setMessage] = useState("");
+  const [filter, setFilter] = useState<FilterKey>("all");
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["agent-tasks"],
     queryFn: () => fetchTasks(),
+    // Endast läsning. Uppdateringen skapar aldrig uppgifter eller AI-anrop.
+    refetchInterval: 10_000,
   });
 
   const mutation = useMutation({
@@ -105,6 +176,7 @@ function AgentHqPage() {
   });
 
   const tasks = (data?.tasks ?? []) as unknown as TaskRow[];
+  const visibleTasks = filter === "all" ? tasks : tasks.filter((t) => t.status === filter);
   const reviews = tasks.filter((t) => t.requires_approval && t.approval_status === "pending");
 
   return (
@@ -113,8 +185,10 @@ function AgentHqPage() {
         <section className="rounded-xl border border-amber-500/40 bg-amber-500/5 p-4 text-sm">
           <p className="font-medium">Körläge: {data?.mode ?? "TEST/REVIEW"}</p>
           <p className="text-muted-foreground">
-            Agenterna kör deterministiskt och internt. Inga AI-anrop, inga mail, inga bokningar och
-            inga Make-actions. Godkännande ändrar endast intern status.
+            Sales-agenten får använda OpenAI-resonemang i testläge för intern analys och utkast, med
+            deterministisk reserv om anropet fallerar. Systems & QA är enbart läsning och
+            verifiering. Inga mail, SMS, bokningar eller Make-actions sker – godkännande ändrar
+            endast intern status.
           </p>
         </section>
 
@@ -173,6 +247,25 @@ function AgentHqPage() {
 
         <section>
           <h2 className="mb-3 text-lg font-semibold">Uppgiftskö</h2>
+          <div className="mb-3 flex flex-wrap gap-2">
+            {FILTERS.map((f) => (
+              <button
+                key={f.key}
+                type="button"
+                onClick={() => setFilter(f.key)}
+                className={`rounded-full border px-3 py-1 text-xs ${
+                  filter === f.key
+                    ? "border-primary bg-primary/10 font-medium"
+                    : "border-border text-muted-foreground"
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+            <span className="self-center text-xs text-muted-foreground">
+              Listan uppdateras automatiskt var tionde sekund (endast läsning).
+            </span>
+          </div>
           {isLoading ? <p className="text-sm text-muted-foreground">Hämtar …</p> : null}
           {error ? (
             <p className="text-sm text-destructive">Kunde inte hämta: {(error as Error).message}</p>
@@ -192,7 +285,7 @@ function AgentHqPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {tasks.map((t) => (
+                {visibleTasks.map((t) => (
                   <TableRow key={t.id}>
                     <TableCell className="font-mono text-xs">{String(t.id).slice(0, 8)}</TableCell>
                     <TableCell>{AGENT_LABEL[t.assigned_agent as AgentName]}</TableCell>
@@ -225,10 +318,10 @@ function AgentHqPage() {
                     </TableCell>
                   </TableRow>
                 ))}
-                {tasks.length === 0 && !isLoading ? (
+                {visibleTasks.length === 0 && !isLoading ? (
                   <TableRow>
                     <TableCell colSpan={8} className="text-sm text-muted-foreground">
-                      Inga uppgifter ännu.
+                      Inga uppgifter i det här urvalet.
                     </TableCell>
                   </TableRow>
                 ) : null}
@@ -240,14 +333,15 @@ function AgentHqPage() {
         <section>
           <h2 className="mb-3 text-lg font-semibold">Granskning och godkännande</h2>
           <p className="mb-3 text-sm text-muted-foreground">
-            Godkännande krävs innan en uppgift räknas som klar. Beslutet ändrar endast intern status –
-            ingen agent får någon extern förmåga av det.
+            Godkännande krävs innan en uppgift räknas som klar. Beslutet ändrar ENDAST intern
+            approval-status: inget mail, inget SMS och ingen bokning kan triggas av det. Godkänn är
+            låst tills verifieringen är godkänd.
           </p>
           <ul className="space-y-3">
             {reviews.map((t) => (
               <li
                 key={t.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4"
+                className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border bg-card p-4"
               >
                 <div className="min-w-0">
                   <p className="font-medium">
@@ -263,9 +357,7 @@ function AgentHqPage() {
                       ? ` · ${t.verification_reasons.join(" ")}`
                       : ""}
                   </p>
-                  {t.result?.nextStep ? (
-                    <p className="mt-1 text-sm">Föreslaget nästa steg: {t.result.nextStep}</p>
-                  ) : null}
+                  <ResultDetails result={t.result} />
                 </div>
                 <div className="flex gap-2">
                   <button

@@ -2,7 +2,7 @@
  * Tester för det HMAC-skyddade TEST-endpointet som kör + verifierar en uppgift.
  * Ingen riktig databas, inga externa anrop.
  */
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { computeSignature } from "@/lib/ai-sales/webhook-security";
 import { handleGrowthApi } from "@/lib/growth/api.server";
 
@@ -148,6 +148,15 @@ beforeEach(() => {
 });
 
 describe("agents-process-test", () => {
+  // Testerna ska aldrig göra riktiga OpenAI-anrop, oavsett runtime-secret.
+  const savedKey = process.env["OPENAI_API_KEY"];
+  beforeAll(() => {
+    delete process.env["OPENAI_API_KEY"];
+  });
+  afterAll(() => {
+    if (savedKey !== undefined) process.env["OPENAI_API_KEY"] = savedKey;
+  });
+
   it("kräver giltig signatur", async () => {
     const res = await call({ taskId: SALES_TASK }, baseState(), { signature: "0".repeat(64) });
     expect(res.status).toBe(401);

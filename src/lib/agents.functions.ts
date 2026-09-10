@@ -8,6 +8,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { buildTaskResult } from "@/lib/agents/run.server";
 import {
   assertTransition,
+  evaluateApprovalDecision,
   routeEvent,
   verifyTaskResult,
   type AgentEvent,
@@ -244,15 +245,16 @@ export const decideAgentTask = createServerFn({ method: "POST" })
     await assertAdmin(ctx);
     const task = await loadTask(ctx, data.taskId);
 
-    if (!task["requires_approval"]) throw new Error("Uppgiften kräver inget godkännande.");
-    if (task["approval_status"] !== "pending") throw new Error("Beslut är redan fattat.");
-    if (task["status"] !== "awaiting_review") throw new Error("Uppgiften är inte redo för granskning.");
-    if (data.decision === "approved" && task["verification_status"] !== "passed") {
-      throw new Error("Uppgiften måste vara verifierad innan den kan godkännas.");
-    }
-
-    const nextStatus: TaskStatus = data.decision === "approved" ? "done" : "cancelled";
-    assertTransition(task["status"] as TaskStatus, nextStatus);
+    // Ren regelutvärdering. Inga mail, SMS, bokningar eller Make-anrop får ske
+    // av ett beslut – funktionen returnerar endast en intern statusändring.
+    const { nextStatus } = evaluateApprovalDecision({
+      executionMode: String(task["execution_mode"] ?? "test"),
+      status: task["status"] as TaskStatus,
+      requiresApproval: Boolean(task["requires_approval"]),
+      approvalStatus: task["approval_status"],
+      verificationStatus: task["verification_status"] ?? "not_started",
+      decision: data.decision,
+    });
 
     const { error } = await ctx.supabase
       .from("agent_tasks")

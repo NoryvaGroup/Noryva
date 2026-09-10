@@ -89,6 +89,44 @@ export function assertTransition(from: TaskStatus, to: TaskStatus): void {
   }
 }
 
+/* --------------------------------------------------- externa spärrar */
+
+/** Ingen agent får någon extern förmåga i den här versionen. */
+export const AGENT_EXTERNAL_ACTIONS_ENABLED = false;
+
+/** Körlägen som ett mänskligt beslut får fattas i. */
+const DECIDABLE_MODES = ["test", "review"] as const;
+
+/**
+ * Beslutsregler för mänsklig granskning. Ren funktion utan sidoeffekter:
+ * resultatet är alltid en intern statusändring och aldrig en extern action.
+ */
+export function evaluateApprovalDecision(input: {
+  executionMode: string;
+  status: TaskStatus;
+  requiresApproval: boolean;
+  approvalStatus: ApprovalStatus;
+  verificationStatus: VerificationStatus;
+  decision: "approved" | "rejected";
+}): { nextStatus: TaskStatus; externalEffect: false } {
+  if (AGENT_EXTERNAL_ACTIONS_ENABLED) {
+    throw new Error("Externa agent-actions är blockerade i den här versionen.");
+  }
+  if (!(DECIDABLE_MODES as readonly string[]).includes(input.executionMode)) {
+    throw new Error("Endast uppgifter i test- eller granskningsläge kan beslutas.");
+  }
+  if (!input.requiresApproval) throw new Error("Uppgiften kräver inget godkännande.");
+  if (input.approvalStatus !== "pending") throw new Error("Beslut är redan fattat.");
+  if (input.status !== "awaiting_review") throw new Error("Uppgiften är inte redo för granskning.");
+  if (input.decision === "approved" && input.verificationStatus !== "passed") {
+    throw new Error("Uppgiften måste vara verifierad innan den kan godkännas.");
+  }
+
+  const nextStatus: TaskStatus = input.decision === "approved" ? "done" : "cancelled";
+  assertTransition(input.status, nextStatus);
+  return { nextStatus, externalEffect: false };
+}
+
 /* ---------------------------------------------------------------- events */
 
 export type AgentEventType = "new_lead" | "delivery_error" | "lead_followup_due";
