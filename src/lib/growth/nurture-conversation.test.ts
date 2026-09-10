@@ -2,7 +2,7 @@
  * Tester för TEST/REVIEW-kedjan lead -> conversation -> nurture-preview ->
  * inkommande svar. Ingen databas, inga externa anrop, inga utskick.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { previewNurtureTestCore, registerNurtureReplyCore } from "./nurture.server";
 
 const LEAD_ID = "11111111-1111-4111-8111-111111111111";
@@ -238,6 +238,44 @@ describe("nurture conversation-kedja (TEST/REVIEW)", () => {
     expect(result.state.upgrade_signal).toBe(false);
     expect(result.intent.level).toBe("HÖG");
     expect(state["growth_outcomes"]).toHaveLength(1);
+    expect(result.notificationSent).toBe(false);
+    expect(result.externalEffect).toBe(false);
+  });
+
+  it("låter tydlig aktuell vilja att gå vidare uppgradera med exakt ett modellanrop", async () => {
+    const { supabase, state } = makeSupabase();
+    state["growth_outcomes"]!.push({
+      lead_id: LEAD_ID,
+      variant_id: null,
+      outcome_type: "meeting_booked",
+      outcome_value: null,
+      revenue_value: null,
+    });
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        output_text: JSON.stringify({
+          intent: "intresserad",
+          positivePurchaseIntent: true,
+          explicitMeetingIntent: false,
+          confidence: 0.96,
+          reason: "Avsändaren vill gå vidare.",
+        }),
+      }),
+    } as Response);
+
+    const result = await registerNurtureReplyCore(ctxOf(supabase), {
+      leadId: LEAD_ID,
+      body: "Vi vill gå vidare. Vad är nästa steg?",
+      sourceRef: "clear-current-purchase-intent",
+      reasoning: { env: { OPENAI_API_KEY: "sk-test" }, fetchImpl },
+    });
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(result.effect.upgradeSignal).toBe(true);
+    expect(result.effect.outcome).toBe("replied");
+    expect(state["growth_outcomes"]!.some((row) => row["outcome_type"] === "meeting_booked")).toBe(true);
     expect(result.notificationSent).toBe(false);
     expect(result.externalEffect).toBe(false);
   });

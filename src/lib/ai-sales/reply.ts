@@ -43,12 +43,14 @@ export const ESCALATION_INTENTS: ReplyIntent[] = [
 ];
 
 const PATTERNS: Array<{ intent: ReplyIntent; terms: string[] }> = [
+  // Avböj/opt-out måste vinna över alla positiva ord i samma svar, t.ex.
+  // "nej tack, boka inget möte". Detta är en deterministisk säkerhetsregel.
+  { intent: "avbojer", terms: ["inte intresserad", "nej tack", "avregistrera", "sluta kontakta", "kontakta mig inte"] },
   { intent: "juridik", terms: ["jurist", "advokat", "gdpr", "avtalsbrott", "stämning", "rättslig", "polisanmäl"] },
   { intent: "klagomal", terms: ["klagomål", "missnöjd", "besviken", "reklamation", "dåligt bemötande"] },
   { intent: "forhandling", terms: ["rabatt", "förhandla", "billigare", "matcha priset", "prispress"] },
   { intent: "pris_offert", terms: ["pris", "kostar", "kostnad", "offert", "vad blir det för"] },
   { intent: "vill_boka", terms: ["boka", "möte", "träffas", "ring mig", "samtal"] },
-  { intent: "avbojer", terms: ["inte intresserad", "nej tack", "avregistrera", "sluta kontakta"] },
   { intent: "invandning", terms: ["men ", "osäker", "vet inte", "har redan", "tveksam"] },
   { intent: "intresserad", terms: ["intresserad", "låter bra", "gärna", "berätta mer"] },
 ];
