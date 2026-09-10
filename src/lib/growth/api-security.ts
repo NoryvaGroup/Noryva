@@ -137,6 +137,30 @@ export const GROWTH_API_SCHEMAS = {
       limit: z.number().int().min(1).max(100).optional(),
     })
     .strict(),
+  /** Hämtar EN påminnelse för utskick. Verifierar lead-status atomiskt i SQL. */
+  "claim-lead-reminder": z
+    .object({
+      leadId: z.string().uuid(),
+      olderThanHours: z.number().int().min(1).max(720).optional(),
+    })
+    .strict(),
+  /** Bokför bekräftad påminnelse. Kräver transportens meddelande-id. */
+  "complete-lead-reminder": z
+    .object({
+      reminderId: z.string().uuid(),
+      attemptId: z.string().uuid(),
+      transportMessageId: z.string().trim().min(1).max(400),
+    })
+    .strict(),
+  /** Bokför misslyckad/osäker påminnelse. Släpper aldrig posten automatiskt. */
+  "fail-lead-reminder": z
+    .object({
+      reminderId: z.string().uuid(),
+      attemptId: z.string().uuid(),
+      outcome: z.enum(["not_sent", "unknown"]).optional(),
+      reason: z.string().trim().max(400).optional(),
+    })
+    .strict(),
   /** Read-only watchdog över nurture reviews. Muterar aldrig något. */
   "review-reconciliation": z
     .object({
