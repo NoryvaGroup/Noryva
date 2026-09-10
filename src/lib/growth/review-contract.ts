@@ -107,7 +107,10 @@ export function evaluateReconcileRequest(input: {
   if (!RECONCILE_OUTCOMES.includes(outcome)) {
     return { ok: false, code: "invalid_outcome", reason: "Ogiltigt avstämningsläge." };
   }
-  if (!["claimed", "unknown"].includes(input.reviewStatus)) {
+  // Redan bokfört utskick får stämmas av igen med SENT – svaret blir då den
+  // idempotenta upprepningen, aldrig en ny sidoeffekt.
+  const allowed = outcome === "SENT" ? ["claimed", "unknown", "sent"] : ["claimed", "unknown"];
+  if (!allowed.includes(input.reviewStatus)) {
     return {
       ok: false,
       code: "invalid_status",
