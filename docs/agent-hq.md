@@ -38,6 +38,21 @@ done, cancelled = terminala
 Ogiltiga värden blockeras av CHECK-villkor i databasen och ogiltiga övergångar
 av `assertTransition()` server-side.
 
+## Maskin-till-maskin (TEST)
+
+`POST /api/public/agents/dispatch-test` låter vårt separata Make TEST-scenario
+skicka in ett event. Endpointen återanvänder Growth API:s säkerhetslager
+(`NORYVA_GROWTH_API_SECRET`, timestamp-/signatur-/event-id-headers, replayskydd
+och throttling) och kör exakt samma `routeEvent()` + idempotens som
+admin-funktionen.
+
+- Payload: `{ type, leadId, occurrence? }` – inget annat accepteras.
+- Service-rollen används först efter verifierad signatur.
+- Svar: `{ ok, taskId, duplicate, assignedAgent, taskType, priority,
+  requiresApproval, executionMode: "test", externalEffect: false }`.
+- Endpointen skapar ENDAST en uppgift. Workers, verifiering och godkännande är
+  fortfarande manuella och test-only i `/admin/agents`.
+
 ## Säkerhetsspärrar
 
 - Alla serverfunktioner kräver inloggad admin (`has_role`).

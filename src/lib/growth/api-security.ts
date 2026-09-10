@@ -41,7 +41,8 @@ export type GrowthOperation =
   | "complete-lead-reminder"
   | "fail-lead-reminder"
   | "delivery-recovery"
-  | "review-reconciliation";
+  | "review-reconciliation"
+  | "agents-dispatch-test";
 
 /**
  * `makeContext` är frivilligt. Utan det är beteendet identiskt med tidigare
@@ -166,6 +167,17 @@ export const GROWTH_API_SCHEMAS = {
     .object({
       claimedOlderThanMinutes: z.number().int().min(1).max(43200).optional(),
       limit: z.number().int().min(1).max(100).optional(),
+    })
+    .strict(),
+  /**
+   * Agent HQ TEST: skapar exakt en intern uppgift via deterministisk routing.
+   * Ingen worker körs och ingen extern effekt är möjlig.
+   */
+  "agents-dispatch-test": z
+    .object({
+      type: z.enum(["new_lead", "delivery_error", "lead_followup_due"]),
+      leadId: z.string().uuid(),
+      occurrence: z.string().trim().min(1).max(64).optional(),
     })
     .strict(),
 } as const satisfies Record<GrowthOperation, z.ZodTypeAny>;

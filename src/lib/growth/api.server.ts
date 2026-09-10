@@ -342,6 +342,16 @@ async function runOperation(
       return withStatus(result.status, result.body);
     }
 
+    case "agents-dispatch-test": {
+      const { dispatchAgentEventCore } = await import("@/lib/agents/dispatch.server");
+      const result = await dispatchAgentEventCore(ctx, {
+        type: data.type,
+        leadId: data.leadId,
+        occurrence: data.occurrence,
+      });
+      return withStatus(result.status, result.body);
+    }
+
     case "register-reviewed-nurture-reply": {
       const { registerReviewedNurtureReplyCore } = await import("./nurture-review.server");
       const result = await registerReviewedNurtureReplyCore(ctx, {

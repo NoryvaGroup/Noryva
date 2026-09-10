@@ -34,6 +34,7 @@ import { Route as AuthenticatedAdminGrowthRouteImport } from './routes/_authenti
 import { Route as AuthenticatedAdminKonversationerRouteImport } from './routes/_authenticated/admin/konversationer'
 import { Route as AuthenticatedAdminProfilerRouteImport } from './routes/_authenticated/admin/profiler'
 import { Route as TestOffertSlugRouteImport } from './routes/test.offert.$slug'
+import { Route as ApiPublicAgentsDispatchTestRouteImport } from './routes/api/public/agents/dispatch-test'
 import { Route as ApiPublicGrowthAnalyzeLeadRouteImport } from './routes/api/public/growth/analyze-lead'
 import { Route as ApiPublicGrowthAssignVariantRouteImport } from './routes/api/public/growth/assign-variant'
 import { Route as ApiPublicGrowthClaimLeadReminderRouteImport } from './routes/api/public/growth/claim-lead-reminder'
@@ -185,6 +186,12 @@ const TestOffertSlugRoute = TestOffertSlugRouteImport.update({
   path: '/test/offert/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicAgentsDispatchTestRoute =
+  ApiPublicAgentsDispatchTestRouteImport.update({
+    id: '/api/public/agents/dispatch-test',
+    path: '/api/public/agents/dispatch-test',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicGrowthAnalyzeLeadRoute =
   ApiPublicGrowthAnalyzeLeadRouteImport.update({
     id: '/api/public/growth/analyze-lead',
@@ -325,6 +332,7 @@ export interface FileRoutesByFullPath {
   '/admin/profiler': typeof AuthenticatedAdminProfilerRoute
   '/test/offert/$slug': typeof TestOffertSlugRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
+  '/api/public/agents/dispatch-test': typeof ApiPublicAgentsDispatchTestRoute
   '/api/public/growth/analyze-lead': typeof ApiPublicGrowthAnalyzeLeadRoute
   '/api/public/growth/assign-variant': typeof ApiPublicGrowthAssignVariantRoute
   '/api/public/growth/claim-lead-reminder': typeof ApiPublicGrowthClaimLeadReminderRoute
@@ -370,6 +378,7 @@ export interface FileRoutesByTo {
   '/admin/profiler': typeof AuthenticatedAdminProfilerRoute
   '/test/offert/$slug': typeof TestOffertSlugRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
+  '/api/public/agents/dispatch-test': typeof ApiPublicAgentsDispatchTestRoute
   '/api/public/growth/analyze-lead': typeof ApiPublicGrowthAnalyzeLeadRoute
   '/api/public/growth/assign-variant': typeof ApiPublicGrowthAssignVariantRoute
   '/api/public/growth/claim-lead-reminder': typeof ApiPublicGrowthClaimLeadReminderRoute
@@ -417,6 +426,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/profiler': typeof AuthenticatedAdminProfilerRoute
   '/test/offert/$slug': typeof TestOffertSlugRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
+  '/api/public/agents/dispatch-test': typeof ApiPublicAgentsDispatchTestRoute
   '/api/public/growth/analyze-lead': typeof ApiPublicGrowthAnalyzeLeadRoute
   '/api/public/growth/assign-variant': typeof ApiPublicGrowthAssignVariantRoute
   '/api/public/growth/claim-lead-reminder': typeof ApiPublicGrowthClaimLeadReminderRoute
@@ -464,6 +474,7 @@ export interface FileRouteTypes {
     | '/admin/profiler'
     | '/test/offert/$slug'
     | '/admin/'
+    | '/api/public/agents/dispatch-test'
     | '/api/public/growth/analyze-lead'
     | '/api/public/growth/assign-variant'
     | '/api/public/growth/claim-lead-reminder'
@@ -509,6 +520,7 @@ export interface FileRouteTypes {
     | '/admin/profiler'
     | '/test/offert/$slug'
     | '/admin'
+    | '/api/public/agents/dispatch-test'
     | '/api/public/growth/analyze-lead'
     | '/api/public/growth/assign-variant'
     | '/api/public/growth/claim-lead-reminder'
@@ -555,6 +567,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/profiler'
     | '/test/offert/$slug'
     | '/_authenticated/admin/'
+    | '/api/public/agents/dispatch-test'
     | '/api/public/growth/analyze-lead'
     | '/api/public/growth/assign-variant'
     | '/api/public/growth/claim-lead-reminder'
@@ -594,6 +607,7 @@ export interface RootRouteChildren {
   OffertSlugRoute: typeof OffertSlugRoute
   TestTakoffertRoute: typeof TestTakoffertRoute
   TestOffertSlugRoute: typeof TestOffertSlugRoute
+  ApiPublicAgentsDispatchTestRoute: typeof ApiPublicAgentsDispatchTestRoute
   ApiPublicGrowthAnalyzeLeadRoute: typeof ApiPublicGrowthAnalyzeLeadRoute
   ApiPublicGrowthAssignVariantRoute: typeof ApiPublicGrowthAssignVariantRoute
   ApiPublicGrowthClaimLeadReminderRoute: typeof ApiPublicGrowthClaimLeadReminderRoute
@@ -792,6 +806,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TestOffertSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/agents/dispatch-test': {
+      id: '/api/public/agents/dispatch-test'
+      path: '/api/public/agents/dispatch-test'
+      fullPath: '/api/public/agents/dispatch-test'
+      preLoaderRoute: typeof ApiPublicAgentsDispatchTestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/growth/analyze-lead': {
       id: '/api/public/growth/analyze-lead'
       path: '/api/public/growth/analyze-lead'
@@ -972,6 +993,7 @@ const rootRouteChildren: RootRouteChildren = {
   OffertSlugRoute: OffertSlugRoute,
   TestTakoffertRoute: TestTakoffertRoute,
   TestOffertSlugRoute: TestOffertSlugRoute,
+  ApiPublicAgentsDispatchTestRoute: ApiPublicAgentsDispatchTestRoute,
   ApiPublicGrowthAnalyzeLeadRoute: ApiPublicGrowthAnalyzeLeadRoute,
   ApiPublicGrowthAssignVariantRoute: ApiPublicGrowthAssignVariantRoute,
   ApiPublicGrowthClaimLeadReminderRoute: ApiPublicGrowthClaimLeadReminderRoute,
