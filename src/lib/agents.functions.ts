@@ -177,7 +177,12 @@ export const createImprovementReview = createServerFn({ method: "POST" })
     const { createImprovementReviewCore } = await import("@/lib/agents/improvement.server");
     const result = await createImprovementReviewCore(ctx, { executionMode: "test" });
     if (result.status !== 200) throw new Error(String(result.body["error"] ?? "Kunde inte skapa."));
-    return result.body;
+    return {
+      ok: true as const,
+      taskId: String(result.body["taskId"] ?? ""),
+      duplicate: Boolean(result.body["duplicate"]),
+      externalEffect: false as const,
+    };
   });
 
 /* -------------------------------------------------------------- workers */
