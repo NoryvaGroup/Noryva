@@ -34,7 +34,8 @@ export type GrowthOperation =
   | "claim-nurture-review"
   | "complete-nurture-review"
   | "fail-nurture-review"
-  | "register-reviewed-nurture-reply";
+  | "register-reviewed-nurture-reply"
+  | "customer-config";
 
 /**
  * `makeContext` är frivilligt. Utan det är beteendet identiskt med tidigare
@@ -114,6 +115,8 @@ export const GROWTH_API_SCHEMAS = {
       messageId: z.string().trim().min(1).max(400),
     })
     .strict(),
+  /** Read-only kundkonfiguration. Ingen skrivning, inga hemligheter i svaret. */
+  "customer-config": z.object({ customerId: z.string().uuid() }).strict(),
 } as const satisfies Record<GrowthOperation, z.ZodTypeAny>;
 
 export type VerifyResult =

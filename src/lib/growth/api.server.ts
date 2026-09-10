@@ -248,6 +248,12 @@ async function runOperation(
       return withStatus(status, body);
     }
 
+    case "customer-config": {
+      const { customerConfigCore } = await import("./customer-config.server");
+      const result = await customerConfigCore(ctx, data.customerId);
+      return withStatus(result.status, result.body);
+    }
+
     case "register-reviewed-nurture-reply": {
       const { registerReviewedNurtureReplyCore } = await import("./nurture-review.server");
       const result = await registerReviewedNurtureReplyCore(ctx, {
