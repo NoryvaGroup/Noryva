@@ -58,7 +58,12 @@ const ORCHESTRATOR = {
 };
 
 const SPECIALISTS: { key: AgentName; description: string; active: boolean }[] = [
-  { key: "sales", description: "Kvalificering och internt utkast från befintlig leaddata.", active: true },
+  {
+    key: "sales",
+    description:
+      "Kvalificering och internt utkast från befintlig leaddata. Använder OpenAI-resonemang i testläge, med deterministisk reserv om något fallerar.",
+    active: true,
+  },
   { key: "systems_qa", description: "Verifierar resultat mot regler och kontrollerar leveransstatus.", active: true },
   { key: "customer_success", description: "Uppföljning och påminnelser. Ej aktiverad.", active: false },
   { key: "growth", description: "Experiment och optimeringsförslag. Ej aktiverad.", active: false },
