@@ -32,3 +32,5 @@
 - [ ] Uppdatera Make-scenarierna 7331509 och 7331569 till de nya endpointsen (görs av dig, inte av mig)
 
 - [ ] Semantisk nurture-reply-bedömning: aktuell ociterad text styr upgrade/meeting outcome; historik bevaras; TEST/REVIEW utan externa effekter
+
+- [ ] Bekräftat: neutral aktuell reply skapar ingen upgrade/meeting; tydlig köpavsikt kan uppgradera; legitim historik bevaras
