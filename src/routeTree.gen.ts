@@ -47,6 +47,7 @@ import { Route as ApiPublicGrowthPlanNurtureTestRouteImport } from './routes/api
 import { Route as ApiPublicGrowthRegisterNurtureReplyTestRouteImport } from './routes/api/public/growth/register-nurture-reply-test'
 import { Route as ApiPublicGrowthRegisterOutcomeRouteImport } from './routes/api/public/growth/register-outcome'
 import { Route as ApiPublicGrowthRegisterReviewedNurtureReplyRouteImport } from './routes/api/public/growth/register-reviewed-nurture-reply'
+import { Route as ApiPublicGrowthReviewReconciliationRouteImport } from './routes/api/public/growth/review-reconciliation'
 import { Route as ApiPublicGrowthRouteLeadRouteImport } from './routes/api/public/growth/route-lead'
 
 const IndexRoute = IndexRouteImport.update({
@@ -258,6 +259,12 @@ const ApiPublicGrowthRegisterReviewedNurtureReplyRoute =
     path: '/api/public/growth/register-reviewed-nurture-reply',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicGrowthReviewReconciliationRoute =
+  ApiPublicGrowthReviewReconciliationRouteImport.update({
+    id: '/api/public/growth/review-reconciliation',
+    path: '/api/public/growth/review-reconciliation',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicGrowthRouteLeadRoute =
   ApiPublicGrowthRouteLeadRouteImport.update({
     id: '/api/public/growth/route-lead',
@@ -303,6 +310,7 @@ export interface FileRoutesByFullPath {
   '/api/public/growth/register-nurture-reply-test': typeof ApiPublicGrowthRegisterNurtureReplyTestRoute
   '/api/public/growth/register-outcome': typeof ApiPublicGrowthRegisterOutcomeRoute
   '/api/public/growth/register-reviewed-nurture-reply': typeof ApiPublicGrowthRegisterReviewedNurtureReplyRoute
+  '/api/public/growth/review-reconciliation': typeof ApiPublicGrowthReviewReconciliationRoute
   '/api/public/growth/route-lead': typeof ApiPublicGrowthRouteLeadRoute
 }
 export interface FileRoutesByTo {
@@ -343,6 +351,7 @@ export interface FileRoutesByTo {
   '/api/public/growth/register-nurture-reply-test': typeof ApiPublicGrowthRegisterNurtureReplyTestRoute
   '/api/public/growth/register-outcome': typeof ApiPublicGrowthRegisterOutcomeRoute
   '/api/public/growth/register-reviewed-nurture-reply': typeof ApiPublicGrowthRegisterReviewedNurtureReplyRoute
+  '/api/public/growth/review-reconciliation': typeof ApiPublicGrowthReviewReconciliationRoute
   '/api/public/growth/route-lead': typeof ApiPublicGrowthRouteLeadRoute
 }
 export interface FileRoutesById {
@@ -385,6 +394,7 @@ export interface FileRoutesById {
   '/api/public/growth/register-nurture-reply-test': typeof ApiPublicGrowthRegisterNurtureReplyTestRoute
   '/api/public/growth/register-outcome': typeof ApiPublicGrowthRegisterOutcomeRoute
   '/api/public/growth/register-reviewed-nurture-reply': typeof ApiPublicGrowthRegisterReviewedNurtureReplyRoute
+  '/api/public/growth/review-reconciliation': typeof ApiPublicGrowthReviewReconciliationRoute
   '/api/public/growth/route-lead': typeof ApiPublicGrowthRouteLeadRoute
 }
 export interface FileRouteTypes {
@@ -427,6 +437,7 @@ export interface FileRouteTypes {
     | '/api/public/growth/register-nurture-reply-test'
     | '/api/public/growth/register-outcome'
     | '/api/public/growth/register-reviewed-nurture-reply'
+    | '/api/public/growth/review-reconciliation'
     | '/api/public/growth/route-lead'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -467,6 +478,7 @@ export interface FileRouteTypes {
     | '/api/public/growth/register-nurture-reply-test'
     | '/api/public/growth/register-outcome'
     | '/api/public/growth/register-reviewed-nurture-reply'
+    | '/api/public/growth/review-reconciliation'
     | '/api/public/growth/route-lead'
   id:
     | '__root__'
@@ -508,6 +520,7 @@ export interface FileRouteTypes {
     | '/api/public/growth/register-nurture-reply-test'
     | '/api/public/growth/register-outcome'
     | '/api/public/growth/register-reviewed-nurture-reply'
+    | '/api/public/growth/review-reconciliation'
     | '/api/public/growth/route-lead'
   fileRoutesById: FileRoutesById
 }
@@ -543,6 +556,7 @@ export interface RootRouteChildren {
   ApiPublicGrowthRegisterNurtureReplyTestRoute: typeof ApiPublicGrowthRegisterNurtureReplyTestRoute
   ApiPublicGrowthRegisterOutcomeRoute: typeof ApiPublicGrowthRegisterOutcomeRoute
   ApiPublicGrowthRegisterReviewedNurtureReplyRoute: typeof ApiPublicGrowthRegisterReviewedNurtureReplyRoute
+  ApiPublicGrowthReviewReconciliationRoute: typeof ApiPublicGrowthReviewReconciliationRoute
   ApiPublicGrowthRouteLeadRoute: typeof ApiPublicGrowthRouteLeadRoute
 }
 
@@ -814,6 +828,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicGrowthRegisterReviewedNurtureReplyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/growth/review-reconciliation': {
+      id: '/api/public/growth/review-reconciliation'
+      path: '/api/public/growth/review-reconciliation'
+      fullPath: '/api/public/growth/review-reconciliation'
+      preLoaderRoute: typeof ApiPublicGrowthReviewReconciliationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/growth/route-lead': {
       id: '/api/public/growth/route-lead'
       path: '/api/public/growth/route-lead'
@@ -885,6 +906,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicGrowthRegisterOutcomeRoute: ApiPublicGrowthRegisterOutcomeRoute,
   ApiPublicGrowthRegisterReviewedNurtureReplyRoute:
     ApiPublicGrowthRegisterReviewedNurtureReplyRoute,
+  ApiPublicGrowthReviewReconciliationRoute:
+    ApiPublicGrowthReviewReconciliationRoute,
   ApiPublicGrowthRouteLeadRoute: ApiPublicGrowthRouteLeadRoute,
 }
 export const routeTree = rootRouteImport
