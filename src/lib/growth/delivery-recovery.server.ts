@@ -211,7 +211,7 @@ export async function deliveryRecoveryCore(
     const { data: customer } = await ctx.supabase
       .from("customers")
       .select(
-        "id, slug, name, industry, schema_version, status, recipient_email, delivery_webhook_url",
+        "id, slug, name, industry, schema_version, status, delivery_webhook_url",
       )
       .eq("id", candidate.customerId)
       .maybeSingle();
