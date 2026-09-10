@@ -456,7 +456,7 @@ describe("Cloudflare Worker env-binding", () => {
  * Normaliserat kontrakt, faktiska modellförsök och claim-återanvändning
  * ------------------------------------------------------------------ */
 
-const AI_ENV = {
+const AI_ENV: Record<string, string> = {
   NORYVA_GROWTH_API_SECRET: SECRET,
   AI_SALES_ASSISTANT_ENABLED: "true",
   LOVABLE_API_KEY: "test-key",
