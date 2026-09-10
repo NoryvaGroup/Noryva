@@ -286,7 +286,10 @@ export async function deliveryRecoveryCore(
       idempotency_key: idempotencyKey,
       bransch: customer["industry"],
       schema_version: customer["schema_version"],
-      mottagare: customer["recipient_email"],
+      // Legacyfältet behålls tomt för bakåtkompatibilitet. Facit för
+      // kundnotifiering är customer_profiles.notify_recipients och
+      // avsändaridentitet är customer_mail_channels – aldrig recipient_email.
+      mottagare: "",
       submitted_at: candidate.createdAt ?? now.toISOString(),
       source: `noryva_offert_${customer["industry"]}`,
       kontaktad_url: kontaktadUrl,
