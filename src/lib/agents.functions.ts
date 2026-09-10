@@ -1,0 +1,313 @@
+/**
+ * Agent HQ – serverlager. Allt är admin-gated och helt internt:
+ * inga mail, inga Make-anrop, inga bokningar och ingen LLM.
+ */
+import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { defaultProfile, rowToProfile } from "@/lib/ai-sales/profile";
+import {
+  assertTransition,
+  routeEvent,
+  runSalesWorker,
+  verifyTaskResult,
+  type AgentEvent,
+  type TaskStatus,
+} from "@/lib/agents/tasks";
+
+type AdminContext = { supabase: any; userId: string };
+
+const TASK_COLUMNS =
+  "id, customer_id, lead_id, assigned_agent, task_type, priority, status, instructions, result, verification_status, verification_reasons, requires_approval, approval_status, source_event, idempotency_key, execution_mode, created_at, updated_at";
+
+async function assertAdmin(context: AdminContext) {
+  const { data, error } = await context.supabase.rpc("has_role", {
+    _user_id: context.userId,
+    _role: "admin",
+  });
+  if (error || data !== true) throw new Error("Behörighet saknas.");
+}
+
+/** Audit-logg. Endast metadata och beslut – aldrig personuppgifter. */
+async function logEvent(
+  context: AdminContext,
+  taskId: string,
+  eventType: string,
+  actor: "human" | "agent" | "system",
+  detail: Record<string, unknown> = {},
+) {
+  try {
+    await context.supabase.from("agent_task_events").insert({
+      task_id: taskId,
+      actor,
+      actor_user_id: context.userId,
+      event_type: eventType,
+      detail,
+    });
+  } catch {
+    /* audit får aldrig blockera */
+  }
+}
+
+async function loadTask(context: AdminContext, id: string) {
+  const { data, error } = await context.supabase
+    .from("agent_tasks")
+    .select(TASK_COLUMNS)
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Uppgiften hittades inte.");
+  return data as Record<string, any>;
+}
+
+/* ------------------------------------------------------------------ läs */
+
+export const listAgentTasks = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const ctx = context as AdminContext;
+    await assertAdmin(ctx);
+    const { data: tasks, error } = await ctx.supabase
+      .from("agent_tasks")
+      .select(TASK_COLUMNS)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (error) throw new Error(error.message);
+
+    const { data: events } = await ctx.supabase
+      .from("agent_task_events")
+      .select("id, task_id, actor, event_type, detail, created_at")
+      .order("created_at", { ascending: false })
+      .limit(25);
+
+    return { tasks: tasks ?? [], events: events ?? [], mode: "TEST/REVIEW" as const };
+  });
+
+/* -------------------------------------------------------- orchestrator */
+
+const eventInput = z.object({
+  type: z.enum(["new_lead", "delivery_error", "lead_followup_due"]),
+  leadId: z.string().uuid(),
+  occurrence: z.string().max(64).optional(),
+});
+
+/**
+ * Deterministisk orchestrator: tar ett internt event och skapar exakt en
+ * uppgift. Samma event ger aldrig en dubblett (unik idempotensnyckel).
+ */
+export const dispatchAgentEvent = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => eventInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const ctx = context as AdminContext;
+    await assertAdmin(ctx);
+
+    const { data: lead, error: leadErr } = await ctx.supabase
+      .from("leads")
+      .select("id, customer_id")
+      .eq("id", data.leadId)
+      .maybeSingle();
+    if (leadErr) throw new Error(leadErr.message);
+    if (!lead) throw new Error("Förfrågan hittades inte.");
+
+    const { data: state } = await ctx.supabase
+      .from("growth_lead_state")
+      .select("intent_level")
+      .eq("lead_id", data.leadId)
+      .maybeSingle();
+
+    const event: AgentEvent = {
+      type: data.type,
+      leadId: data.leadId,
+      customerId: lead.customer_id ?? null,
+      leadPriority: (state?.intent_level as AgentEvent["leadPriority"]) ?? undefined,
+      ...(data.occurrence ? { occurrence: data.occurrence } : {}),
+    };
+    const spec = routeEvent(event);
+
+    const { data: existing } = await ctx.supabase
+      .from("agent_tasks")
+      .select("id")
+      .eq("idempotency_key", spec.idempotencyKey)
+      .maybeSingle();
+    if (existing) return { ok: true as const, taskId: existing.id as string, duplicate: true as const };
+
+    const { data: created, error } = await ctx.supabase
+      .from("agent_tasks")
+      .insert({
+        customer_id: lead.customer_id ?? null,
+        lead_id: data.leadId,
+        assigned_agent: spec.assignedAgent,
+        task_type: spec.taskType,
+        priority: spec.priority,
+        status: "queued",
+        instructions: spec.instructions,
+        requires_approval: spec.requiresApproval,
+        approval_status: spec.requiresApproval ? "pending" : "not_required",
+        source_event: spec.sourceEvent,
+        idempotency_key: spec.idempotencyKey,
+        execution_mode: "test",
+      })
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+
+    await logEvent(ctx, created.id, "task_created", "system", {
+      event: spec.sourceEvent,
+      agent: spec.assignedAgent,
+      taskType: spec.taskType,
+      priority: spec.priority,
+    });
+    return { ok: true as const, taskId: created.id as string, duplicate: false as const };
+  });
+
+/* -------------------------------------------------------------- workers */
+
+const idInput = z.object({ taskId: z.string().uuid() });
+
+/** Kör tilldelad worker i testläge. Deterministiskt, ingen extern effekt. */
+export const runAgentTask = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => idInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const ctx = context as AdminContext;
+    await assertAdmin(ctx);
+    const task = await loadTask(ctx, data.taskId);
+
+    assertTransition(task["status"] as TaskStatus, "in_progress");
+    await ctx.supabase.from("agent_tasks").update({ status: "in_progress" }).eq("id", task["id"]);
+    await logEvent(ctx, task["id"], "task_started", "agent", { agent: task["assigned_agent"] });
+
+    let result: Record<string, unknown>;
+
+    if (task["assigned_agent"] === "sales") {
+      const { data: lead } = await ctx.supabase
+        .from("leads")
+        .select("id, industry, payload, customer_id")
+        .eq("id", task["lead_id"])
+        .maybeSingle();
+      if (!lead) throw new Error("Förfrågan hittades inte.");
+
+      const { data: customer } = await ctx.supabase
+        .from("customers")
+        .select("name")
+        .eq("id", lead.customer_id)
+        .maybeSingle();
+      const { data: profileRow } = await ctx.supabase
+        .from("customer_profiles")
+        .select("*")
+        .eq("customer_id", lead.customer_id)
+        .maybeSingle();
+
+      const profile = profileRow
+        ? rowToProfile(profileRow)
+        : defaultProfile(lead.customer_id, lead.industry ?? "");
+
+      const answers = ((lead.payload as { answers?: Record<string, unknown> } | null)?.answers ??
+        {}) as Record<string, unknown>;
+      const values: Record<string, string> = {};
+      for (const [k, v] of Object.entries(answers)) values[k] = String(v ?? "");
+
+      result = runSalesWorker({
+        taskType: task["task_type"],
+        industry: lead.industry ?? "",
+        values,
+        profile,
+        companyName: customer?.name ?? "Noryva",
+      }) as unknown as Record<string, unknown>;
+    } else {
+      const { data: lead } = await ctx.supabase
+        .from("leads")
+        .select("delivery_status, delivery_error, delivery_attempts")
+        .eq("id", task["lead_id"])
+        .maybeSingle();
+      result = {
+        kind: "delivery_check",
+        deliveryStatus: lead?.delivery_status ?? "",
+        deliveryError: lead?.delivery_error ?? "",
+        attempts: lead?.delivery_attempts ?? 0,
+        generatedBy: "deterministic",
+      };
+    }
+
+    const nextStatus: TaskStatus = task["requires_approval"] ? "awaiting_review" : "done";
+    const { error } = await ctx.supabase
+      .from("agent_tasks")
+      .update({ status: nextStatus, result })
+      .eq("id", task["id"]);
+    if (error) throw new Error(error.message);
+
+    await logEvent(ctx, task["id"], "result_saved", "agent", {
+      resultKind: result["kind"],
+      status: nextStatus,
+      externalEffect: false,
+    });
+    return { ok: true as const, status: nextStatus };
+  });
+
+/** Systems & QA verifierar ett resultat deterministiskt. */
+export const verifyAgentTask = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => idInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const ctx = context as AdminContext;
+    await assertAdmin(ctx);
+    const task = await loadTask(ctx, data.taskId);
+
+    const verdict = verifyTaskResult({
+      taskType: task["task_type"],
+      requiresApproval: Boolean(task["requires_approval"]),
+      result: (task["result"] ?? null) as Record<string, unknown> | null,
+    });
+
+    const { error } = await ctx.supabase
+      .from("agent_tasks")
+      .update({ verification_status: verdict.status, verification_reasons: verdict.reasons })
+      .eq("id", task["id"]);
+    if (error) throw new Error(error.message);
+
+    await logEvent(ctx, task["id"], "task_verified", "agent", {
+      verification: verdict.status,
+      reasons: verdict.reasons,
+    });
+    return { ok: true as const, ...verdict };
+  });
+
+/* ------------------------------------------------------------ godkänn */
+
+const decisionInput = z.object({
+  taskId: z.string().uuid(),
+  decision: z.enum(["approved", "rejected"]),
+});
+
+/**
+ * Mänskligt beslut. Ändrar ENDAST intern approval-state – ingen agent får
+ * någon extern förmåga av att en uppgift godkänns i den här versionen.
+ */
+export const decideAgentTask = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => decisionInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const ctx = context as AdminContext;
+    await assertAdmin(ctx);
+    const task = await loadTask(ctx, data.taskId);
+
+    if (!task["requires_approval"]) throw new Error("Uppgiften kräver inget godkännande.");
+    if (task["approval_status"] !== "pending") throw new Error("Beslut är redan fattat.");
+    if (task["status"] !== "awaiting_review") throw new Error("Uppgiften är inte redo för granskning.");
+    if (data.decision === "approved" && task["verification_status"] !== "passed") {
+      throw new Error("Uppgiften måste vara verifierad innan den kan godkännas.");
+    }
+
+    const nextStatus: TaskStatus = data.decision === "approved" ? "done" : "cancelled";
+    assertTransition(task["status"] as TaskStatus, nextStatus);
+
+    const { error } = await ctx.supabase
+      .from("agent_tasks")
+      .update({ approval_status: data.decision, status: nextStatus })
+      .eq("id", task["id"]);
+    if (error) throw new Error(error.message);
+
+    await logEvent(ctx, task["id"], `task_${data.decision}`, "human", { externalEffect: false });
+    return { ok: true as const, status: nextStatus };
+  });
