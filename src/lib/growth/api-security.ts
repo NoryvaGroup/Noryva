@@ -35,7 +35,8 @@ export type GrowthOperation =
   | "complete-nurture-review"
   | "fail-nurture-review"
   | "register-reviewed-nurture-reply"
-  | "customer-config";
+  | "customer-config"
+  | "due-lead-reminders";
 
 /**
  * `makeContext` är frivilligt. Utan det är beteendet identiskt med tidigare
@@ -117,6 +118,13 @@ export const GROWTH_API_SCHEMAS = {
     .strict(),
   /** Read-only kundkonfiguration. Ingen skrivning, inga hemligheter i svaret. */
   "customer-config": z.object({ customerId: z.string().uuid() }).strict(),
+  /** Read-only underlag för 24h-påminnelser. Ändrar aldrig status. */
+  "due-lead-reminders": z
+    .object({
+      olderThanHours: z.number().int().min(1).max(720).optional(),
+      limit: z.number().int().min(1).max(100).optional(),
+    })
+    .strict(),
 } as const satisfies Record<GrowthOperation, z.ZodTypeAny>;
 
 export type VerifyResult =

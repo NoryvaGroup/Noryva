@@ -248,6 +248,15 @@ async function runOperation(
       return withStatus(status, body);
     }
 
+    case "due-lead-reminders": {
+      const { dueLeadRemindersCore } = await import("./lead-reminders.server");
+      return dueLeadRemindersCore(
+        ctx,
+        { olderThanHours: data.olderThanHours, limit: data.limit },
+        env,
+      );
+    }
+
     case "customer-config": {
       const { customerConfigCore } = await import("./customer-config.server");
       const result = await customerConfigCore(ctx, data.customerId);
