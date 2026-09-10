@@ -840,6 +840,69 @@ export async function failNurtureReviewCore(
 }
 
 /**
+ * MANUELL AVSTÄMNING av ett fastnat eller osäkert utskick.
+ *
+ * Endast administratör (behörigheten prövas i SQL). Lägen:
+ *   SENT      – utskicket är styrkt; kräver transportens meddelande-id och
+ *               bokför steg + konversationslogg exakt en gång.
+ *   NOT_SENT  – bekräftat att inget mail gick iväg.
+ *   UNKNOWN   – fortsatt osäkert.
+ *
+ * Inget läge släpper posten tillbaka för nytt automatiskt utskick, och
+ * funktionen skickar aldrig något själv.
+ */
+export async function reconcileNurtureReviewCore(
+  ctx: GrowthContext,
+  input: {
+    reviewId: string;
+    outcome: string;
+    transportMessageId?: string | undefined;
+    reason?: string | undefined;
+  },
+) {
+  const existing = await readReview(ctx, input.reviewId);
+  if (!existing) {
+    return { ok: false as const, status: 404, code: "not_found", releasedForRetry: false as const };
+  }
+
+  const gate = evaluateReconcileRequest({
+    reviewStatus: existing.status,
+    outcome: input.outcome,
+    transportMessageId: input.transportMessageId,
+  });
+  if (!gate.ok) {
+    return {
+      ok: false as const,
+      status: gate.code === "invalid_status" ? 409 : 400,
+      code: gate.code,
+      message: gate.reason,
+      reviewStatus: existing.status,
+      releasedForRetry: false as const,
+    };
+  }
+
+  const { data, error } = await ctx.supabase.rpc("reconcile_nurture_review", {
+    p_review_id: input.reviewId,
+    p_outcome: gate.outcome,
+    p_transport_message_id: (input.transportMessageId ?? "").trim(),
+    p_reason: (input.reason ?? "").trim(),
+  });
+  if (error) throw new Error(error.message);
+  const result = (data ?? {}) as Record<string, any>;
+
+  return {
+    ok: result["ok"] === true,
+    status: result["ok"] === true ? 200 : 409,
+    code: String(result["code"] ?? "invalid"),
+    duplicate: result["duplicate"] === true,
+    reviewStatus: result["status"] ?? existing.status,
+    releasedForRetry: false as const,
+    externalEffect: false as const,
+    notificationSent: false as const,
+  };
+}
+
+/**
  * Inkommande svar på ett verkligt skickat uppföljningsmail.
  *
  * Tråden identifieras av transportens meddelande-id (In-Reply-To/References) –
