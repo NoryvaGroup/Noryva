@@ -85,3 +85,43 @@ describe("QA-worker", () => {
     );
   });
 });
+
+describe("evaluateApprovalDecision", () => {
+  const base = {
+    executionMode: "test",
+    status: "awaiting_review" as const,
+    requiresApproval: true,
+    approvalStatus: "pending" as const,
+    verificationStatus: "passed" as const,
+    decision: "approved" as const,
+  };
+
+  it("godkänner endast verifierade uppgifter och utan extern effekt", () => {
+    expect(evaluateApprovalDecision(base)).toEqual({ nextStatus: "done", externalEffect: false });
+  });
+
+  it("blockerar godkännande när verifiering inte är godkänd", () => {
+    expect(() => evaluateApprovalDecision({ ...base, verificationStatus: "not_started" })).toThrow();
+    expect(() => evaluateApprovalDecision({ ...base, verificationStatus: "failed" })).toThrow();
+  });
+
+  it("tillåter avvisning utan godkänd verifiering, fortfarande utan extern effekt", () => {
+    expect(
+      evaluateApprovalDecision({ ...base, decision: "rejected", verificationStatus: "failed" }),
+    ).toEqual({ nextStatus: "cancelled", externalEffect: false });
+  });
+
+  it("nekar beslut i andra körlägen än test/review", () => {
+    expect(() => evaluateApprovalDecision({ ...base, executionMode: "live" })).toThrow();
+  });
+
+  it("nekar dubbla beslut och fel status", () => {
+    expect(() => evaluateApprovalDecision({ ...base, approvalStatus: "approved" })).toThrow();
+    expect(() => evaluateApprovalDecision({ ...base, status: "queued" })).toThrow();
+    expect(() => evaluateApprovalDecision({ ...base, requiresApproval: false })).toThrow();
+  });
+
+  it("externa agent-actions är avstängda", () => {
+    expect(AGENT_EXTERNAL_ACTIONS_ENABLED).toBe(false);
+  });
+});
