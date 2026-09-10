@@ -65,6 +65,36 @@ async function readMailChannel(ctx: GrowthContext, customerId: string): Promise<
   return rowToMailChannel(data as Record<string, unknown> | null);
 }
 
+/**
+ * Prövar utskickskontraktet mot LIVE-data: kunden härleds ur förfrågan,
+ * mottagaren måste vara den lagrade lead-adressen och kundens mailidentitet
+ * måste vara verifierad. Fail closed – ingen fallback till någon annan adress.
+ */
+async function checkSendContract(
+  ctx: GrowthContext,
+  input: { leadId: string; reviewCustomerId: string; reviewRecipient: string },
+): Promise<{ contract: SendContractResult; mailChannel: MailChannel }> {
+  const { data: lead } = await ctx.supabase
+    .from("leads")
+    .select("id, customer_id, payload")
+    .eq("id", input.leadId)
+    .maybeSingle();
+
+  const leadCustomerId = String((lead as Record<string, unknown> | null)?.["customer_id"] ?? "");
+  const mailChannel = leadCustomerId
+    ? await readMailChannel(ctx, leadCustomerId)
+    : EMPTY_MAIL_CHANNEL;
+
+  const contract = evaluateSendContract({
+    reviewCustomerId: input.reviewCustomerId,
+    leadCustomerId,
+    reviewRecipient: input.reviewRecipient,
+    storedLeadRecipient: recipientFromLead((lead as Record<string, unknown> | null)?.["payload"]),
+    mailChannel,
+  });
+  return { contract, mailChannel };
+}
+
 const TABLE = "nurture_reviews";
 const MESSAGES = "conversation_messages";
 
