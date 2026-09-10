@@ -1,0 +1,2 @@
+REVOKE EXECUTE ON FUNCTION public.reconcile_nurture_review(uuid, text, text, text) FROM anon, public;
+GRANT EXECUTE ON FUNCTION public.reconcile_nurture_review(uuid, text, text, text) TO authenticated, service_role;
