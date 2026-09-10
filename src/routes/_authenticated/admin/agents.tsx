@@ -65,7 +65,20 @@ const SPECIALISTS: { key: AgentName; description: string; active: boolean }[] = 
   { key: "admin_finance", description: "Kostnadsöversikt och rapportering. Ej aktiverad.", active: false },
 ];
 
-type TaskRow = Record<string, any>;
+type TaskRow = {
+  id: string;
+  assigned_agent: string;
+  task_type: string;
+  priority: string;
+  status: string;
+  approval_status: string;
+  verification_status: string;
+  verification_reasons: unknown;
+  requires_approval: boolean;
+  result: { nextStep?: string } | null;
+};
+
+type EventRow = { id: string; event_type: string; actor: string; created_at: string };
 
 function AgentHqPage() {
   const fetchTasks = useServerFn(listAgentTasks);
@@ -91,7 +104,7 @@ function AgentHqPage() {
     onError: (e: Error) => setMessage(e.message),
   });
 
-  const tasks: TaskRow[] = data?.tasks ?? [];
+  const tasks = (data?.tasks ?? []) as unknown as TaskRow[];
   const reviews = tasks.filter((t) => t.requires_approval && t.approval_status === "pending");
 
   return (
@@ -287,7 +300,7 @@ function AgentHqPage() {
         <section>
           <h2 className="mb-3 text-lg font-semibold">Senaste händelser</h2>
           <ul className="space-y-2 text-sm">
-            {(data?.events ?? []).map((e: Record<string, any>) => (
+            {((data?.events ?? []) as unknown as EventRow[]).map((e) => (
               <li key={e.id} className="rounded-lg border border-border bg-card px-3 py-2">
                 <span className="font-mono text-xs text-muted-foreground">
                   {new Date(e.created_at).toLocaleString("sv-SE")}
