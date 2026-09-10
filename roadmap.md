@@ -34,4 +34,4 @@
 - [x] Semantisk nurture-reply-bedömning: aktuell ociterad text styr upgrade/meeting outcome; historik bevaras; TEST/REVIEW utan externa effekter
 
 - [x] Bekräftat: neutral aktuell reply skapar ingen upgrade/meeting; tydlig köpavsikt kan uppgradera; legitim historik bevaras
-- [ ] Implementera HMAC-skyddad Agent Core Shadow Review-batch enligt godkänd plan; TEST-only, inga externa effekter
+- [x] Implementera HMAC-skyddad Agent Core Shadow Review-batch enligt godkänd plan; TEST-only, inga externa effekter
