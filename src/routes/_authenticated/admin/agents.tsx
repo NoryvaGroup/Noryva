@@ -247,6 +247,25 @@ function AgentHqPage() {
 
         <section>
           <h2 className="mb-3 text-lg font-semibold">Uppgiftskö</h2>
+          <div className="mb-3 flex flex-wrap gap-2">
+            {FILTERS.map((f) => (
+              <button
+                key={f.key}
+                type="button"
+                onClick={() => setFilter(f.key)}
+                className={`rounded-full border px-3 py-1 text-xs ${
+                  filter === f.key
+                    ? "border-primary bg-primary/10 font-medium"
+                    : "border-border text-muted-foreground"
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+            <span className="self-center text-xs text-muted-foreground">
+              Listan uppdateras automatiskt var tionde sekund (endast läsning).
+            </span>
+          </div>
           {isLoading ? <p className="text-sm text-muted-foreground">Hämtar …</p> : null}
           {error ? (
             <p className="text-sm text-destructive">Kunde inte hämta: {(error as Error).message}</p>
