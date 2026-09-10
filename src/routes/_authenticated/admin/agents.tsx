@@ -285,7 +285,7 @@ function AgentHqPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {tasks.map((t) => (
+                {visibleTasks.map((t) => (
                   <TableRow key={t.id}>
                     <TableCell className="font-mono text-xs">{String(t.id).slice(0, 8)}</TableCell>
                     <TableCell>{AGENT_LABEL[t.assigned_agent as AgentName]}</TableCell>
