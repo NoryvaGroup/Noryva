@@ -120,7 +120,9 @@ export const dispatchAgentEvent = createServerFn({ method: "POST" })
       type: data.type,
       leadId: data.leadId,
       customerId: lead.customer_id ?? null,
-      leadPriority: (state?.intent_level as AgentEvent["leadPriority"]) ?? undefined,
+      ...(state?.intent_level
+        ? { leadPriority: state.intent_level as NonNullable<AgentEvent["leadPriority"]> }
+        : {}),
       ...(data.occurrence ? { occurrence: data.occurrence } : {}),
     };
     const spec = routeEvent(event);
