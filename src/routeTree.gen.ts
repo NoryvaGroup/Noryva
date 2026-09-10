@@ -37,6 +37,7 @@ import { Route as ApiPublicGrowthAnalyzeLeadRouteImport } from './routes/api/pub
 import { Route as ApiPublicGrowthAssignVariantRouteImport } from './routes/api/public/growth/assign-variant'
 import { Route as ApiPublicGrowthClaimNurtureReviewRouteImport } from './routes/api/public/growth/claim-nurture-review'
 import { Route as ApiPublicGrowthCompleteNurtureReviewRouteImport } from './routes/api/public/growth/complete-nurture-review'
+import { Route as ApiPublicGrowthCustomerConfigRouteImport } from './routes/api/public/growth/customer-config'
 import { Route as ApiPublicGrowthDueNurtureReviewsRouteImport } from './routes/api/public/growth/due-nurture-reviews'
 import { Route as ApiPublicGrowthFailNurtureReviewRouteImport } from './routes/api/public/growth/fail-nurture-review'
 import { Route as ApiPublicGrowthGrowthRecommendationRouteImport } from './routes/api/public/growth/growth-recommendation'
@@ -195,6 +196,12 @@ const ApiPublicGrowthCompleteNurtureReviewRoute =
     path: '/api/public/growth/complete-nurture-review',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicGrowthCustomerConfigRoute =
+  ApiPublicGrowthCustomerConfigRouteImport.update({
+    id: '/api/public/growth/customer-config',
+    path: '/api/public/growth/customer-config',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicGrowthDueNurtureReviewsRoute =
   ApiPublicGrowthDueNurtureReviewsRouteImport.update({
     id: '/api/public/growth/due-nurture-reviews',
@@ -272,6 +279,7 @@ export interface FileRoutesByFullPath {
   '/api/public/growth/assign-variant': typeof ApiPublicGrowthAssignVariantRoute
   '/api/public/growth/claim-nurture-review': typeof ApiPublicGrowthClaimNurtureReviewRoute
   '/api/public/growth/complete-nurture-review': typeof ApiPublicGrowthCompleteNurtureReviewRoute
+  '/api/public/growth/customer-config': typeof ApiPublicGrowthCustomerConfigRoute
   '/api/public/growth/due-nurture-reviews': typeof ApiPublicGrowthDueNurtureReviewsRoute
   '/api/public/growth/fail-nurture-review': typeof ApiPublicGrowthFailNurtureReviewRoute
   '/api/public/growth/growth-recommendation': typeof ApiPublicGrowthGrowthRecommendationRoute
@@ -309,6 +317,7 @@ export interface FileRoutesByTo {
   '/api/public/growth/assign-variant': typeof ApiPublicGrowthAssignVariantRoute
   '/api/public/growth/claim-nurture-review': typeof ApiPublicGrowthClaimNurtureReviewRoute
   '/api/public/growth/complete-nurture-review': typeof ApiPublicGrowthCompleteNurtureReviewRoute
+  '/api/public/growth/customer-config': typeof ApiPublicGrowthCustomerConfigRoute
   '/api/public/growth/due-nurture-reviews': typeof ApiPublicGrowthDueNurtureReviewsRoute
   '/api/public/growth/fail-nurture-review': typeof ApiPublicGrowthFailNurtureReviewRoute
   '/api/public/growth/growth-recommendation': typeof ApiPublicGrowthGrowthRecommendationRoute
@@ -348,6 +357,7 @@ export interface FileRoutesById {
   '/api/public/growth/assign-variant': typeof ApiPublicGrowthAssignVariantRoute
   '/api/public/growth/claim-nurture-review': typeof ApiPublicGrowthClaimNurtureReviewRoute
   '/api/public/growth/complete-nurture-review': typeof ApiPublicGrowthCompleteNurtureReviewRoute
+  '/api/public/growth/customer-config': typeof ApiPublicGrowthCustomerConfigRoute
   '/api/public/growth/due-nurture-reviews': typeof ApiPublicGrowthDueNurtureReviewsRoute
   '/api/public/growth/fail-nurture-review': typeof ApiPublicGrowthFailNurtureReviewRoute
   '/api/public/growth/growth-recommendation': typeof ApiPublicGrowthGrowthRecommendationRoute
@@ -387,6 +397,7 @@ export interface FileRouteTypes {
     | '/api/public/growth/assign-variant'
     | '/api/public/growth/claim-nurture-review'
     | '/api/public/growth/complete-nurture-review'
+    | '/api/public/growth/customer-config'
     | '/api/public/growth/due-nurture-reviews'
     | '/api/public/growth/fail-nurture-review'
     | '/api/public/growth/growth-recommendation'
@@ -424,6 +435,7 @@ export interface FileRouteTypes {
     | '/api/public/growth/assign-variant'
     | '/api/public/growth/claim-nurture-review'
     | '/api/public/growth/complete-nurture-review'
+    | '/api/public/growth/customer-config'
     | '/api/public/growth/due-nurture-reviews'
     | '/api/public/growth/fail-nurture-review'
     | '/api/public/growth/growth-recommendation'
@@ -462,6 +474,7 @@ export interface FileRouteTypes {
     | '/api/public/growth/assign-variant'
     | '/api/public/growth/claim-nurture-review'
     | '/api/public/growth/complete-nurture-review'
+    | '/api/public/growth/customer-config'
     | '/api/public/growth/due-nurture-reviews'
     | '/api/public/growth/fail-nurture-review'
     | '/api/public/growth/growth-recommendation'
@@ -494,6 +507,7 @@ export interface RootRouteChildren {
   ApiPublicGrowthAssignVariantRoute: typeof ApiPublicGrowthAssignVariantRoute
   ApiPublicGrowthClaimNurtureReviewRoute: typeof ApiPublicGrowthClaimNurtureReviewRoute
   ApiPublicGrowthCompleteNurtureReviewRoute: typeof ApiPublicGrowthCompleteNurtureReviewRoute
+  ApiPublicGrowthCustomerConfigRoute: typeof ApiPublicGrowthCustomerConfigRoute
   ApiPublicGrowthDueNurtureReviewsRoute: typeof ApiPublicGrowthDueNurtureReviewsRoute
   ApiPublicGrowthFailNurtureReviewRoute: typeof ApiPublicGrowthFailNurtureReviewRoute
   ApiPublicGrowthGrowthRecommendationRoute: typeof ApiPublicGrowthGrowthRecommendationRoute
@@ -702,6 +716,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicGrowthCompleteNurtureReviewRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/growth/customer-config': {
+      id: '/api/public/growth/customer-config'
+      path: '/api/public/growth/customer-config'
+      fullPath: '/api/public/growth/customer-config'
+      preLoaderRoute: typeof ApiPublicGrowthCustomerConfigRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/growth/due-nurture-reviews': {
       id: '/api/public/growth/due-nurture-reviews'
       path: '/api/public/growth/due-nurture-reviews'
@@ -809,6 +830,7 @@ const rootRouteChildren: RootRouteChildren = {
     ApiPublicGrowthClaimNurtureReviewRoute,
   ApiPublicGrowthCompleteNurtureReviewRoute:
     ApiPublicGrowthCompleteNurtureReviewRoute,
+  ApiPublicGrowthCustomerConfigRoute: ApiPublicGrowthCustomerConfigRoute,
   ApiPublicGrowthDueNurtureReviewsRoute: ApiPublicGrowthDueNurtureReviewsRoute,
   ApiPublicGrowthFailNurtureReviewRoute: ApiPublicGrowthFailNurtureReviewRoute,
   ApiPublicGrowthGrowthRecommendationRoute:
