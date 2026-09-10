@@ -27,6 +27,7 @@ import { Route as OffertSlugRouteImport } from './routes/offert.$slug'
 import { Route as TestTakoffertRouteImport } from './routes/test.takoffert'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin/index'
 import { Route as AuthenticatedAdminCustomerIdRouteImport } from './routes/_authenticated/admin/$customerId'
+import { Route as AuthenticatedAdminAgentsRouteImport } from './routes/_authenticated/admin/agents'
 import { Route as AuthenticatedAdminAiAssistentRouteImport } from './routes/_authenticated/admin/ai-assistent'
 import { Route as AuthenticatedAdminCrmRouteImport } from './routes/_authenticated/admin/crm'
 import { Route as AuthenticatedAdminGrowthRouteImport } from './routes/_authenticated/admin/growth'
@@ -142,6 +143,12 @@ const AuthenticatedAdminCustomerIdRoute =
   AuthenticatedAdminCustomerIdRouteImport.update({
     id: '/admin/$customerId',
     path: '/admin/$customerId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedAdminAgentsRoute =
+  AuthenticatedAdminAgentsRouteImport.update({
+    id: '/admin/agents',
+    path: '/admin/agents',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedAdminAiAssistentRoute =
@@ -310,6 +317,7 @@ export interface FileRoutesByFullPath {
   '/offert/$slug': typeof OffertSlugRoute
   '/test/takoffert': typeof TestTakoffertRoute
   '/admin/$customerId': typeof AuthenticatedAdminCustomerIdRoute
+  '/admin/agents': typeof AuthenticatedAdminAgentsRoute
   '/admin/ai-assistent': typeof AuthenticatedAdminAiAssistentRoute
   '/admin/crm': typeof AuthenticatedAdminCrmRoute
   '/admin/growth': typeof AuthenticatedAdminGrowthRoute
@@ -354,6 +362,7 @@ export interface FileRoutesByTo {
   '/offert/$slug': typeof OffertSlugRoute
   '/test/takoffert': typeof TestTakoffertRoute
   '/admin/$customerId': typeof AuthenticatedAdminCustomerIdRoute
+  '/admin/agents': typeof AuthenticatedAdminAgentsRoute
   '/admin/ai-assistent': typeof AuthenticatedAdminAiAssistentRoute
   '/admin/crm': typeof AuthenticatedAdminCrmRoute
   '/admin/growth': typeof AuthenticatedAdminGrowthRoute
@@ -400,6 +409,7 @@ export interface FileRoutesById {
   '/offert/$slug': typeof OffertSlugRoute
   '/test/takoffert': typeof TestTakoffertRoute
   '/_authenticated/admin/$customerId': typeof AuthenticatedAdminCustomerIdRoute
+  '/_authenticated/admin/agents': typeof AuthenticatedAdminAgentsRoute
   '/_authenticated/admin/ai-assistent': typeof AuthenticatedAdminAiAssistentRoute
   '/_authenticated/admin/crm': typeof AuthenticatedAdminCrmRoute
   '/_authenticated/admin/growth': typeof AuthenticatedAdminGrowthRoute
@@ -446,6 +456,7 @@ export interface FileRouteTypes {
     | '/offert/$slug'
     | '/test/takoffert'
     | '/admin/$customerId'
+    | '/admin/agents'
     | '/admin/ai-assistent'
     | '/admin/crm'
     | '/admin/growth'
@@ -490,6 +501,7 @@ export interface FileRouteTypes {
     | '/offert/$slug'
     | '/test/takoffert'
     | '/admin/$customerId'
+    | '/admin/agents'
     | '/admin/ai-assistent'
     | '/admin/crm'
     | '/admin/growth'
@@ -535,6 +547,7 @@ export interface FileRouteTypes {
     | '/offert/$slug'
     | '/test/takoffert'
     | '/_authenticated/admin/$customerId'
+    | '/_authenticated/admin/agents'
     | '/_authenticated/admin/ai-assistent'
     | '/_authenticated/admin/crm'
     | '/_authenticated/admin/growth'
@@ -730,6 +743,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminCustomerIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/admin/agents': {
+      id: '/_authenticated/admin/agents'
+      path: '/admin/agents'
+      fullPath: '/admin/agents'
+      preLoaderRoute: typeof AuthenticatedAdminAgentsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/admin/ai-assistent': {
       id: '/_authenticated/admin/ai-assistent'
       path: '/admin/ai-assistent'
@@ -910,6 +930,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminCustomerIdRoute: typeof AuthenticatedAdminCustomerIdRoute
+  AuthenticatedAdminAgentsRoute: typeof AuthenticatedAdminAgentsRoute
   AuthenticatedAdminAiAssistentRoute: typeof AuthenticatedAdminAiAssistentRoute
   AuthenticatedAdminCrmRoute: typeof AuthenticatedAdminCrmRoute
   AuthenticatedAdminGrowthRoute: typeof AuthenticatedAdminGrowthRoute
@@ -920,6 +941,7 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminCustomerIdRoute: AuthenticatedAdminCustomerIdRoute,
+  AuthenticatedAdminAgentsRoute: AuthenticatedAdminAgentsRoute,
   AuthenticatedAdminAiAssistentRoute: AuthenticatedAdminAiAssistentRoute,
   AuthenticatedAdminCrmRoute: AuthenticatedAdminCrmRoute,
   AuthenticatedAdminGrowthRoute: AuthenticatedAdminGrowthRoute,
