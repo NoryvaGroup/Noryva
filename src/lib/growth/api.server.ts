@@ -352,6 +352,12 @@ async function runOperation(
       return withStatus(result.status, result.body);
     }
 
+    case "agents-process-test": {
+      const { processAgentTaskCore } = await import("@/lib/agents/run.server");
+      const result = await processAgentTaskCore(ctx, { taskId: data.taskId });
+      return withStatus(result.status, result.body);
+    }
+
     case "register-reviewed-nurture-reply": {
       const { registerReviewedNurtureReplyCore } = await import("./nurture-review.server");
       const result = await registerReviewedNurtureReplyCore(ctx, {

@@ -42,7 +42,8 @@ export type GrowthOperation =
   | "fail-lead-reminder"
   | "delivery-recovery"
   | "review-reconciliation"
-  | "agents-dispatch-test";
+  | "agents-dispatch-test"
+  | "agents-process-test";
 
 /**
  * `makeContext` är frivilligt. Utan det är beteendet identiskt med tidigare
@@ -180,6 +181,11 @@ export const GROWTH_API_SCHEMAS = {
       occurrence: z.string().trim().min(1).max(64).optional(),
     })
     .strict(),
+  /**
+   * Agent HQ TEST: kör + verifierar EN redan skapad uppgift i testläge.
+   * Deterministiskt, idempotent och utan extern effekt.
+   */
+  "agents-process-test": z.object({ taskId: z.string().uuid() }).strict(),
 } as const satisfies Record<GrowthOperation, z.ZodTypeAny>;
 
 export type VerifyResult =
