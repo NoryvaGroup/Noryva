@@ -1276,7 +1276,8 @@ describe("customer-config (read-only)", () => {
     });
     expect(body.followupRules.maxFollowups).toBeTypeOf("number");
     expect(body.bookingRules).toHaveProperty("enabled");
-    expect(JSON.stringify(body)).not.toMatch(/secret|webhook|key|token/i);
+    // inboundRouteKey är en opak router-identifierare, inte en credential.
+    expect(JSON.stringify(body)).not.toMatch(/secret|webhook|password|token|api[_-]?key/i);
   });
 
   it("saknad profil ger defaults utan gissade mottagare", async () => {
