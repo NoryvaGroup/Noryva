@@ -5,11 +5,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { defaultProfile, rowToProfile } from "@/lib/ai-sales/profile";
+import { buildTaskResult } from "@/lib/agents/run.server";
 import {
   assertTransition,
   routeEvent,
-  runSalesWorker,
   verifyTaskResult,
   type AgentEvent,
   type TaskStatus,
@@ -180,57 +179,8 @@ export const runAgentTask = createServerFn({ method: "POST" })
     await ctx.supabase.from("agent_tasks").update({ status: "in_progress" }).eq("id", task["id"]);
     await logEvent(ctx, task["id"], "task_started", "agent", { agent: task["assigned_agent"] });
 
-    let result: Record<string, unknown>;
-
-    if (task["assigned_agent"] === "sales") {
-      const { data: lead } = await ctx.supabase
-        .from("leads")
-        .select("id, industry, payload, customer_id")
-        .eq("id", task["lead_id"])
-        .maybeSingle();
-      if (!lead) throw new Error("Förfrågan hittades inte.");
-
-      const { data: customer } = await ctx.supabase
-        .from("customers")
-        .select("name")
-        .eq("id", lead.customer_id)
-        .maybeSingle();
-      const { data: profileRow } = await ctx.supabase
-        .from("customer_profiles")
-        .select("*")
-        .eq("customer_id", lead.customer_id)
-        .maybeSingle();
-
-      const profile = profileRow
-        ? rowToProfile(profileRow)
-        : defaultProfile(lead.customer_id, lead.industry ?? "");
-
-      const answers = ((lead.payload as { answers?: Record<string, unknown> } | null)?.answers ??
-        {}) as Record<string, unknown>;
-      const values: Record<string, string> = {};
-      for (const [k, v] of Object.entries(answers)) values[k] = String(v ?? "");
-
-      result = runSalesWorker({
-        taskType: task["task_type"],
-        industry: lead.industry ?? "",
-        values,
-        profile,
-        companyName: customer?.name ?? "Noryva",
-      }) as unknown as Record<string, unknown>;
-    } else {
-      const { data: lead } = await ctx.supabase
-        .from("leads")
-        .select("delivery_status, delivery_error, delivery_attempts")
-        .eq("id", task["lead_id"])
-        .maybeSingle();
-      result = {
-        kind: "delivery_check",
-        deliveryStatus: lead?.delivery_status ?? "",
-        deliveryError: lead?.delivery_error ?? "",
-        attempts: lead?.delivery_attempts ?? 0,
-        generatedBy: "deterministic",
-      };
-    }
+    // Samma deterministiska workerlogik som det HMAC-skyddade TEST-endpointet.
+    const result = await buildTaskResult(ctx, task);
 
     const nextStatus: TaskStatus = task["requires_approval"] ? "awaiting_review" : "done";
     const { error } = await ctx.supabase
