@@ -27,10 +27,11 @@ describe("semantisk nurture-reply", () => {
       reason: "Testmeddelande utan köpavsikt.",
     });
     const result = await classifyReplySemantic("hej! /test", mock.deps);
-    expect(mock.fetchImpl).toHaveBeenCalledTimes(1);
+    expect(mock.fetchImpl).not.toHaveBeenCalled();
     expect(result.classification.positivePurchaseIntent).toBe(false);
     expect(result.classification.explicitMeetingIntent).toBe(false);
     expect(result.classification.intent).toBe("ovrigt");
+    expect(result.classification.llm.attempts).toBe(0);
   });
 
   it("kan uppgradera tydlig vilja att gå vidare", async () => {
@@ -68,6 +69,18 @@ describe("semantisk nurture-reply", () => {
     expect(fetchImpl).not.toHaveBeenCalled();
     expect(result.classification.intent).toBe("avbojer");
     expect(result.classification.positivePurchaseIntent).toBe(false);
+  });
+
+  it("låter avböj vinna även när svaret innehåller bokningsord", async () => {
+    const fetchImpl = vi.fn();
+    const result = await classifyReplySemantic("Nej tack, boka inget möte och kontakta mig inte.", {
+      env: { OPENAI_API_KEY: "sk-test" },
+      fetchImpl,
+    });
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(result.classification.intent).toBe("avbojer");
+    expect(result.classification.positivePurchaseIntent).toBe(false);
+    expect(result.classification.explicitMeetingIntent).toBe(false);
   });
 
   it("ignorerar citerad gammal mötestext när den nya texten är neutral", async () => {

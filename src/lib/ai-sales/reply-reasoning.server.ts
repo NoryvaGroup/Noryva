@@ -70,6 +70,32 @@ export function extractCurrentReply(raw: string): string {
   return redactText(current).slice(0, 4000);
 }
 
+/**
+ * Fail-closed för helt uppenbara hälsnings-/test-/tack-svar. Modellen ska inte
+ * kunna hallucinera köpavsikt ur dessa och behöver därför inte anropas.
+ */
+function isClearlyNeutralReply(text: string): boolean {
+  const normalized = text
+    .toLocaleLowerCase("sv-SE")
+    .replace(/\/test\b/g, " test ")
+    .replace(/[^a-zåäö0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!normalized) return true;
+
+  const neutralWords = new Set([
+    "hej",
+    "hejsan",
+    "hallå",
+    "test",
+    "tack",
+    "tackar",
+    "mvh",
+    "vänligen",
+  ]);
+  return normalized.split(" ").every((word) => neutralWords.has(word));
+}
+
 export type SemanticReplyClassification = ReplyClassification & {
   positivePurchaseIntent: boolean;
   explicitMeetingIntent: boolean;
@@ -157,6 +183,17 @@ export async function classifyReplySemantic(
     return {
       currentReply,
       classification: withSignals(safety, "conservative_fallback", fallbackMeta("empty_current_reply", 0)),
+    };
+  }
+
+  if (isClearlyNeutralReply(currentReply)) {
+    return {
+      currentReply,
+      classification: withSignals(
+        { ...safety, intent: "ovrigt", suggestedAction: "schedule_followup" },
+        "safety_rule",
+        fallbackMeta("clearly_neutral_reply", 0),
+      ),
     };
   }
 

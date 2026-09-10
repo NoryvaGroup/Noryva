@@ -28,4 +28,10 @@ describe("svarsklassificering", () => {
     expect(r.suggestedAction).toBe("schedule_followup");
     expect(r.confidence).toBeLessThan(0.5);
   });
+
+  it("prioriterar avböj framför bokningsord", () => {
+    const r = classifyReplyDeterministic("Nej tack, boka inget möte och kontakta mig inte.");
+    expect(r.intent).toBe("avbojer");
+    expect(r.suggestedAction).toBe("handoff_to_human");
+  });
 });
