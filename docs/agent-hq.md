@@ -50,8 +50,23 @@ admin-funktionen.
 - Service-rollen används först efter verifierad signatur.
 - Svar: `{ ok, taskId, duplicate, assignedAgent, taskType, priority,
   requiresApproval, executionMode: "test", externalEffect: false }`.
-- Endpointen skapar ENDAST en uppgift. Workers, verifiering och godkännande är
-  fortfarande manuella och test-only i `/admin/agents`.
+- Endpointen skapar ENDAST en uppgift.
+
+`POST /api/public/agents/process-test` kör och verifierar EN redan skapad
+uppgift, med samma säkerhetslager och samma secret (ingen ny secret).
+
+- Payload: `{ taskId }` – inget annat accepteras.
+- Endast `execution_mode = "test"` behandlas; review/live/okänt läge ger 403 och
+  okänt id ger 404.
+- Kör samma deterministiska worker och `verifyTaskResult()` som adminvyn via den
+  gemensamma kärnan `src/lib/agents/run.server.ts`.
+- Idempotent: endast `queued` startas (atomisk övergång). Redan behandlade
+  uppgifter svarar `alreadyProcessed: true` utan ny effekt, och `in_progress`,
+  `failed` eller `cancelled` auto-retryas aldrig (409).
+- Audit: `task_started`, `result_saved`, `task_verified` med actor `agent`/
+  `system` och endast metadata/regelresultat – aldrig lead-PII.
+- Godkännande är fortfarande mänskligt i `/admin/agents`. Ingen LLM, inga mail,
+  SMS, bokningar eller Make-callbacks.
 
 ## Säkerhetsspärrar
 
