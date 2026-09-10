@@ -28,7 +28,12 @@ export const AGENT_LABEL: Record<AgentName, string> = {
   admin_finance: "Admin & Finance",
 };
 
-export type TaskType = "sales_draft" | "delivery_check" | "followup_review" | "qa_review";
+export type TaskType =
+  | "sales_draft"
+  | "delivery_check"
+  | "followup_review"
+  | "qa_review"
+  | "cto_improvement_review";
 export type TaskPriority = "low" | "normal" | "high";
 export type TaskStatus = "queued" | "in_progress" | "awaiting_review" | "done" | "failed" | "cancelled";
 export type VerificationStatus = "not_started" | "passed" | "failed";
@@ -39,6 +44,7 @@ export const TASK_TYPE_LABEL: Record<TaskType, string> = {
   delivery_check: "Verifiera leveransstatus",
   followup_review: "Uppföljning att granska",
   qa_review: "Teknisk kontroll",
+  cto_improvement_review: "Intern systemgranskning",
 };
 
 export const PRIORITY_LABEL: Record<TaskPriority, string> = {
@@ -279,6 +285,29 @@ export function verifyTaskResult(input: QaWorkerInput): QaVerdict {
     if (/\+?\d[\d\s-]{7,}\d/.test(body)) reasons.push("Utkastet innehåller ett telefonnummer.");
     if (/\b(pris|offert|rabatt|garanti)\b/i.test(body)) reasons.push("Utkastet nämner pris eller villkor.");
     if (!input.requiresApproval) reasons.push("Kundnära utkast måste kräva godkännande.");
+  }
+
+  if (input.taskType === "cto_improvement_review") {
+    const r = result as {
+      summary?: unknown;
+      healthScore?: unknown;
+      recommendations?: unknown;
+      implementationPrompt?: unknown;
+    };
+    const score = Number(r.healthScore);
+    if (typeof r.summary !== "string" || r.summary.trim().length < 10) {
+      reasons.push("Sammanfattningen saknas.");
+    }
+    if (!Number.isFinite(score) || score < 0 || score > 100) {
+      reasons.push("Hälsopoängen är utanför 0-100.");
+    }
+    if (!Array.isArray(r.recommendations) || r.recommendations.length === 0) {
+      reasons.push("Minst en rekommendation krävs.");
+    }
+    if (typeof r.implementationPrompt !== "string" || r.implementationPrompt.trim().length < 30) {
+      reasons.push("Implementationsprompt saknas.");
+    }
+    if (!input.requiresApproval) reasons.push("Systemgranskning måste kräva godkännande.");
   }
 
   if (input.taskType === "delivery_check" && hasResult) {
