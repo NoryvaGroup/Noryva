@@ -41,6 +41,9 @@ export function AdminShell({ title, children }: { title: string; children: React
             <Link to="/admin/growth" className="text-muted-foreground hover:text-foreground">
               Growth Engine
             </Link>
+            <Link to="/admin/agents" className="text-muted-foreground hover:text-foreground">
+              Agent HQ
+            </Link>
 
             <button type="button" onClick={signOut} className="text-muted-foreground underline">
               Logga ut
