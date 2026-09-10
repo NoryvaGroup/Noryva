@@ -833,3 +833,92 @@ describe("inkommande svar på skickad uppföljning", () => {
     expect(res.code).toBe("not_finalized");
   });
 });
+
+/* ------------------------------------------------- avsändaridentitet i claim */
+
+describe("claim inkluderar säker mailidentitet utan fallback", () => {
+  async function claimable(state: Record<string, Row[]>, ctx: any) {
+    const review = await seedReview(ctx, state, LEAD_A);
+    await approveNurtureReviewCore(
+      ctx,
+      { reviewId: review["id"], expectedFingerprint: review["content_fingerprint"] },
+      ENV_ON,
+      okDispatch,
+    );
+    return claimNurtureReviewCore(ctx, { reviewId: review["id"] }, {});
+  }
+
+  it("verifierad kanal ger outboundIdentityAllowed=true utan credentials", async () => {
+    const { supabase, state } = makeSupabase();
+    const ctx = ctxOf(supabase);
+    state["customer_mail_channels"] = [
+      {
+        customer_id: CUST_A,
+        provider: "gmail",
+        sender_email: "hej@kundexempel.se",
+        sender_name: "Kund Exempel",
+        reply_to_email: "svar@kundexempel.se",
+        inbound_route_key: "kund-in",
+        connection_alias: "kund-gmail",
+        status: "verified",
+        verified_at: "2026-09-01T00:00:00.000Z",
+      },
+    ];
+    const claim: any = await claimable(state, ctx);
+    expect(claim.ok).toBe(true);
+    expect(claim.mailChannel.verified).toBe(true);
+    expect(claim.mailChannel.senderEmail).toBe("hej@kundexempel.se");
+    expect(claim.outboundIdentityAllowed).toBe(true);
+    expect(claim.outboundIdentityReason).toBe("");
+    // Inga hemligheter eller okända fält släpps vidare.
+    expect(JSON.stringify(claim.mailChannel)).not.toMatch(/password|secret|token|smtp/i);
+    expect(Object.keys(claim.mailChannel).sort()).toEqual(
+      [
+        "configured",
+        "connectionAlias",
+        "inboundRouteKey",
+        "provider",
+        "replyToEmail",
+        "senderEmail",
+        "senderName",
+        "status",
+        "verified",
+        "verifiedAt",
+      ].sort(),
+    );
+  });
+
+  it("saknad kanal ger verified=false och allowed=false utan fallback", async () => {
+    const { supabase, state } = makeSupabase();
+    const ctx = ctxOf(supabase);
+    const claim: any = await claimable(state, ctx);
+    expect(claim.ok).toBe(true);
+    expect(claim.mailChannel.configured).toBe(false);
+    expect(claim.mailChannel.verified).toBe(false);
+    expect(claim.outboundIdentityAllowed).toBe(false);
+    expect(claim.outboundIdentityReason).toContain("Ingen mailidentitet");
+  });
+
+  it("draft-kanal räcker inte – fail closed", async () => {
+    const { supabase, state } = makeSupabase();
+    const ctx = ctxOf(supabase);
+    state["customer_mail_channels"] = [
+      {
+        customer_id: CUST_A,
+        provider: "gmail",
+        sender_email: "hej@kundexempel.se",
+        sender_name: "Kund",
+        reply_to_email: "svar@kundexempel.se",
+        inbound_route_key: "",
+        connection_alias: "",
+        status: "draft",
+        verified_at: null,
+      },
+    ];
+    const claim: any = await claimable(state, ctx);
+    expect(claim.ok).toBe(true);
+    expect(claim.mailChannel.verified).toBe(false);
+    expect(claim.outboundIdentityAllowed).toBe(false);
+    expect(claim.outboundIdentityReason).toContain("inte verifierad");
+  });
+});
