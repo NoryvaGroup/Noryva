@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_definitions: {
+        Row: {
+          can_external_action: boolean
+          config: Json
+          created_at: string
+          description: string
+          enabled: boolean
+          id: string
+          key: string
+          name: string
+          requires_human_approval: boolean
+          role: string
+          updated_at: string
+        }
+        Insert: {
+          can_external_action?: boolean
+          config?: Json
+          created_at?: string
+          description?: string
+          enabled?: boolean
+          id?: string
+          key: string
+          name: string
+          requires_human_approval?: boolean
+          role: string
+          updated_at?: string
+        }
+        Update: {
+          can_external_action?: boolean
+          config?: Json
+          created_at?: string
+          description?: string
+          enabled?: boolean
+          id?: string
+          key?: string
+          name?: string
+          requires_human_approval?: boolean
+          role?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       agent_task_events: {
         Row: {
           actor: string
