@@ -357,9 +357,7 @@ function AgentHqPage() {
                       ? ` · ${t.verification_reasons.join(" ")}`
                       : ""}
                   </p>
-                  {t.result?.nextStep ? (
-                    <p className="mt-1 text-sm">Föreslaget nästa steg: {t.result.nextStep}</p>
-                  ) : null}
+                  <ResultDetails result={t.result} />
                 </div>
                 <div className="flex gap-2">
                   <button
