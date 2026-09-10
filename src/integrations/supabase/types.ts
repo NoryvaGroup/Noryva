@@ -1784,6 +1784,15 @@ export type Database = {
         Args: { p_lead_id: string; p_lock?: boolean }
         Returns: Json
       }
+      reconcile_nurture_review: {
+        Args: {
+          p_outcome: string
+          p_reason?: string
+          p_review_id: string
+          p_transport_message_id?: string
+        }
+        Returns: Json
+      }
       reserve_nurture_inbound: {
         Args: { p_lead_id: string; p_review_id: string; p_source_ref: string }
         Returns: Json
