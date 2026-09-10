@@ -94,6 +94,29 @@ function isOutcome(value: unknown): value is OperationOutcome {
   return typeof value === "object" && value !== null && "__status" in value;
 }
 
+/**
+ * Läser kundkonfiguration för ett lead från samma read-only källa som
+ * `customer-config`. Fail closed: hittas ingen kund blir `customerConfig` null
+ * med tydligt fel – aldrig en gissad mottagare eller legacy recipient_email.
+ */
+async function analyzeCustomerConfig(
+  ctx: GrowthContext,
+  customerId: string,
+): Promise<{ customerConfig: Record<string, unknown> | null; customerConfigError: string | null }> {
+  if (!customerId) {
+    return { customerConfig: null, customerConfigError: "Kundbindning saknas för förfrågan." };
+  }
+  const { customerConfigCore } = await import("./customer-config.server");
+  const result = await customerConfigCore(ctx, customerId);
+  if (result.status !== 200) {
+    return {
+      customerConfig: null,
+      customerConfigError: String((result.body as Record<string, unknown>)["error"] ?? "Kunden hittades inte."),
+    };
+  }
+  return { customerConfig: result.body, customerConfigError: null };
+}
+
 async function runOperation(
   operation: GrowthOperation,
   ctx: GrowthContext,
