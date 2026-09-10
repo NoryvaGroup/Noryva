@@ -19,6 +19,7 @@ import {
   failNurtureReviewCore,
   recipientFromLead,
   refreshDueNurtureReviewsCore,
+  reconcileNurtureReviewCore,
   registerReviewedNurtureReplyCore,
 } from "./nurture-review.server";
 
@@ -978,5 +979,160 @@ describe("claim inkluderar säker mailidentitet utan fallback", () => {
     expect(claim.mailChannel.verified).toBe(false);
     expect(claim.outboundIdentityAllowed).toBe(false);
     expect(claim.outboundIdentityReason).toContain("inte verifierad");
+  });
+});
+
+/* ------------------------------------------- kontrakt + manuell avstämning */
+
+describe("strikt utskickskontrakt och manuell avstämning", () => {
+  async function seeded() {
+    const { supabase, state } = makeSupabase();
+    const ctx = ctxOf(supabase);
+    const review = await seedReview(ctx, state, LEAD_A);
+    return { ctx, state, review, supabase };
+  }
+
+  it("spärrar godkännande när kunden på posten inte är leadets kund", async () => {
+    const { ctx, review } = await seeded();
+    review["customer_id"] = CUST_B;
+    const result = await approveNurtureReviewCore(
+      ctx,
+      { reviewId: review["id"], expectedFingerprint: review["content_fingerprint"] },
+      ENV_ON,
+      okDispatch,
+    );
+    expect(result.ok).toBe(false);
+    expect(result.code).toBe("customer_mismatch");
+    expect(review["status"]).toBe("blocked");
+  });
+
+  it("spärrar godkännande när mottagaren inte är den lagrade lead-adressen", async () => {
+    const { ctx, review } = await seeded();
+    review["recipient_email"] = "annan@example.com";
+    const result = await approveNurtureReviewCore(
+      ctx,
+      { reviewId: review["id"], expectedFingerprint: review["content_fingerprint"] },
+      ENV_ON,
+      okDispatch,
+    );
+    expect(["recipient_mismatch", "stale"]).toContain(result.code);
+    expect(result.ok).toBe(false);
+  });
+
+  it("spärrar godkännande utan verifierad mailidentitet", async () => {
+    const { ctx, state, review } = await seeded();
+    state["customer_mail_channels"]!.find((c) => c["customer_id"] === CUST_A)!["status"] = "draft";
+    const result = await approveNurtureReviewCore(
+      ctx,
+      { reviewId: review["id"], expectedFingerprint: review["content_fingerprint"] },
+      ENV_ON,
+      okDispatch,
+    );
+    expect(result.ok).toBe(false);
+    expect(result.code).toBe("mail_identity_unverified");
+    expect(review["status"]).toBe("blocked");
+  });
+
+  it("lämnar inte ut innehåll vid hämtning när mailidentiteten saknas", async () => {
+    const { ctx, state, review } = await seeded();
+    await approveNurtureReviewCore(
+      ctx,
+      { reviewId: review["id"], expectedFingerprint: review["content_fingerprint"] },
+      ENV_ON,
+      okDispatch,
+    );
+    expect(review["status"]).toBe("approved");
+    state["customer_mail_channels"] = [];
+    const claim = await claimNurtureReviewCore(ctx, { reviewId: review["id"] }, {});
+    expect(claim.ok).toBe(false);
+    expect((claim as any).code).toBe("mail_identity_unverified");
+    expect(JSON.stringify(claim)).not.toContain(review["body"]);
+    expect(review["status"]).toBe("approved");
+  });
+
+  it("stämmer av ett osäkert utskick till bekräftat skickat, idempotent", async () => {
+    const { ctx, state, review } = await seeded();
+    await approveNurtureReviewCore(
+      ctx,
+      { reviewId: review["id"], expectedFingerprint: review["content_fingerprint"] },
+      ENV_ON,
+      okDispatch,
+    );
+    const claim = await claimNurtureReviewCore(ctx, { reviewId: review["id"] }, {});
+    expect(claim.ok).toBe(true);
+    await failNurtureReviewCore(ctx, {
+      reviewId: review["id"],
+      attemptId: (claim as any).attemptId,
+      outcome: "unknown",
+    });
+    expect(review["status"]).toBe("unknown");
+
+    const steps = () =>
+      state["growth_nurture_state"]!.find((s) => s["lead_id"] === LEAD_A)!["steps_taken"];
+    const before = steps();
+
+    const first = await reconcileNurtureReviewCore(ctx, {
+      reviewId: review["id"],
+      outcome: "SENT",
+      transportMessageId: "tm-manual-1",
+    });
+    expect(first.ok).toBe(true);
+    expect(first.code).toBe("sent");
+    expect(first.releasedForRetry).toBe(false);
+    expect(steps()).toBe(before + 1);
+
+    const again = await reconcileNurtureReviewCore(ctx, {
+      reviewId: review["id"],
+      outcome: "SENT",
+      transportMessageId: "tm-manual-1",
+    });
+    expect(again.ok).toBe(true);
+    expect(again.duplicate).toBe(true);
+    expect(steps()).toBe(before + 1);
+  });
+
+  it("släpper aldrig ett osäkert utskick för nytt automatiskt försök", async () => {
+    const { ctx, review } = await seeded();
+    await approveNurtureReviewCore(
+      ctx,
+      { reviewId: review["id"], expectedFingerprint: review["content_fingerprint"] },
+      ENV_ON,
+      okDispatch,
+    );
+    const claim = await claimNurtureReviewCore(ctx, { reviewId: review["id"] }, {});
+    await failNurtureReviewCore(ctx, {
+      reviewId: review["id"],
+      attemptId: (claim as any).attemptId,
+      outcome: "unknown",
+    });
+
+    // Bekräftat skickat kräver transport-id.
+    const missing = await reconcileNurtureReviewCore(ctx, { reviewId: review["id"], outcome: "SENT" });
+    expect(missing.ok).toBe(false);
+    expect(missing.code).toBe("missing_message_id");
+
+    // Ny hämtning är omöjlig från osäker status – ingen automatisk omsändning.
+    const reclaim = await claimNurtureReviewCore(ctx, { reviewId: review["id"] }, {});
+    expect(reclaim.ok).toBe(false);
+    expect((reclaim as any).code).toBe("not_claimable");
+
+    const notSent = await reconcileNurtureReviewCore(ctx, {
+      reviewId: review["id"],
+      outcome: "NOT_SENT",
+      reason: "Transporten bekräftade avbrott.",
+    });
+    expect(notSent.ok).toBe(true);
+    expect(notSent.reviewStatus).toBe("failed");
+    expect(notSent.releasedForRetry).toBe(false);
+  });
+
+  it("stämmer inte av poster som inte är hämtade eller osäkra", async () => {
+    const { ctx, review } = await seeded();
+    const result = await reconcileNurtureReviewCore(ctx, {
+      reviewId: review["id"],
+      outcome: "NOT_SENT",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.code).toBe("invalid_status");
   });
 });
