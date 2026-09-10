@@ -194,3 +194,141 @@ export async function dueLeadRemindersCore(
     notificationSent: false,
   };
 }
+
+/**
+ * Hämtar EN påminnelse för utskick. Hela behörighetskontrollen (lead är
+ * fortfarande "Ny", påminnelsen är förfallen, inte redan skickad/hämtad) sker
+ * atomiskt i SQL. Svaret innehåller endast sändunderlag – ingen lead-PII,
+ * inga hemligheter.
+ */
+export async function claimLeadReminderCore(
+  ctx: GrowthContext,
+  input: { leadId: string; olderThanHours?: number },
+  env: RuntimeEnv,
+  now: Date = new Date(),
+) {
+  const { data, error } = await ctx.supabase.rpc("claim_lead_reminder", {
+    p_lead_id: input.leadId,
+    p_kind: REMINDER_KIND,
+    p_older_than_hours: input.olderThanHours ?? DEFAULT_OLDER_THAN_HOURS,
+    p_stale_claim_minutes: STALE_CLAIM_MINUTES,
+  });
+  if (error) throw new Error(error.message);
+  const result = (data ?? {}) as Record<string, any>;
+  if (result["ok"] !== true) {
+    const code = String(result["code"] ?? "not_claimable");
+    return {
+      ok: false as const,
+      status: code === "not_found" ? 404 : 409,
+      code,
+      externalEffect: false as const,
+      notificationSent: false as const,
+    };
+  }
+
+  const customerId = String(result["customerId"] ?? "");
+  const { data: customerRow } = await ctx.supabase
+    .from("customers")
+    .select("id, name")
+    .eq("id", customerId)
+    .maybeSingle();
+  const { data: profileRow } = await ctx.supabase
+    .from("customer_profiles")
+    .select("customer_id, notify_recipients")
+    .eq("customer_id", customerId)
+    .maybeSingle();
+  const notifyRecipients = Array.isArray(profileRow?.["notify_recipients"])
+    ? (profileRow["notify_recipients"] as string[]).filter(
+        (r) => typeof r === "string" && r.trim() !== "",
+      )
+    : [];
+
+  const { data: stateRow } = await ctx.supabase
+    .from("growth_lead_state")
+    .select("lead_id, intent_level")
+    .eq("lead_id", input.leadId)
+    .maybeSingle();
+
+  const actionSecret = env["NORYVA_LEAD_ACTION_SECRET"];
+
+  return {
+    ok: true as const,
+    status: 200,
+    code: "claimed",
+    reminderId: result["reminderId"],
+    attemptId: result["attemptId"],
+    kind: REMINDER_KIND,
+    leadId: input.leadId,
+    customerId,
+    customerName: String(customerRow?.["name"] ?? ""),
+    notifyRecipients,
+    recipientsMissing: notifyRecipients.length === 0,
+    intentLevel: stateRow?.["intent_level"] ? String(stateRow["intent_level"]) : null,
+    contactUrl: actionSecret
+      ? buildContactUrl({ secret: actionSecret, leadId: input.leadId, now })
+      : null,
+    externalEffect: false as const,
+    notificationSent: false as const,
+  };
+}
+
+/** Bokför bekräftat utskick. Idempotent via (reminderId, attemptId). */
+export async function completeLeadReminderCore(
+  ctx: GrowthContext,
+  input: { reminderId: string; attemptId: string; transportMessageId: string },
+) {
+  const { data, error } = await ctx.supabase.rpc("complete_lead_reminder", {
+    p_reminder_id: input.reminderId,
+    p_attempt_id: input.attemptId,
+    p_transport_message_id: input.transportMessageId,
+  });
+  if (error) throw new Error(error.message);
+  const result = (data ?? {}) as Record<string, any>;
+  if (result["ok"] !== true) {
+    return {
+      ok: false as const,
+      status: String(result["code"]) === "not_found" ? 404 : 409,
+      code: String(result["code"] ?? "invalid"),
+    };
+  }
+  return {
+    ok: true as const,
+    status: 200,
+    code: String(result["code"]),
+    duplicate: result["duplicate"] === true,
+    transportMessageId: result["transportMessageId"],
+  };
+}
+
+/**
+ * Misslyckat försök. `unknown` (standard) betyder att vi inte vet om mailet
+ * gick iväg – posten släpps ALDRIG automatiskt tillbaka för nytt försök.
+ */
+export async function failLeadReminderCore(
+  ctx: GrowthContext,
+  input: { reminderId: string; attemptId: string; outcome?: "not_sent" | "unknown"; reason?: string },
+) {
+  const { data, error } = await ctx.supabase.rpc("fail_lead_reminder", {
+    p_reminder_id: input.reminderId,
+    p_attempt_id: input.attemptId,
+    p_outcome: input.outcome === "not_sent" ? "not_sent" : "unknown",
+    p_reason: (input.reason ?? "").trim(),
+  });
+  if (error) throw new Error(error.message);
+  const result = (data ?? {}) as Record<string, any>;
+  if (result["ok"] !== true) {
+    return {
+      ok: false as const,
+      status: String(result["code"]) === "not_found" ? 404 : 409,
+      code: String(result["code"] ?? "invalid"),
+    };
+  }
+  return {
+    ok: true as const,
+    status: 200,
+    code: String(result["code"]),
+    status_: undefined,
+    reminderStatus: String(result["status"] ?? result["code"]),
+    autoRetryAllowed: false as const,
+  };
+}
