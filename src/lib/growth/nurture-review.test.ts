@@ -947,15 +947,13 @@ describe("claim inkluderar säker mailidentitet utan fallback", () => {
     );
   });
 
-  it("saknad kanal ger verified=false och allowed=false utan fallback", async () => {
+  it("saknad kanal spärrar både godkännande och hämtning – ingen fallback", async () => {
     const { supabase, state } = makeSupabase();
     const ctx = ctxOf(supabase);
+    state["customer_mail_channels"] = [];
     const claim: any = await claimable(state, ctx);
-    expect(claim.ok).toBe(true);
-    expect(claim.mailChannel.configured).toBe(false);
-    expect(claim.mailChannel.verified).toBe(false);
-    expect(claim.outboundIdentityAllowed).toBe(false);
-    expect(claim.outboundIdentityReason).toContain("Ingen mailidentitet");
+    expect(claim.ok).toBe(false);
+    expect(JSON.stringify(claim)).not.toMatch(/noryva\.se|@kundexempel/i);
   });
 
   it("draft-kanal räcker inte – fail closed", async () => {
@@ -975,10 +973,8 @@ describe("claim inkluderar säker mailidentitet utan fallback", () => {
       },
     ];
     const claim: any = await claimable(state, ctx);
-    expect(claim.ok).toBe(true);
-    expect(claim.mailChannel.verified).toBe(false);
-    expect(claim.outboundIdentityAllowed).toBe(false);
-    expect(claim.outboundIdentityReason).toContain("inte verifierad");
+    expect(claim.ok).toBe(false);
+    expect(state["nurture_reviews"]![0]!["status"]).toBe("blocked");
   });
 });
 
