@@ -82,7 +82,7 @@ function baseState(leads: Row[] = [lead(1)]): Record<string, Row[]> {
   return {
     leads,
     customers: [{ id: CUSTOMER_ID }],
-    growth_lead_state: leads.map((item) => ({ lead_id: item.id, intent_level: "NORMAL" })),
+    growth_lead_state: leads.map((item) => ({ lead_id: item["id"], intent_level: "NORMAL" })),
     agent_tasks: [],
     agent_task_events: [],
   };
