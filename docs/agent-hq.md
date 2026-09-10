@@ -1,24 +1,62 @@
-# Noryva Agent HQ – foundation
+# Noryva Agent HQ
 
-Status: **FOUNDATION / TEST.** Vyn `/admin/agents` visar endast struktur och
-exempeldata. Inga agenter körs, inga AI-anrop görs, inga mail eller
-Make-actions triggas och ingen backend finns ännu för uppgiftskön.
+Status: **TEST/REVIEW.** Orchestrator, Sales och Systems & QA har nu persistent
+backend, men allt är internt: inga AI-anrop, inga mail, inga bokningar och inga
+Make-actions. Godkännande ändrar endast intern status.
 
-## Framtida arkitektur som sidan representerar
+## Arkitektur
 
 ```text
-EVENT -> ORCHESTRATOR -> TASK -> SPECIALIST -> VERIFICATION -> APPROVAL/ACTION
+EVENT -> ORCHESTRATOR -> TASK -> SPECIALIST -> VERIFICATION -> APPROVAL
 ```
 
-- **EVENT** – något inträffar: nytt lead, uteblivet svar, statusändring, schemalagd körning.
-- **ORCHESTRATOR** – huvudagenten tolkar händelsen, sätter mål och bryter ner arbetet i uppgifter.
-- **TASK** – en uppgift med id, tilldelad agent, typ, prioritet, status, krav på godkännande och verifieringsstatus.
-- **SPECIALIST** – en av fem roller utför uppgiften: Sales, Systems & QA, Customer Success, Growth, Admin & Finance.
-- **VERIFICATION** – resultatet kontrolleras deterministiskt mot regler och data innan det får gå vidare.
-- **APPROVAL/ACTION** – en människa godkänner. Först därefter kan en action utföras.
+- **EVENT** – `new_lead`, `delivery_error`, `lead_followup_due`. Skapas manuellt
+  från `/admin/agents` i detta steg.
+- **ORCHESTRATOR** – `routeEvent()` i `src/lib/agents/tasks.ts`. Helt
+  deterministisk: ett event ger exakt en uppgift till exakt en specialist.
+- **TASK** – rad i `agent_tasks`. Varje mutation loggas i `agent_task_events`
+  med actor (`human` | `agent` | `system`), event_type och detail.
+- **SPECIALIST** – Sales (`runSalesWorker`, återanvänder `qualifyLead` och
+  kundprofilens uppföljningsregler) eller Systems & QA (leveranskontroll).
+- **VERIFICATION** – `verifyTaskResult()` kontrollerar resultatet mot enkla
+  regler: ämnesrad, längd, hälsning, ingen e-post/telefon i text, inget
+  pris-/offertprat, och att kundnära utkast kräver godkännande.
+- **APPROVAL** – människa godkänner eller avvisar. Godkännande kräver
+  `verification_status = passed`.
 
-## Gränser som gäller
+## Statusmaskin
 
-- Orchestrator utför aldrig externa actions själv.
-- Ingen uppgift får leda till extern effekt utan mänskligt godkännande.
-- Befintliga flöden (publika formulär, leads, Growth Engine, nurture, Make-endpoints) berörs inte.
+```text
+queued -> in_progress -> awaiting_review -> done | cancelled
+queued -> cancelled | failed
+failed -> queued
+done, cancelled = terminala
+```
+
+`verification_status`: `not_started | passed | failed`.
+`approval_status`: `not_required | pending | approved | rejected`.
+Ogiltiga värden blockeras av CHECK-villkor i databasen och ogiltiga övergångar
+av `assertTransition()` server-side.
+
+## Säkerhetsspärrar
+
+- Alla serverfunktioner kräver inloggad admin (`has_role`).
+- RLS på `agent_tasks` och `agent_task_events` släpper endast in admin.
+- `execution_mode` kan bara vara `test` eller `review`; live saknas.
+- Ingen worker anropar nätverket, LLM, mail, SMS, kalender eller Make.
+- Resultatet innehåller ingen personuppgift; endast poäng, prioritet och en
+  generisk intern text.
+- Idempotens: `agent_tasks.idempotency_key` är unik per event + lead +
+  occurrence, så samma testhändelse skapar aldrig en dubblett.
+
+## Kvar innan en agent får externa verktyg
+
+1. Kanalregister med verifierad avsändaridentitet per kund (finns i
+   `customer_mail_channels`) kopplat till agentens uppgifter.
+2. Claim/complete/fail-flöde med transport-id och idempotens, i linje med
+   nurture-review, innan något får skickas.
+3. Regler för när ett godkännande får utlösa en action, plus spärr mot
+   auto-retry vid okänd transportstatus.
+4. Kostnadstak och budgetkoppling om Orchestrator/Sales någon gång ska använda
+   LLM.
+5. Reconciliation-vy för uppgifter som fastnar i `in_progress`.
