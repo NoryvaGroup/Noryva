@@ -8,7 +8,7 @@ import {
 } from "./tasks";
 import { defaultProfile } from "@/lib/ai-sales/profile";
 
-const profile = defaultProfile("11111111-1111-1111-1111-111111111111", "varuautomater");
+const profile = defaultProfile("11111111-1111-4111-8111-111111111111", "varuautomater");
 
 describe("orchestrator-routing", () => {
   it("skickar nytt lead till Sales med godkännandekrav", () => {
