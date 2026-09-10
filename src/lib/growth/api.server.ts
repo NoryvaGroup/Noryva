@@ -257,6 +257,40 @@ async function runOperation(
       );
     }
 
+    case "claim-lead-reminder": {
+      const { claimLeadReminderCore } = await import("./lead-reminders.server");
+      const result = await claimLeadReminderCore(
+        ctx,
+        { leadId: data.leadId, olderThanHours: data.olderThanHours },
+        env,
+      );
+      const { status, ...body } = result as { status: number } & Record<string, unknown>;
+      return withStatus(status, body);
+    }
+
+    case "complete-lead-reminder": {
+      const { completeLeadReminderCore } = await import("./lead-reminders.server");
+      const result = await completeLeadReminderCore(ctx, {
+        reminderId: data.reminderId,
+        attemptId: data.attemptId,
+        transportMessageId: data.transportMessageId,
+      });
+      const { status, ...body } = result as { status: number } & Record<string, unknown>;
+      return withStatus(status, { ...body, externalEffect: false, notificationSent: false });
+    }
+
+    case "fail-lead-reminder": {
+      const { failLeadReminderCore } = await import("./lead-reminders.server");
+      const result = await failLeadReminderCore(ctx, {
+        reminderId: data.reminderId,
+        attemptId: data.attemptId,
+        outcome: data.outcome,
+        reason: data.reason,
+      });
+      const { status, ...body } = result as { status: number } & Record<string, unknown>;
+      return withStatus(status, body);
+    }
+
     case "delivery-recovery": {
       const { deliveryRecoveryCore } = await import("./delivery-recovery.server");
       const result = await deliveryRecoveryCore(
