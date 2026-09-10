@@ -50,13 +50,29 @@ export async function buildTaskResult(
     const values: Record<string, string> = {};
     for (const [k, v] of Object.entries(answers)) values[k] = String(v ?? "");
 
-    return runSalesWorker({
+    const companyName = customer?.name ?? "Noryva";
+    const deterministic = runSalesWorker({
       taskType: task["task_type"],
       industry: lead.industry ?? "",
       values,
       profile,
-      companyName: customer?.name ?? "Noryva",
-    }) as unknown as Record<string, unknown>;
+      companyName,
+    });
+
+    // Ett (1) LLM-anrop max. Utan nyckel eller vid minsta fel behålls det
+    // deterministiska resultatet. Utkastet går ändå till mänsklig granskning.
+    const enriched = await enrichSalesResult(
+      deterministic,
+      {
+        taskType: task["task_type"],
+        industry: lead.industry ?? "",
+        companyName,
+        priority: deterministic.qualification.priority,
+        values,
+      },
+      ctx.reasoning ?? {},
+    );
+    return enriched as unknown as Record<string, unknown>;
   }
 
   const { data: lead } = await ctx.supabase
