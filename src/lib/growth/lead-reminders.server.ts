@@ -327,7 +327,6 @@ export async function failLeadReminderCore(
     ok: true as const,
     status: 200,
     code: String(result["code"]),
-    status_: undefined,
     reminderStatus: String(result["status"] ?? result["code"]),
     autoRetryAllowed: false as const,
   };
