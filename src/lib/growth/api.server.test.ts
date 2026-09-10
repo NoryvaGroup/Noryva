@@ -1361,6 +1361,8 @@ describe("due-lead-reminders (read-only)", () => {
       recipientsMissing: false,
     });
     expect(typeof item.reason).toBe("string");
+    // Länken finns bara när action-hemligheten är konfigurerad server-side.
+    expect(item.contactUrl === null || String(item.contactUrl).startsWith("https://")).toBe(true);
   });
 
   it("exkluderar leads som redan är Kontaktad och för nya leads", async () => {
