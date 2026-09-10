@@ -8,6 +8,7 @@
 import { defaultProfile, rowToProfile } from "@/lib/ai-sales/profile";
 import { enrichSalesResult, type ReasoningDeps } from "./reasoning.server";
 import { runSalesWorker, verifyTaskResult, type TaskStatus } from "./tasks";
+import { collectSystemTelemetry, IMPROVEMENT_TASK_TYPE } from "./improvement.server";
 
 export type AgentRunContext = { supabase: any; reasoning?: ReasoningDeps };
 
@@ -22,6 +23,26 @@ export async function buildTaskResult(
   ctx: AgentRunContext,
   task: Record<string, any>,
 ): Promise<Record<string, unknown>> {
+  // Intern systemgranskning (CTO-agenten): endast aggregerad drifttelemetri,
+  // aldrig lead- eller kunddata. Ett (1) modellanrop, konservativ reserv.
+  if (task["task_type"] === IMPROVEMENT_TASK_TYPE) {
+    const { reasonSystemImprovement } = await import("./reasoning.server");
+    const telemetry = await collectSystemTelemetry(ctx);
+    const review = await reasonSystemImprovement(telemetry, ctx.reasoning ?? {});
+    return {
+      kind: "cto_improvement_review",
+      summary: review.summary,
+      healthScore: review.healthScore,
+      findings: review.findings,
+      recommendations: review.recommendations,
+      implementationPrompt: review.implementationPrompt,
+      telemetry,
+      generatedBy: review.generatedBy,
+      llm: review.llm,
+      externalEffect: false,
+    } as unknown as Record<string, unknown>;
+  }
+
   if (task["assigned_agent"] === "sales") {
     const { data: lead } = await ctx.supabase
       .from("leads")
