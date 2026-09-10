@@ -1167,3 +1167,105 @@ describe("register-nurture-reply-test", () => {
     expect(body.externalEffect).toBe(false);
   });
 });
+
+describe("customer-config (read-only)", () => {
+  function configState(profiles: Row[]) {
+    const state = baseState(COMPLETE_ANSWERS);
+    state["customers"] = [
+      {
+        id: CUSTOMER_ID,
+        name: "Testkund",
+        industry: "varuautomater",
+        service_area: "Borås",
+        status: "aktiv",
+      },
+    ];
+    state["customer_profiles"] = profiles;
+    return state;
+  }
+
+  const PROFILE: Row = {
+    customer_id: CUSTOMER_ID,
+    tone: "professionell",
+    language: "sv",
+    lead_prefix: "BV",
+    qualification_profile: { builtin: "varuautomater" },
+    followup_rules: {},
+    booking_rules: {},
+    notify_recipients: ["info@noryva.se"],
+    ai_assistant_enabled: true,
+    execution_mode: "test",
+    local_postal_prefix: "50",
+    regional_postal_prefix: "51",
+  };
+
+  async function call(state: Record<string, Row[]>, body: unknown, opts = {}) {
+    const res = await handleGrowthApi(
+      "customer-config",
+      signedRequest("customer-config", body, opts),
+      deps(state),
+    );
+    return { res, body: (await res.json()) as any };
+  }
+
+  it("kräver giltig signatur", async () => {
+    const { res } = await call(configState([PROFILE]), { customerId: CUSTOMER_ID }, {
+      secret: "fel-hemlighet",
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it("avvisar okänd nyttolast", async () => {
+    const { res } = await call(configState([PROFILE]), { customerId: "inte-uuid" });
+    expect(res.status).toBe(400);
+    const extra = await call(configState([PROFILE]), { customerId: CUSTOMER_ID, secret: "x" });
+    expect(extra.res.status).toBe(400);
+  });
+
+  it("returnerar kundens konfiguration utan hemligheter", async () => {
+    const { res, body } = await call(configState([PROFILE]), { customerId: CUSTOMER_ID });
+    expect(res.status).toBe(200);
+    expect(body).toMatchObject({
+      customerId: CUSTOMER_ID,
+      name: "Testkund",
+      industry: "varuautomater",
+      serviceArea: "Borås",
+      notifyRecipients: ["info@noryva.se"],
+      executionMode: "test",
+      aiAssistantEnabled: true,
+      localPostalPrefix: "50",
+      regionalPostalPrefix: "51",
+      tone: "professionell",
+      language: "sv",
+      profileExists: true,
+      externalEffect: false,
+    });
+    expect(body.followupRules.maxFollowups).toBeTypeOf("number");
+    expect(body.bookingRules).toHaveProperty("enabled");
+    expect(JSON.stringify(body)).not.toMatch(/secret|webhook|key|token/i);
+  });
+
+  it("saknad profil ger defaults utan gissade mottagare", async () => {
+    const { res, body } = await call(configState([]), { customerId: CUSTOMER_ID });
+    expect(res.status).toBe(200);
+    expect(body.profileExists).toBe(false);
+    expect(body.notifyRecipients).toEqual([]);
+    expect(body.aiAssistantEnabled).toBe(false);
+    expect(body.executionMode).toBe("test");
+    expect(body.localPostalPrefix).toBe("");
+  });
+
+  it("okänd kund ger 404", async () => {
+    const state = configState([PROFILE]);
+    state["customers"] = [];
+    const { res, body } = await call(state, { customerId: CUSTOMER_ID });
+    expect(res.status).toBe(404);
+    expect(body.error).toMatch(/hittades inte/i);
+  });
+
+  it("skriver inget till kundtabellerna", async () => {
+    await call(configState([PROFILE]), { customerId: CUSTOMER_ID });
+    expect(fake.inserted["customers"]).toBeUndefined();
+    expect(fake.inserted["customer_profiles"]).toBeUndefined();
+  });
+});
