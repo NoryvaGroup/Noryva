@@ -53,7 +53,7 @@ Svara endast med JSON enligt schemat.
 const QUOTE_BOUNDARIES = [
   /^\s*>/m,
   /^\s*-{2,}\s*(?:original(?: message)?|ursprungligt meddelande)\s*-{2,}\s*$/im,
-  /^\s*(?:on|den)\s+.+(?:wrote|skrev):\s*$/im,
+  /^\s*(?:on|den)\s+.+(?:wrote|skrev).*:\s*$/im,
   /^\s*(?:from|från):\s*.+$/im,
   /^\s*(?:mvh|med vänlig hälsning|vänliga hälsningar|best regards)[,!]?\s*$/im,
 ];

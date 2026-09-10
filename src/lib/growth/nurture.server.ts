@@ -12,7 +12,6 @@ import { assertExecutableMode } from "@/lib/ai-sales/execution-mode";
 import { classifyReplySemantic } from "@/lib/ai-sales/reply-reasoning.server";
 import type { ReasoningDeps } from "@/lib/agents/reasoning.server";
 import { redactReplyBody } from "@/lib/ai-sales/reply-redact";
-import { redactText } from "@/lib/ai-sales/context";
 import {
   applyReplyToNurture,
   buildNurturePlan,

@@ -460,6 +460,8 @@ const AI_ENV = {
   NORYVA_GROWTH_API_SECRET: SECRET,
   AI_SALES_ASSISTANT_ENABLED: "true",
   LOVABLE_API_KEY: "test-key",
+  // Reply-tester får aldrig använda en verklig OpenAI-nyckel från testprocessen.
+  OPENAI_API_KEY: "",
 };
 
 function withEnv(req: Request, env: Record<string, string> = AI_ENV) {
@@ -1188,7 +1190,7 @@ describe("register-nurture-reply-test", () => {
     expect(body.effect.stop).toBe(true);
     expect(body.effect.humanTakeover).toBe(false);
     expect(body.nurtureStatus).toBe("cancelled");
-    expect(body.outcome).toBe("replied");
+    expect(body.outcome).toBeNull();
     expect(body.notificationSent).toBe(false);
     expect(body.externalEffect).toBe(false);
   });
@@ -1205,27 +1207,27 @@ describe("register-nurture-reply-test", () => {
     expect(body.externalEffect).toBe(false);
   });
 
-  it("positivt svar ger uppgraderingssignal utan notifiering", async () => {
+  it("positiva keywords utan semantisk modellbedömning uppgraderar inte", async () => {
     const { body } = await replyNurture(nurtureState(INCOMPLETE_ANSWERS), {
       leadId: LEAD_ID,
       body: "Vi är intresserade, berätta mer.",
       makeContext: MAKE_CONTEXT,
     });
-    expect(body.effect.upgradeSignal).toBe(true);
-    expect(body.outcome).toBe("replied");
+    expect(body.effect.upgradeSignal).toBe(false);
+    expect(body.outcome).toBeNull();
     expect(body.newIntent.level).toBeDefined();
     expect(body.notificationSent).toBe(false);
     expect(body.externalEffect).toBe(false);
   });
 
-  it("mötesvilja ger uppgraderingssignal och meeting-utfall", async () => {
+  it("möteskeywords utan semantisk modellbedömning skapar inget meeting-utfall", async () => {
     const { body } = await replyNurture(nurtureState(INCOMPLETE_ANSWERS), {
       leadId: LEAD_ID,
       body: "Kan vi boka ett möte nästa vecka?",
     });
     expect(body.classification.intent).toBe("vill_boka");
-    expect(body.effect.upgradeSignal).toBe(true);
-    expect(body.outcome).toBe("meeting_booked");
+    expect(body.effect.upgradeSignal).toBe(false);
+    expect(body.outcome).toBeNull();
     expect(body.externalEffect).toBe(false);
   });
 
