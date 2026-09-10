@@ -157,6 +157,10 @@ export async function dueLeadRemindersCore(
     if (customer.recipients.length === 0) {
       reasons.push("Kundens profil saknar sparade mottagare.");
     }
+    if (staleClaim) {
+      reasons.push("Tidigare hämtning har fastnat – kräver manuell avstämning, ingen autoretry.");
+    }
+
 
     reminders.push({
       leadId: String(lead["id"]),
