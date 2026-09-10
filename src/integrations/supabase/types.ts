@@ -1120,6 +1120,69 @@ export type Database = {
           },
         ]
       }
+      lead_reminder_deliveries: {
+        Row: {
+          attempt_id: string | null
+          claimed_at: string | null
+          created_at: string
+          customer_id: string | null
+          failed_at: string | null
+          failure_reason: string
+          id: string
+          kind: string
+          lead_id: string
+          sent_at: string | null
+          status: string
+          transport_message_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          attempt_id?: string | null
+          claimed_at?: string | null
+          created_at?: string
+          customer_id?: string | null
+          failed_at?: string | null
+          failure_reason?: string
+          id?: string
+          kind?: string
+          lead_id: string
+          sent_at?: string | null
+          status?: string
+          transport_message_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          attempt_id?: string | null
+          claimed_at?: string | null
+          created_at?: string
+          customer_id?: string | null
+          failed_at?: string | null
+          failure_reason?: string
+          id?: string
+          kind?: string
+          lead_id?: string
+          sent_at?: string | null
+          status?: string
+          transport_message_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_reminder_deliveries_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_reminder_deliveries_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leads: {
         Row: {
           contacted_at: string | null
@@ -1500,8 +1563,25 @@ export type Database = {
         Args: { p_lead_id: string; p_stale_seconds?: number }
         Returns: string
       }
+      claim_lead_reminder: {
+        Args: {
+          p_kind?: string
+          p_lead_id: string
+          p_older_than_hours?: number
+          p_stale_claim_minutes?: number
+        }
+        Returns: Json
+      }
       claim_nurture_review: {
         Args: { p_review_id: string; p_source_revision?: string }
+        Returns: Json
+      }
+      complete_lead_reminder: {
+        Args: {
+          p_attempt_id: string
+          p_reminder_id: string
+          p_transport_message_id: string
+        }
         Returns: Json
       }
       complete_nurture_review: {
@@ -1509,6 +1589,15 @@ export type Database = {
           p_attempt_id: string
           p_review_id: string
           p_transport_message_id: string
+        }
+        Returns: Json
+      }
+      fail_lead_reminder: {
+        Args: {
+          p_attempt_id: string
+          p_outcome: string
+          p_reason: string
+          p_reminder_id: string
         }
         Returns: Json
       }
