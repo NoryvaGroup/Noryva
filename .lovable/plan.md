@@ -1,55 +1,19 @@
-# Första riktiga AI-agenten i TEST (OpenAI, inte Lovable AI)
+# Semantisk bedömning av nurture-svar
 
-Målet: Sales-agenten och Orchestratorn får ett resonemangslager som drivs direkt av OpenAI:s Responses API med en egen serverhemlighet. Allt förblir TEST-läge, allt kundnära går till manuell granskning, ingenting skickas ut.
+## Mål
+Ett nytt nurture-svar ska bara skapa en positiv uppgraderingssignal när just den nya, ociterade svarstexten tydligt uttrycker köpintresse eller vilja att gå vidare. Befintlig legitim historik lämnas orörd, och TEST/REVIEW får fortsatt inga externa effekter.
 
-## Du behöver göra en sak själv
+## Ändringar
+- Lägg en liten server-only reply-bedömare bredvid befintlig AI-infrastruktur och återanvänd dess OpenAI Responses-anrop, modell, runtime-secret, metadata och säkra fallbackmönster.
+- Separera den nya svarsdelen från citerad mailhistorik/signatur innan PII-maskering och analys.
+- Kör deterministiska säkerhetsregler först för avböjande/opt-out, juridik, klagomål, pris och förhandling.
+- För övriga relevanta svar: högst ett strikt strukturerat LLM-anrop som klassificerar aktuell text. Neutral text ger ingen uppgradering. Vid saknad nyckel eller modellfel används en konservativ fallback som aldrig gissar köpintresse.
+- Låt nurture-effekten och eventuellt `meeting_booked`-utfall styras av den aktuella bedömningen. Ett vanligt eller neutralt svar får inte skapa positiv outcome-signal.
+- Skriv aktuell `upgrade_signal` från det nya svaret i stället för att låta en gammal testflagga maskera resultatet. Historiska riktiga outcomes raderas eller omskrivs inte.
+- Behåll `externalEffect=false` och `notificationSent=false` samt alla befintliga HMAC-, idempotens- och TEST/REVIEW-spärrar.
 
-`OPENAI_API_KEY` finns inte i projektet i dag. Lägg in den under Projektinställningar → Secrets. Utan nyckeln kraschar ingenting: agenten faller automatiskt tillbaka till dagens deterministiska logik och markerar det i resultatet.
-
-## Vad som byggs
-
-**1. Nytt resonemangslager `src/lib/agents/reasoning.server.ts`**
-- Anropar `https://api.openai.com/v1/responses` direkt, server-side, med `OPENAI_API_KEY` läst via befintlig `runtimeEnvFromRequest`/`process.env`-hjälp.
-- Max **ett** anrop per uppgift. Ingen retry, ingen kedja, inga verktyg.
-- Strikt JSON-schema (`text.format: json_schema`, `strict: true`), varje fält obligatoriskt, inga extra fält.
-- Timeout via abort efter en fast gräns (default 20 s, konfigurerbar med env).
-- Vid saknad nyckel, timeout, HTTP-fel, ogiltig JSON eller schemafel: deterministisk fallback till dagens `runSalesWorker`, med `usedFallback: true` och orsakskod.
-- Prompten får endast PII-fri kontext (återanvänder befintlig maskering i `ai-sales/context.ts` + `redactText`).
-
-**2. Orchestrator: regler först, LLM bara vid oklarhet**
-- `routeEvent()` är oförändrad för kända event.
-- Ny funktion som endast används när ett event/uppdrag är oklassificerbart; den kan fråga modellen om vilken specialist/uppgiftstyp som passar, men resultatet valideras mot befintliga tillåtna värden. Faller annars tillbaka till dagens regelval.
-- Kända event (`new_lead`, `delivery_error`, `lead_followup_due`) ger fortfarande **0 LLM-anrop**.
-
-**3. Sales-agenten får använda modellen**
-- `buildTaskResult` i `src/lib/agents/run.server.ts` kör LLM-vägen för Sales när nyckel finns och läget är test; annars deterministiskt.
-- Resultatet passerar befintlig `verifyTaskResult` som förut. Underkänt utkast blockeras av verifieringen, inte av modellen.
-- Kundnära uppgifter hamnar fortfarande i `awaiting_review` med `pending` godkännande.
-
-**4. Kostnads- och försöksfält + audit**
-- Resultatet får `llm: { used, model, attempts (0/1), usedFallback, fallbackReason, latencyMs, inputTokens, outputTokens }`.
-- Nya auditrader `llm_call` (actor `agent`) med endast metadata: modell, försök, fallback-orsak, tokens, latens. Ingen prompt, inget svar, ingen lead-PII.
-
-**5. Spärrar som behålls oförändrade**
-- Endast `execution_mode = "test"` behandlas; övrigt nekas som i dag.
-- Ingen mail, SMS, bokning, Make-callback eller annan extern effekt.
-- Ingen ändring i Growth-flöden, nurture, publika formulär, produktionsroutes eller UI/design.
-
-## Tester
-
-Nya tester i `src/lib/agents/reasoning.server.test.ts` samt tillägg i befintliga agenttester, alla med mockad `fetch`:
-- känt event ger 0 LLM-anrop, Sales-körning ger exakt 1
-- saknad `OPENAI_API_KEY` → deterministisk fallback, inget krasch, inget nätverksanrop
-- HTTP-fel och ogiltigt schema → fallback med orsakskod
-- timeout → fallback, exakt ett försök
-- audit och svar innehåller ingen PII och ingen nyckel
-- godkännandespärren: Sales hamnar i `awaiting_review`/`pending`
-- `execution_mode != test` nekas fortfarande
-
-Därefter körs hela testsviten och typkontroll. Ingen publicering.
-
-## Filer som berörs
-
-- ny: `src/lib/agents/reasoning.server.ts`, `src/lib/agents/reasoning.server.test.ts`
-- ändras: `src/lib/agents/run.server.ts`, `src/lib/agents/tasks.ts` (endast ny valfri oklarhets-routing), `docs/agent-hq.md`
-- eventuellt: små tillägg i `src/lib/agents/run.server.test.ts`
+## Tekniska detaljer
+- Utöka befintlig reply-klassificering med explicit semantisk metadata och strikt schema.
+- Skicka runtime-env/requestberoenden genom befintlig serverkedja utan klientexponering.
+- Lägg fokuserade tester för neutral `hej/test`, tydligt gå-vidare-intresse, verklig bokningsvilja, avböjande och neutral ny text ovanför citerad gammal mötestext.
+- Kör relevanta tester, hela testsviten och typkontroll. Ingen publicering.
