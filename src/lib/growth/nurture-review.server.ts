@@ -682,6 +682,11 @@ export async function claimNurtureReviewCore(
     return { ok: false as const, status: 409, code: String(result["code"] ?? "not_claimable") };
   }
 
+  // Avsändaridentitet läses read-only i samma svar så att Make slipper en
+  // extra signerad customer-config-läsning. Ingen fallback, inga credentials.
+  const mailChannel = await readMailChannel(ctx, String(result["customerId"] ?? ""));
+  const outbound = evaluateOutboundIdentity(mailChannel);
+
   return {
     ok: true as const,
     status: 200,
@@ -692,6 +697,9 @@ export async function claimNurtureReviewCore(
     conversationId: result["conversationId"],
     recipientEmail: result["recipientEmail"],
     replyTo: NURTURE_REPLY_TO,
+    mailChannel,
+    outboundIdentityAllowed: outbound.allowed,
+    outboundIdentityReason: outbound.reason,
     subject: result["subject"],
     body: result["body"],
     contentFingerprint: result["contentFingerprint"],
