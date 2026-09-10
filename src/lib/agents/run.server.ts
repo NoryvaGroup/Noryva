@@ -6,9 +6,10 @@
  * bokningar, inga Make-anrop – allt är deterministiskt och internt.
  */
 import { defaultProfile, rowToProfile } from "@/lib/ai-sales/profile";
+import { enrichSalesResult, type ReasoningDeps } from "./reasoning.server";
 import { runSalesWorker, verifyTaskResult, type TaskStatus } from "./tasks";
 
-export type AgentRunContext = { supabase: any };
+export type AgentRunContext = { supabase: any; reasoning?: ReasoningDeps };
 
 export const AGENT_TASK_COLUMNS =
   "id, customer_id, lead_id, assigned_agent, task_type, priority, status, instructions, result, verification_status, verification_reasons, requires_approval, approval_status, source_event, idempotency_key, execution_mode, created_at, updated_at";
@@ -49,13 +50,29 @@ export async function buildTaskResult(
     const values: Record<string, string> = {};
     for (const [k, v] of Object.entries(answers)) values[k] = String(v ?? "");
 
-    return runSalesWorker({
+    const companyName = customer?.name ?? "Noryva";
+    const deterministic = runSalesWorker({
       taskType: task["task_type"],
       industry: lead.industry ?? "",
       values,
       profile,
-      companyName: customer?.name ?? "Noryva",
-    }) as unknown as Record<string, unknown>;
+      companyName,
+    });
+
+    // Ett (1) LLM-anrop max. Utan nyckel eller vid minsta fel behålls det
+    // deterministiska resultatet. Utkastet går ändå till mänsklig granskning.
+    const enriched = await enrichSalesResult(
+      deterministic,
+      {
+        taskType: task["task_type"],
+        industry: lead.industry ?? "",
+        companyName,
+        priority: deterministic.qualification.priority,
+        values,
+      },
+      ctx.reasoning ?? {},
+    );
+    return enriched as unknown as Record<string, unknown>;
   }
 
   const { data: lead } = await ctx.supabase
@@ -153,6 +170,22 @@ export async function processAgentTaskCore(
   });
 
   const result = await buildTaskResult(ctx, task);
+  const llm = result["llm"] as Record<string, unknown> | undefined;
+  if (llm) {
+    // Endast metadata: modell, försök, kostnadssignaler. Aldrig prompt eller svar.
+    await audit(ctx, task["id"], "llm_call", "agent", {
+      model: llm["model"],
+      promptVersion: llm["promptVersion"],
+      attempts: llm["attempts"],
+      used: llm["used"],
+      usedFallback: llm["usedFallback"],
+      fallbackReason: llm["fallbackReason"],
+      latencyMs: llm["latencyMs"],
+      inputTokens: llm["inputTokens"],
+      outputTokens: llm["outputTokens"],
+      externalEffect: false,
+    });
+  }
   const nextStatus: TaskStatus = task["requires_approval"] ? "awaiting_review" : "done";
 
   const { error: saveErr } = await ctx.supabase

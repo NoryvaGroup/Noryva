@@ -90,3 +90,24 @@ uppgift, med samma säkerhetslager och samma secret (ingen ny secret).
 4. Kostnadstak och budgetkoppling om Orchestrator/Sales någon gång ska använda
    LLM.
 5. Reconciliation-vy för uppgifter som fastnar i `in_progress`.
+
+## Resonemangslager (OpenAI, TEST-only)
+
+`src/lib/agents/reasoning.server.ts` anropar OpenAI Responses API direkt
+(`https://api.openai.com/v1/responses`) med serverhemligheten `OPENAI_API_KEY`.
+Lovable AI Gateway används inte.
+
+Regler:
+- Max **1** anrop per uppgift. Ingen retry, inga verktyg, ingen kedja.
+- Strikt JSON-schema (`strict: true`). Ogiltigt svar → deterministisk fallback.
+- Timeout (default 20 s) → deterministisk fallback, fortfarande ett försök.
+- Saknad nyckel → ingen nätverkstrafik alls, deterministisk fallback.
+- Prompten är PII-fri (PII-nycklar filtreras bort och fri text maskeras).
+- Orchestratorn är regelstyrd; kända event kostar 0 LLM-anrop. Endast oklara
+  event kan gå via `classifyUnclearEvent`, vars svar valideras mot tillåtna
+  agenter/uppgiftstyper.
+- Sales-resultatet bär `llm: { used, model, promptVersion, attempts, usedFallback,
+  fallbackReason, latencyMs, inputTokens, outputTokens }` och loggas som
+  auditeventet `llm_call` med endast metadata.
+- Kundnära resultat går fortfarande till `awaiting_review` med manuellt
+  godkännande. Inga mail, bokningar, Make-callbacks eller andra externa effekter.
