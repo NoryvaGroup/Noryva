@@ -1284,3 +1284,120 @@ describe("customer-config (read-only)", () => {
     expect(fake.inserted["customer_profiles"]).toBeUndefined();
   });
 });
+
+describe("due-lead-reminders (read-only)", () => {
+  const OLD = "2026-09-01T08:00:00.000Z";
+  const NEW = "2026-09-09T23:00:00.000Z";
+  const NOW = new Date("2026-09-10T00:00:00.000Z");
+
+  function reminderState(leads: Row[], profiles: Row[] = []) {
+    return {
+      leads,
+      customers: [{ id: CUSTOMER_ID, name: "Testkund", industry: "varuautomater" }],
+      customer_profiles: profiles,
+      growth_lead_state: [] as Row[],
+      inbound_webhook_events: [] as Row[],
+    } as Record<string, Row[]>;
+  }
+
+  const OLD_NEW_LEAD: Row = {
+    id: LEAD_ID,
+    customer_id: CUSTOMER_ID,
+    created_at: OLD,
+    customer_status: "Ny",
+    contacted_at: null,
+  };
+
+  async function call(state: Record<string, Row[]>, body: unknown = {}) {
+    const res = await handleGrowthApi(
+      "due-lead-reminders",
+      signedRequest("due-lead-reminders", body),
+      deps(state, NOW),
+    );
+    return { res, body: (await res.json()) as any };
+  }
+
+  it("kräver giltig signatur", async () => {
+    const res = await handleGrowthApi(
+      "due-lead-reminders",
+      signedRequest("due-lead-reminders", {}, { secret: "fel" }),
+      deps(reminderState([OLD_NEW_LEAD])),
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it("avvisar ogiltiga eller okända fält", async () => {
+    expect((await call(reminderState([]), { olderThanHours: 0 })).res.status).toBe(400);
+    expect((await call(reminderState([]), { limit: 500 })).res.status).toBe(400);
+    expect((await call(reminderState([]), { customerId: CUSTOMER_ID })).res.status).toBe(400);
+  });
+
+  it("returnerar leads äldre än cutoff med kundens sparade mottagare", async () => {
+    const state = reminderState(
+      [OLD_NEW_LEAD],
+      [{ customer_id: CUSTOMER_ID, notify_recipients: ["info@noryva.se"] }],
+    );
+    state["growth_lead_state"] = [{ lead_id: LEAD_ID, intent_level: "HÖG" }];
+    const { res, body } = await call(state);
+    expect(res.status).toBe(200);
+    expect(body.olderThanHours).toBe(24);
+    expect(body.count).toBe(1);
+    expect(body.externalEffect).toBe(false);
+    expect(body.notificationSent).toBe(false);
+    const item = body.reminders[0];
+    expect(item).toMatchObject({
+      leadId: LEAD_ID,
+      customerId: CUSTOMER_ID,
+      customerName: "Testkund",
+      createdAt: OLD,
+      customerStatus: "Ny",
+      contactedAt: null,
+      intentLevel: "HÖG",
+      prioritySource: "growth_lead_state",
+      reminderRecommended: true,
+      notifyRecipients: ["info@noryva.se"],
+      recipientsMissing: false,
+    });
+    expect(typeof item.reason).toBe("string");
+  });
+
+  it("exkluderar leads som redan är Kontaktad och för nya leads", async () => {
+    const { body } = await call(
+      reminderState([
+        { ...OLD_NEW_LEAD, id: "lead-kontaktad", customer_status: "Kontaktad", contacted_at: OLD },
+        { ...OLD_NEW_LEAD, id: "lead-nytt", created_at: NEW },
+      ]),
+    );
+    expect(body.count).toBe(0);
+  });
+
+  it("respekterar egen cutoff och limit", async () => {
+    const state = reminderState([
+      OLD_NEW_LEAD,
+      { ...OLD_NEW_LEAD, id: "lead-2" },
+      { ...OLD_NEW_LEAD, id: "lead-3" },
+    ]);
+    const { body } = await call(state, { olderThanHours: 1, limit: 2 });
+    expect(body.olderThanHours).toBe(1);
+    expect(body.count).toBe(2);
+  });
+
+  it("gissar aldrig mottagare när profilen saknas", async () => {
+    const { body } = await call(reminderState([OLD_NEW_LEAD]));
+    const item = body.reminders[0];
+    expect(item.notifyRecipients).toEqual([]);
+    expect(item.recipientsMissing).toBe(true);
+    expect(item.reason).toMatch(/saknar sparade mottagare/i);
+    expect(item.prioritySource).toBe("unknown");
+    expect(item.reminderRecommended).toBeNull();
+  });
+
+  it("ändrar aldrig lead-status och skriver inget", async () => {
+    const state = reminderState([OLD_NEW_LEAD]);
+    await call(state);
+    expect(state["leads"]![0]!["customer_status"]).toBe("Ny");
+    expect(state["leads"]![0]!["contacted_at"]).toBeNull();
+    expect(fake.inserted["leads"]).toBeUndefined();
+    expect(fake.inserted["customer_profiles"]).toBeUndefined();
+  });
+});
