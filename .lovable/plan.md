@@ -1,19 +1,25 @@
-# Semantisk bedömning av nurture-svar
+# Shadow Review Mode för Agent Core
 
 ## Mål
-Ett nytt nurture-svar ska bara skapa en positiv uppgraderingssignal när just den nya, ociterade svarstexten tydligt uttrycker köpintresse eller vilja att gå vidare. Befintlig legitim historik lämnas orörd, och TEST/REVIEW får fortsatt inga externa effekter.
+Skapa en separat HMAC-skyddad TEST-endpoint som läser ett litet antal nyliga, verkliga leads och fyller Agent HQ-kön med idempotenta Sales-uppgifter. Den kör inga workers, AI-anrop eller externa actions och påverkar inte scenario 7276182 eller befintliga kundflöden.
 
-## Ändringar
-- Lägg en liten server-only reply-bedömare bredvid befintlig AI-infrastruktur och återanvänd dess OpenAI Responses-anrop, modell, runtime-secret, metadata och säkra fallbackmönster.
-- Separera den nya svarsdelen från citerad mailhistorik/signatur innan PII-maskering och analys.
-- Kör deterministiska säkerhetsregler först för avböjande/opt-out, juridik, klagomål, pris och förhandling.
-- För övriga relevanta svar: högst ett strikt strukturerat LLM-anrop som klassificerar aktuell text. Neutral text ger ingen uppgradering. Vid saknad nyckel eller modellfel används en konservativ fallback som aldrig gissar köpintresse.
-- Låt nurture-effekten och eventuellt `meeting_booked`-utfall styras av den aktuella bedömningen. Ett vanligt eller neutralt svar får inte skapa positiv outcome-signal.
-- Skriv aktuell `upgrade_signal` från det nya svaret i stället för att låta en gammal testflagga maskera resultatet. Historiska riktiga outcomes raderas eller omskrivs inte.
-- Behåll `externalEffect=false` och `notificationSent=false` samt alla befintliga HMAC-, idempotens- och TEST/REVIEW-spärrar.
+## Implementation
+- Lägg till `POST /api/public/agents/shadow-review-test` i det befintliga Growth/Agent-säkerhetslagret.
+- Acceptera en strikt payload för `executionMode: "test"`, ett begränsat tidsfönster och `limit` högst 10; andra körlägen eller extra fält avvisas.
+- Läs endast `id`, `customer_id` och `created_at` från nyliga leads, sorterade med stabil ordning.
+- Hoppa över leads som saknas, saknar kundbindning eller vars kund inte finns. Ingen data gissas.
+- Återanvänd `routeEvent({ type: "new_lead" })` och befintlig dispatch/idempotens för att skapa `sales_draft` i `queued`, `execution_mode=test`, `requires_approval=true`, `approval_status=pending`.
+- Använd en shadow-specifik occurrence/idempotensnyckel så polling inte skapar dubbletter och vanliga dispatch-events inte störs.
+- Logga endast säker auditmetadata. Returnera endast räknare och task-id:n: `scanned`, `created`, `duplicate`, `skipped`, `taskIds`, `externalEffect:false`.
 
-## Tekniska detaljer
-- Utöka befintlig reply-klassificering med explicit semantisk metadata och strikt schema.
-- Skicka runtime-env/requestberoenden genom befintlig serverkedja utan klientexponering.
-- Lägg fokuserade tester för neutral `hej/test`, tydligt gå-vidare-intresse, verklig bokningsvilja, avböjande och neutral ny text ovanför citerad gammal mötestext.
-- Kör relevanta tester, hela testsviten och typkontroll. Ingen publicering.
+## Säkerhet
+- Återanvänd `NORYVA_GROWTH_API_SECRET`, timestamp, HMAC, replay-skydd och throttling; ingen ny secret.
+- Ingen lead-payload, e-post, telefon eller annan PII läses eller returneras.
+- Ingen ändring av leads, CRM, Growth/nurture, leveransstatus eller mailstatus.
+- Ingen worker, OpenAI-körning, Make-callback eller annan nätverkseffekt från batchen.
+- Gör idempotensen robust även vid samtidiga insertförsök genom att behandla unik-konflikt som duplicate.
+
+## Tester och dokumentation
+- Lägg fokuserade tester för HMAC/replay, max 10, dubletter, saknad lead/kund, fel körläge, PII-fritt svar/audit och permanent `externalEffect:false`.
+- Dokumentera endpointens TEST/REVIEW-kontrakt och att processkedjan körs separat.
+- Kör hela testsviten och typkontroll. Ingen publicering eller deploy.
