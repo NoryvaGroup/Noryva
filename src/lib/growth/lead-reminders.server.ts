@@ -179,6 +179,9 @@ export async function dueLeadRemindersCore(
       contactUrl: actionSecret
         ? buildContactUrl({ secret: actionSecret, leadId: String(lead["id"]), now })
         : null,
+      reminderStatus,
+      claimable: !staleClaim,
+      needsManualReview: staleClaim,
     });
   }
 
