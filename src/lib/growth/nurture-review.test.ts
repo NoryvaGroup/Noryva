@@ -385,6 +385,40 @@ function makeSupabase() {
         found["result"] = args["p_result"] ?? {};
         return { data: { ok: true }, error: null };
       }
+      case "reconcile_nurture_review": {
+        const r = find();
+        if (!r) return { data: { ok: false, code: "not_found" }, error: null };
+        const outcome = String(args["p_outcome"] ?? "").toUpperCase();
+        const msg = String(args["p_transport_message_id"] ?? "").trim();
+        if (r["status"] === "sent") {
+          if (outcome !== "SENT")
+            return { data: { ok: false, code: "invalid_status", status: r["status"] }, error: null };
+          if ((r["transport_message_id"] ?? "") !== msg)
+            return { data: { ok: false, code: "transport_mismatch" }, error: null };
+          return {
+            data: { ok: true, code: "already_sent", duplicate: true, status: "sent", releasedForRetry: false },
+            error: null,
+          };
+        }
+        if (!["claimed", "unknown"].includes(r["status"]))
+          return { data: { ok: false, code: "invalid_status", status: r["status"] }, error: null };
+        if (outcome === "UNKNOWN") {
+          Object.assign(r, { status: "unknown", failure_reason: args["p_reason"] || "Osäker leverans." });
+          return { data: { ok: true, code: "unknown", status: "unknown", duplicate: false }, error: null };
+        }
+        if (outcome === "NOT_SENT") {
+          Object.assign(r, { status: "failed", failure_reason: args["p_reason"] || "Bekräftat ej skickat." });
+          return { data: { ok: true, code: "not_sent", status: "failed", duplicate: false }, error: null };
+        }
+        if (!msg) return { data: { ok: false, code: "missing_message_id" }, error: null };
+        Object.assign(r, { status: "sent", transport_message_id: msg, failure_reason: "" });
+        const ns = (state["growth_nurture_state"] ??= []).find((x) => x["lead_id"] === r["lead_id"]);
+        if (ns) ns["steps_taken"] = (ns["steps_taken"] ?? 0) + 1;
+        return {
+          data: { ok: true, code: "sent", status: "sent", duplicate: false, transportMessageId: msg },
+          error: null,
+        };
+      }
       case "fail_nurture_review": {
         const r = find();
         if (!r) return { data: { ok: false, code: "not_found" }, error: null };
