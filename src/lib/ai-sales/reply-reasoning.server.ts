@@ -55,6 +55,7 @@ const QUOTE_BOUNDARIES = [
   /^\s*-{2,}\s*(?:original(?: message)?|ursprungligt meddelande)\s*-{2,}\s*$/im,
   /^\s*(?:on|den)\s+.+(?:wrote|skrev):\s*$/im,
   /^\s*(?:from|från):\s*.+$/im,
+  /^\s*(?:mvh|med vänlig hälsning|vänliga hälsningar|best regards)[,!]?\s*$/im,
 ];
 
 /** Tar bort vanlig citerad mailhistorik och signatur från klassificeringsunderlaget. */
@@ -111,7 +112,15 @@ function semanticClassification(
   explicitMeetingIntent: boolean,
   safety: ReplyClassification,
 ): ReplyClassification {
-  const guardedIntent = safety.escalate ? safety.intent : intent;
+  const guardedIntent = safety.escalate
+    ? safety.intent
+    : explicitMeetingIntent
+      ? "vill_boka"
+      : positivePurchaseIntent
+        ? "intresserad"
+        : intent === "invandning"
+          ? "invandning"
+          : "ovrigt";
   return {
     intent: explicitMeetingIntent ? "vill_boka" : guardedIntent,
     escalate: safety.escalate,

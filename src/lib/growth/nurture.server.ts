@@ -11,6 +11,7 @@
 import { assertExecutableMode } from "@/lib/ai-sales/execution-mode";
 import { classifyReplySemantic } from "@/lib/ai-sales/reply-reasoning.server";
 import type { ReasoningDeps } from "@/lib/agents/reasoning.server";
+import { redactReplyBody } from "@/lib/ai-sales/reply-redact";
 import { redactText } from "@/lib/ai-sales/context";
 import {
   applyReplyToNurture,
@@ -394,7 +395,7 @@ export async function registerNurtureReplyCore(
   const { lead } = await loadLeadBundle(ctx, input.leadId, {
     makeContext: input.makeContext ?? null,
   });
-  const redacted = redactText(input.body ?? "");
+  const redacted = redactReplyBody(input.body ?? "", lead.payload);
   const semantic = await classifyReplySemantic(redacted, input.reasoning ?? {});
   const classification = semantic.classification;
   const effect = applyReplyToNurture(classification);
