@@ -13,6 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  createImprovementReview,
   decideAgentTask,
   dispatchAgentEvent,
   listAgentTasks,
@@ -64,7 +65,12 @@ const SPECIALISTS: { key: AgentName; description: string; active: boolean }[] = 
       "Kvalificering och internt utkast från befintlig leaddata. Använder OpenAI-resonemang i testläge, med deterministisk reserv om något fallerar.",
     active: true,
   },
-  { key: "systems_qa", description: "Verifierar resultat mot regler och kontrollerar leveransstatus.", active: true },
+  {
+    key: "systems_qa",
+    description:
+      "Verifierar resultat mot regler, kontrollerar leveransstatus och gör intern systemgranskning (CTO) på aggregerad drifttelemetri. Föreslår endast – ändrar aldrig kod eller data.",
+    active: true,
+  },
   { key: "customer_success", description: "Uppföljning och påminnelser. Ej aktiverad.", active: false },
   { key: "growth", description: "Experiment och optimeringsförslag. Ej aktiverad.", active: false },
   { key: "admin_finance", description: "Kostnadsöversikt och rapportering. Ej aktiverad.", active: false },
@@ -82,7 +88,22 @@ type LlmMetaRow = {
   outputTokens?: number;
 };
 
+type ImprovementFindingRow = { area?: string; observation?: string; severity?: string };
+type ImprovementRecommendationRow = {
+  title?: string;
+  priority?: string;
+  evidence?: string;
+  risk?: string;
+  suggestedAction?: string;
+};
+
 type TaskResultRow = {
+  kind?: string;
+  summary?: string;
+  healthScore?: number;
+  findings?: ImprovementFindingRow[];
+  recommendations?: ImprovementRecommendationRow[];
+  implementationPrompt?: string;
   nextStep?: string;
   internalNotes?: string[];
   draft?: { subject?: string; body?: string };
@@ -118,6 +139,46 @@ function ResultDetails({ result }: { result: TaskResultRow }) {
   const llm = result.llm;
   return (
     <div className="mt-2 space-y-2 text-sm">
+      {result.kind === "cto_improvement_review" ? (
+        <div className="space-y-2">
+          <p>
+            <span className="text-muted-foreground">Hälsopoäng:</span> {result.healthScore ?? "–"}/100
+          </p>
+          {result.summary ? <p>{result.summary}</p> : null}
+          {Array.isArray(result.findings) && result.findings.length > 0 ? (
+            <ul className="list-disc space-y-0.5 pl-5 text-muted-foreground">
+              {result.findings.map((f, i) => (
+                <li key={`${f.area}-${i}`}>
+                  <span className="font-medium text-foreground">{f.area}</span> ({f.severity}):{" "}
+                  {f.observation}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {Array.isArray(result.recommendations) && result.recommendations.length > 0 ? (
+            <ul className="space-y-2">
+              {result.recommendations.map((r, i) => (
+                <li key={`${r.title}-${i}`} className="rounded-lg border border-border p-3">
+                  <p className="font-medium">
+                    {r.title} <span className="text-xs text-muted-foreground">({r.priority})</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground">Underlag: {r.evidence}</p>
+                  <p className="text-xs text-muted-foreground">Risk: {r.risk}</p>
+                  <p className="text-xs">Förslag: {r.suggestedAction}</p>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {result.implementationPrompt ? (
+            <div>
+              <p className="text-muted-foreground">Färdig instruktion att godkänna:</p>
+              <pre className="whitespace-pre-wrap rounded-lg border border-border bg-background p-3 text-xs">
+                {result.implementationPrompt}
+              </pre>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       {result.draft?.subject ? (
         <p>
           <span className="text-muted-foreground">Ämne:</span> {result.draft.subject}
@@ -154,6 +215,7 @@ function AgentHqPage() {
   const run = useServerFn(runAgentTask);
   const verify = useServerFn(verifyAgentTask);
   const decide = useServerFn(decideAgentTask);
+  const improvement = useServerFn(createImprovementReview);
   const queryClient = useQueryClient();
   const [leadId, setLeadId] = useState("");
   const [message, setMessage] = useState("");
@@ -241,6 +303,20 @@ function AgentHqPage() {
                 {type}
               </button>
             ))}
+          </div>
+          <div className="mt-4 border-t border-border pt-4">
+            <p className="mb-2 text-sm text-muted-foreground">
+              Intern systemgranskning (CTO) läser endast aggregerad drifttelemetri – ingen kunddata.
+              En granskning per dygn. Den analyserar och föreslår, men ändrar aldrig kod eller data.
+            </p>
+            <button
+              type="button"
+              disabled={mutation.isPending}
+              onClick={() => mutation.mutate(() => improvement({}))}
+              className="rounded-full border border-border px-3 py-2 text-sm disabled:opacity-50"
+            >
+              Skapa systemgranskning
+            </button>
           </div>
           {message ? <p className="mt-3 text-sm text-muted-foreground">{message}</p> : null}
         </section>

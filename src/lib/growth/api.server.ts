@@ -376,6 +376,14 @@ async function runOperation(
       });
     }
 
+    case "agents-improvement-review-test": {
+      const { createImprovementReviewCore } = await import("@/lib/agents/improvement.server");
+      const result = await createImprovementReviewCore(ctx, {
+        executionMode: data.executionMode,
+      });
+      return withStatus(result.status, result.body);
+    }
+
     case "register-reviewed-nurture-reply": {
       const { registerReviewedNurtureReplyCore } = await import("./nurture-review.server");
       const result = await registerReviewedNurtureReplyCore(ctx, {

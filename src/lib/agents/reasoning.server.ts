@@ -319,3 +319,163 @@ export async function classifyUnclearEvent(
     return { ...fallback, llm: metaFallback("schema_error", 1, call.meta.latencyMs) };
   }
 }
+
+/* --------------------------------------- intern systemgranskning (CTO) */
+
+const IMPROVEMENT_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["summary", "healthScore", "findings", "recommendations", "implementationPrompt"],
+  properties: {
+    summary: { type: "string" },
+    healthScore: { type: "number" },
+    findings: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["area", "observation", "severity"],
+        properties: {
+          area: { type: "string" },
+          observation: { type: "string" },
+          severity: { type: "string" },
+        },
+      },
+    },
+    recommendations: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["title", "priority", "evidence", "risk", "suggestedAction"],
+        properties: {
+          title: { type: "string" },
+          priority: { type: "string" },
+          evidence: { type: "string" },
+          risk: { type: "string" },
+          suggestedAction: { type: "string" },
+        },
+      },
+    },
+    implementationPrompt: { type: "string" },
+  },
+} as const;
+
+const improvementSchema = z.object({
+  summary: z.string().trim().min(10).max(1200),
+  healthScore: z.number().min(0).max(100),
+  findings: z
+    .array(
+      z.object({
+        area: z.string().trim().min(2).max(80),
+        observation: z.string().trim().min(5).max(500),
+        severity: z.string().trim().min(1).max(20),
+      }),
+    )
+    .max(10),
+  recommendations: z
+    .array(
+      z.object({
+        title: z.string().trim().min(3).max(120),
+        priority: z.string().trim().min(1).max(20),
+        evidence: z.string().trim().min(3).max(500),
+        risk: z.string().trim().min(3).max(300),
+        suggestedAction: z.string().trim().min(3).max(500),
+      }),
+    )
+    .min(1)
+    .max(8),
+  implementationPrompt: z.string().trim().min(30).max(4000),
+});
+export type SystemImprovement = z.infer<typeof improvementSchema>;
+
+const IMPROVEMENT_SYSTEM = `Du är teknisk chef (CTO) för det svenska systemet Noryva och arbetar i TESTLÄGE.
+Du analyserar endast aggregerad driftstatistik – du ser aldrig kunddata.
+
+REGLER
+- Svara endast med JSON enligt schemat, på svenska.
+- Du får ALDRIG utföra något: du analyserar, prioriterar och föreslår.
+- "healthScore" är 0-100 där 100 är felfri drift.
+- "priority" och "severity" är ett av: låg, normal, hög.
+- "evidence" ska referera till konkreta siffror i telemetrin.
+- "implementationPrompt" är en färdig, avgränsad instruktion som en människa
+  senare kan godkänna och ge till Lovable för EN säker kodändring.
+- Hitta aldrig på siffror som saknas i telemetrin.`;
+
+export type ImprovementReasoningResult = SystemImprovement & {
+  generatedBy: "deterministic" | "llm";
+  llm: LlmMeta;
+};
+
+/** Konservativ reserv när modellen inte kan användas. Rent regelbaserad. */
+export function deterministicImprovement(telemetry: Record<string, any>): SystemImprovement {
+  const tasks = telemetry?.["tasks"] ?? {};
+  const failed = Number(tasks?.byStatus?.["failed"] ?? 0);
+  const awaiting = Number(tasks?.byStatus?.["awaiting_review"] ?? 0);
+  const fallbacks = Number(telemetry?.["events"]?.llmFallbacks ?? 0);
+  const unverified = Number(telemetry?.["inboundWebhooks"]?.unverified ?? 0);
+  const cost = Number(telemetry?.["aiCost"]?.estimatedCostTotal ?? 0);
+
+  const healthScore = Math.max(
+    0,
+    100 - failed * 10 - fallbacks * 3 - unverified * 5 - (awaiting > 20 ? 10 : 0),
+  );
+
+  return {
+    summary:
+      "Deterministisk systemgranskning utan modellanrop. Bedömningen bygger enbart på aggregerad drifttelemetri.",
+    healthScore,
+    findings: [
+      { area: "Uppgiftskö", observation: `${failed} misslyckade och ${awaiting} väntar granskning.`, severity: failed > 0 ? "hög" : "låg" },
+      { area: "AI-drift", observation: `${fallbacks} körningar föll tillbaka på deterministisk logik.`, severity: fallbacks > 0 ? "normal" : "låg" },
+      { area: "Inkommande webhookar", observation: `${unverified} anrop saknar verifierad signatur.`, severity: unverified > 0 ? "hög" : "låg" },
+      { area: "Kostnad", observation: `Uppskattad AI-kostnad totalt ${cost}.`, severity: "låg" },
+    ],
+    recommendations: [
+      {
+        title: "Gå igenom misslyckade och väntande uppgifter manuellt",
+        priority: failed > 0 ? "hög" : "låg",
+        evidence: `failed=${failed}, awaiting_review=${awaiting}`,
+        risk: "Ingen – endast läsning och manuell hantering.",
+        suggestedAction: "Granska köns äldsta poster i Agent HQ och avgör om de ska köras om eller avbrytas.",
+      },
+    ],
+    implementationPrompt:
+      "Analysera Noryvas agentkö och föreslå EN liten, säker backendändring som minskar antalet misslyckade uppgifter. Ändra inget innan en människa godkänt förslaget. Inga externa actions.",
+  };
+}
+
+/**
+ * Max ETT modellanrop per granskning. Vid minsta problem används den
+ * deterministiska reserven. Ingen retry-loop.
+ */
+export async function reasonSystemImprovement(
+  telemetry: Record<string, any>,
+  deps: ReasoningDeps = {},
+): Promise<ImprovementReasoningResult> {
+  const fallback = deterministicImprovement(telemetry);
+  const user = [
+    "Aggregerad systemtelemetri (ingen kunddata):",
+    JSON.stringify(telemetry).slice(0, 6000),
+  ].join("\n");
+
+  const call = await callOpenAiStructured(
+    IMPROVEMENT_SYSTEM,
+    user,
+    "system_improvement",
+    IMPROVEMENT_SCHEMA,
+    deps,
+  );
+  if (call.text === null) return { ...fallback, generatedBy: "deterministic", llm: call.meta };
+
+  try {
+    const parsed = improvementSchema.parse(JSON.parse(call.text));
+    return { ...parsed, generatedBy: "llm", llm: call.meta };
+  } catch {
+    return {
+      ...fallback,
+      generatedBy: "deterministic",
+      llm: metaFallback("schema_error", 1, call.meta.latencyMs),
+    };
+  }
+}

@@ -144,3 +144,24 @@ Regler:
   auditeventet `llm_call` med endast metadata.
 - Kundnära resultat går fortfarande till `awaiting_review` med manuellt
   godkännande. Inga mail, bokningar, Make-callbacks eller andra externa effekter.
+
+## CTO / Systems Improvement Agent (v1, TEST/REVIEW)
+
+Intern agent som granskar Noryva-systemet självt, inte ett lead.
+
+- Skapas via adminknappen "Skapa systemgranskning" i Agent HQ eller via
+  HMAC-endpointen `POST /api/public/agents/improvement-review-test`
+  (payload strikt `{ "executionMode": "test" }`). En granskning per dygn
+  (idempotensnyckel `internal_improvement:<YYYY-MM-DD>`), utan `lead_id`.
+- Körs med befintlig `processAgentTaskCore`: samma state machine, samma
+  atomiska claim och samma PII-fria audit (`task_started`, `llm_call`,
+  `result_saved`, `task_verified`).
+- Läser endast aggregerad drifttelemetri: agent_tasks-statusar,
+  agent_task_events-typer, ai_cost_events-summor, inbound_webhook_events
+  signaturandel och antal leads per leveransstatus. Aldrig payloads,
+  kontaktuppgifter eller mailtext.
+- Max ETT `gpt-5.4-mini`-anrop, ingen retry, konservativ deterministisk reserv.
+- Resultat: `summary`, `healthScore`, `findings[]`, `recommendations[]` och ett
+  färdigt `implementationPrompt` som en människa kan godkänna senare.
+- Agenten ändrar aldrig kod, Make, mail eller annan data än sin egen uppgift.
+  `externalEffect: false`, allt stannar i `awaiting_review`.

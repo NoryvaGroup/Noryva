@@ -35,6 +35,7 @@ import { Route as AuthenticatedAdminKonversationerRouteImport } from './routes/_
 import { Route as AuthenticatedAdminProfilerRouteImport } from './routes/_authenticated/admin/profiler'
 import { Route as TestOffertSlugRouteImport } from './routes/test.offert.$slug'
 import { Route as ApiPublicAgentsDispatchTestRouteImport } from './routes/api/public/agents/dispatch-test'
+import { Route as ApiPublicAgentsImprovementReviewTestRouteImport } from './routes/api/public/agents/improvement-review-test'
 import { Route as ApiPublicAgentsProcessShadowBatchTestRouteImport } from './routes/api/public/agents/process-shadow-batch-test'
 import { Route as ApiPublicAgentsProcessTestRouteImport } from './routes/api/public/agents/process-test'
 import { Route as ApiPublicAgentsShadowReviewTestRouteImport } from './routes/api/public/agents/shadow-review-test'
@@ -193,6 +194,12 @@ const ApiPublicAgentsDispatchTestRoute =
   ApiPublicAgentsDispatchTestRouteImport.update({
     id: '/api/public/agents/dispatch-test',
     path: '/api/public/agents/dispatch-test',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicAgentsImprovementReviewTestRoute =
+  ApiPublicAgentsImprovementReviewTestRouteImport.update({
+    id: '/api/public/agents/improvement-review-test',
+    path: '/api/public/agents/improvement-review-test',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicAgentsProcessShadowBatchTestRoute =
@@ -354,6 +361,7 @@ export interface FileRoutesByFullPath {
   '/test/offert/$slug': typeof TestOffertSlugRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/api/public/agents/dispatch-test': typeof ApiPublicAgentsDispatchTestRoute
+  '/api/public/agents/improvement-review-test': typeof ApiPublicAgentsImprovementReviewTestRoute
   '/api/public/agents/process-shadow-batch-test': typeof ApiPublicAgentsProcessShadowBatchTestRoute
   '/api/public/agents/process-test': typeof ApiPublicAgentsProcessTestRoute
   '/api/public/agents/shadow-review-test': typeof ApiPublicAgentsShadowReviewTestRoute
@@ -403,6 +411,7 @@ export interface FileRoutesByTo {
   '/test/offert/$slug': typeof TestOffertSlugRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/api/public/agents/dispatch-test': typeof ApiPublicAgentsDispatchTestRoute
+  '/api/public/agents/improvement-review-test': typeof ApiPublicAgentsImprovementReviewTestRoute
   '/api/public/agents/process-shadow-batch-test': typeof ApiPublicAgentsProcessShadowBatchTestRoute
   '/api/public/agents/process-test': typeof ApiPublicAgentsProcessTestRoute
   '/api/public/agents/shadow-review-test': typeof ApiPublicAgentsShadowReviewTestRoute
@@ -454,6 +463,7 @@ export interface FileRoutesById {
   '/test/offert/$slug': typeof TestOffertSlugRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/api/public/agents/dispatch-test': typeof ApiPublicAgentsDispatchTestRoute
+  '/api/public/agents/improvement-review-test': typeof ApiPublicAgentsImprovementReviewTestRoute
   '/api/public/agents/process-shadow-batch-test': typeof ApiPublicAgentsProcessShadowBatchTestRoute
   '/api/public/agents/process-test': typeof ApiPublicAgentsProcessTestRoute
   '/api/public/agents/shadow-review-test': typeof ApiPublicAgentsShadowReviewTestRoute
@@ -505,6 +515,7 @@ export interface FileRouteTypes {
     | '/test/offert/$slug'
     | '/admin/'
     | '/api/public/agents/dispatch-test'
+    | '/api/public/agents/improvement-review-test'
     | '/api/public/agents/process-shadow-batch-test'
     | '/api/public/agents/process-test'
     | '/api/public/agents/shadow-review-test'
@@ -554,6 +565,7 @@ export interface FileRouteTypes {
     | '/test/offert/$slug'
     | '/admin'
     | '/api/public/agents/dispatch-test'
+    | '/api/public/agents/improvement-review-test'
     | '/api/public/agents/process-shadow-batch-test'
     | '/api/public/agents/process-test'
     | '/api/public/agents/shadow-review-test'
@@ -604,6 +616,7 @@ export interface FileRouteTypes {
     | '/test/offert/$slug'
     | '/_authenticated/admin/'
     | '/api/public/agents/dispatch-test'
+    | '/api/public/agents/improvement-review-test'
     | '/api/public/agents/process-shadow-batch-test'
     | '/api/public/agents/process-test'
     | '/api/public/agents/shadow-review-test'
@@ -647,6 +660,7 @@ export interface RootRouteChildren {
   TestTakoffertRoute: typeof TestTakoffertRoute
   TestOffertSlugRoute: typeof TestOffertSlugRoute
   ApiPublicAgentsDispatchTestRoute: typeof ApiPublicAgentsDispatchTestRoute
+  ApiPublicAgentsImprovementReviewTestRoute: typeof ApiPublicAgentsImprovementReviewTestRoute
   ApiPublicAgentsProcessShadowBatchTestRoute: typeof ApiPublicAgentsProcessShadowBatchTestRoute
   ApiPublicAgentsProcessTestRoute: typeof ApiPublicAgentsProcessTestRoute
   ApiPublicAgentsShadowReviewTestRoute: typeof ApiPublicAgentsShadowReviewTestRoute
@@ -855,6 +869,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicAgentsDispatchTestRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/agents/improvement-review-test': {
+      id: '/api/public/agents/improvement-review-test'
+      path: '/api/public/agents/improvement-review-test'
+      fullPath: '/api/public/agents/improvement-review-test'
+      preLoaderRoute: typeof ApiPublicAgentsImprovementReviewTestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/agents/process-shadow-batch-test': {
       id: '/api/public/agents/process-shadow-batch-test'
       path: '/api/public/agents/process-shadow-batch-test'
@@ -1057,6 +1078,8 @@ const rootRouteChildren: RootRouteChildren = {
   TestTakoffertRoute: TestTakoffertRoute,
   TestOffertSlugRoute: TestOffertSlugRoute,
   ApiPublicAgentsDispatchTestRoute: ApiPublicAgentsDispatchTestRoute,
+  ApiPublicAgentsImprovementReviewTestRoute:
+    ApiPublicAgentsImprovementReviewTestRoute,
   ApiPublicAgentsProcessShadowBatchTestRoute:
     ApiPublicAgentsProcessShadowBatchTestRoute,
   ApiPublicAgentsProcessTestRoute: ApiPublicAgentsProcessTestRoute,

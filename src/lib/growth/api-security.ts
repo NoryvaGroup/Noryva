@@ -45,7 +45,8 @@ export type GrowthOperation =
   | "agents-dispatch-test"
   | "agents-process-test"
   | "agents-shadow-review-test"
-  | "agents-process-shadow-batch-test";
+  | "agents-process-shadow-batch-test"
+  | "agents-improvement-review-test";
 
 /**
  * `makeContext` är frivilligt. Utan det är beteendet identiskt med tidigare
@@ -209,6 +210,11 @@ export const GROWTH_API_SCHEMAS = {
       limit: z.number().int().min(1).max(3).optional(),
     })
     .strict(),
+  /**
+   * Agent HQ CTO: skapar EN intern systemgranskning per dygn. Ingen lead-data,
+   * ingen worker körs här och ingen extern effekt är möjlig.
+   */
+  "agents-improvement-review-test": z.object({ executionMode: z.literal("test") }).strict(),
 } as const satisfies Record<GrowthOperation, z.ZodTypeAny>;
 
 export type VerifyResult =

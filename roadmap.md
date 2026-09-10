@@ -35,3 +35,4 @@
 
 - [x] Bekräftat: neutral aktuell reply skapar ingen upgrade/meeting; tydlig köpavsikt kan uppgradera; legitim historik bevaras
 - [x] Implementera HMAC-skyddad Agent Core Shadow Review-batch enligt godkänd plan; TEST-only, inga externa effekter
+- [x] Agent Core: CTO / Systems Improvement Agent v1 (intern systemgranskning i TEST/REVIEW, analys + implementationPrompt, inga externa effekter)

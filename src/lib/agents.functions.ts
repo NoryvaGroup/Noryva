@@ -163,6 +163,28 @@ export const dispatchAgentEvent = createServerFn({ method: "POST" })
     return { ok: true as const, taskId: created.id as string, duplicate: false as const };
   });
 
+/* ------------------------------------------------ intern systemgranskning */
+
+/**
+ * Skapar EN intern systemgranskning (CTO-agenten) utan lead-koppling.
+ * Uppgiften körs sedan med samma "Kör"-knapp som övriga uppgifter.
+ */
+export const createImprovementReview = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const ctx = context as AdminContext;
+    await assertAdmin(ctx);
+    const { createImprovementReviewCore } = await import("@/lib/agents/improvement.server");
+    const result = await createImprovementReviewCore(ctx, { executionMode: "test" });
+    if (result.status !== 200) throw new Error(String(result.body["error"] ?? "Kunde inte skapa."));
+    return {
+      ok: true as const,
+      taskId: String(result.body["taskId"] ?? ""),
+      duplicate: Boolean(result.body["duplicate"]),
+      externalEffect: false as const,
+    };
+  });
+
 /* -------------------------------------------------------------- workers */
 
 const idInput = z.object({ taskId: z.string().uuid() });

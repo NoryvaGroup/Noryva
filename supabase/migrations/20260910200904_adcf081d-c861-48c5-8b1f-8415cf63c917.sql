@@ -1,0 +1,2 @@
+ALTER TABLE public.agent_tasks DROP CONSTRAINT agent_tasks_type_chk;
+ALTER TABLE public.agent_tasks ADD CONSTRAINT agent_tasks_type_chk CHECK (task_type = ANY (ARRAY['sales_draft'::text, 'delivery_check'::text, 'followup_review'::text, 'qa_review'::text, 'cto_improvement_review'::text]));
