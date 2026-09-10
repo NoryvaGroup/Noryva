@@ -333,14 +333,15 @@ function AgentHqPage() {
         <section>
           <h2 className="mb-3 text-lg font-semibold">Granskning och godkännande</h2>
           <p className="mb-3 text-sm text-muted-foreground">
-            Godkännande krävs innan en uppgift räknas som klar. Beslutet ändrar endast intern status –
-            ingen agent får någon extern förmåga av det.
+            Godkännande krävs innan en uppgift räknas som klar. Beslutet ändrar ENDAST intern
+            approval-status: inget mail, inget SMS och ingen bokning kan triggas av det. Godkänn är
+            låst tills verifieringen är godkänd.
           </p>
           <ul className="space-y-3">
             {reviews.map((t) => (
               <li
                 key={t.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4"
+                className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border bg-card p-4"
               >
                 <div className="min-w-0">
                   <p className="font-medium">
