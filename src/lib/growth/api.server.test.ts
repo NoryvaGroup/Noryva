@@ -1468,3 +1468,84 @@ describe("delivery-recovery (dry-run som standard)", () => {
     expect(body.blocked).toBe(true);
   });
 });
+
+describe("review-reconciliation", () => {
+  function reviewState() {
+    const staleClaimed = new Date(Date.now() - 60 * 60_000).toISOString();
+    const freshClaimed = new Date(Date.now() - 5 * 60_000).toISOString();
+    const oldApproved = new Date(Date.now() - 25 * 3600_000).toISOString();
+    return {
+      nurture_reviews: [
+        { id: "rv-stale", lead_id: LEAD_ID, customer_id: CUSTOMER_ID, status: "claimed", approved_at: oldApproved, claimed_at: staleClaimed, sent_at: null, attempt_id: "a1", transport_message_id: null, recipient_email: "hemlig@example.se", subject: "Hemligt", body: "Hemlig brödtext" },
+        { id: "rv-fresh", lead_id: LEAD_ID, customer_id: CUSTOMER_ID, status: "claimed", approved_at: oldApproved, claimed_at: freshClaimed, sent_at: null, attempt_id: "a2", transport_message_id: null, recipient_email: "x@example.se", subject: "S", body: "B" },
+        { id: "rv-unknown", lead_id: LEAD_ID, customer_id: CUSTOMER_ID, status: "unknown", approved_at: oldApproved, claimed_at: staleClaimed, sent_at: null, attempt_id: "a3", transport_message_id: null, recipient_email: "y@example.se", subject: "S", body: "B" },
+        { id: "rv-failed", lead_id: LEAD_ID, customer_id: CUSTOMER_ID, status: "failed", approved_at: oldApproved, claimed_at: staleClaimed, sent_at: null, attempt_id: "a4", transport_message_id: null, recipient_email: "z@example.se", subject: "S", body: "B" },
+        { id: "rv-approved-old", lead_id: LEAD_ID, customer_id: CUSTOMER_ID, status: "approved", approved_at: oldApproved, claimed_at: null, sent_at: null, attempt_id: null, transport_message_id: null, recipient_email: "w@example.se", subject: "S", body: "B" },
+        { id: "rv-sent", lead_id: LEAD_ID, customer_id: CUSTOMER_ID, status: "sent", approved_at: oldApproved, claimed_at: staleClaimed, sent_at: staleClaimed, attempt_id: "a5", transport_message_id: "tm1", recipient_email: "v@example.se", subject: "S", body: "B" },
+      ] as Row[],
+    };
+  }
+
+  it("kräver giltig HMAC-signatur", async () => {
+    const res = await handleGrowthApi(
+      "review-reconciliation",
+      signedRequest("review-reconciliation", {}, { secret: "fel-hemlighet" }),
+      deps(reviewState()),
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it("avvisar extra fält i schemat", async () => {
+    const res = await handleGrowthApi(
+      "review-reconciliation",
+      signedRequest("review-reconciliation", { execute: true }),
+      deps(reviewState()),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("returnerar endast korrekta fynd utan känsliga fält och utan writes", async () => {
+    const state = reviewState();
+    const res = await handleGrowthApi(
+      "review-reconciliation",
+      signedRequest("review-reconciliation", {}),
+      deps(state),
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as any;
+    expect(body.externalEffect).toBe(false);
+    expect(body.notificationSent).toBe(false);
+    const ids = body.findings.map((f: any) => f.reviewId).sort();
+    expect(ids).toEqual(["rv-approved-old", "rv-failed", "rv-stale", "rv-unknown"]);
+    const stale = body.findings.find((f: any) => f.reviewId === "rv-stale");
+    expect(stale).toMatchObject({
+      severity: "HIGH",
+      reason: "stale_claim_without_transport",
+      needsManualReview: true,
+      autoRetryAllowed: false,
+      attemptIdExists: true,
+      transportMessageIdExists: false,
+    });
+    const raw = JSON.stringify(body);
+    expect(raw).not.toContain("hemlig@example.se");
+    expect(raw).not.toContain("Hemlig brödtext");
+    expect(raw).not.toContain('"a1"');
+    expect(raw).not.toContain("transportMessageId\":");
+    // Inga mutationsanrop mot RPC gjordes.
+    expect(fake.rpcCalls).toHaveLength(0);
+    // Radstatus ändrades aldrig.
+    expect(state.nurture_reviews!.find((r) => r.id === "rv-stale")!.status).toBe("claimed");
+  });
+
+  it("respekterar claimedOlderThanMinutes", async () => {
+    const res = await handleGrowthApi(
+      "review-reconciliation",
+      signedRequest("review-reconciliation", { claimedOlderThanMinutes: 120 }),
+      deps(reviewState()),
+    );
+    const body = (await res.json()) as any;
+    const ids = body.findings.map((f: any) => f.reviewId);
+    expect(ids).not.toContain("rv-stale");
+    expect(body.claimedOlderThanMinutes).toBe(120);
+  });
+});
