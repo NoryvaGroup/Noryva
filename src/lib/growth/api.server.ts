@@ -368,6 +368,14 @@ async function runOperation(
       });
     }
 
+    case "agents-process-shadow-batch-test": {
+      const { processShadowBatchCore } = await import("@/lib/agents/process-shadow-batch.server");
+      return processShadowBatchCore(ctx, {
+        executionMode: data.executionMode,
+        limit: data.limit,
+      });
+    }
+
     case "register-reviewed-nurture-reply": {
       const { registerReviewedNurtureReplyCore } = await import("./nurture-review.server");
       const result = await registerReviewedNurtureReplyCore(ctx, {

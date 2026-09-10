@@ -44,7 +44,8 @@ export type GrowthOperation =
   | "review-reconciliation"
   | "agents-dispatch-test"
   | "agents-process-test"
-  | "agents-shadow-review-test";
+  | "agents-shadow-review-test"
+  | "agents-process-shadow-batch-test";
 
 /**
  * `makeContext` är frivilligt. Utan det är beteendet identiskt med tidigare
@@ -196,6 +197,16 @@ export const GROWTH_API_SCHEMAS = {
       executionMode: z.literal("test"),
       limit: z.number().int().min(1).max(10).optional(),
       recentHours: z.number().int().min(1).max(168).optional(),
+    })
+    .strict(),
+  /**
+   * Agent HQ Auto Process: kör högst tre köade Shadow Review-uppgifter genom
+   * befintlig Sales-worker + QA. Ingen auto-approval, ingen extern effekt.
+   */
+  "agents-process-shadow-batch-test": z
+    .object({
+      executionMode: z.literal("test"),
+      limit: z.number().int().min(1).max(3).optional(),
     })
     .strict(),
 } as const satisfies Record<GrowthOperation, z.ZodTypeAny>;
