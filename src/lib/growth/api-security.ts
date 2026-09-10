@@ -37,7 +37,8 @@ export type GrowthOperation =
   | "register-reviewed-nurture-reply"
   | "customer-config"
   | "due-lead-reminders"
-  | "delivery-recovery";
+  | "delivery-recovery"
+  | "review-reconciliation";
 
 /**
  * `makeContext` är frivilligt. Utan det är beteendet identiskt med tidigare
@@ -130,6 +131,13 @@ export const GROWTH_API_SCHEMAS = {
   "due-lead-reminders": z
     .object({
       olderThanHours: z.number().int().min(1).max(720).optional(),
+      limit: z.number().int().min(1).max(100).optional(),
+    })
+    .strict(),
+  /** Read-only watchdog över nurture reviews. Muterar aldrig något. */
+  "review-reconciliation": z
+    .object({
+      claimedOlderThanMinutes: z.number().int().min(1).max(43200).optional(),
       limit: z.number().int().min(1).max(100).optional(),
     })
     .strict(),

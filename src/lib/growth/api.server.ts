@@ -267,6 +267,14 @@ async function runOperation(
       return withStatus(result.status, result.body);
     }
 
+    case "review-reconciliation": {
+      const { reviewReconciliationCore } = await import("./review-reconciliation.server");
+      return reviewReconciliationCore(ctx, {
+        claimedOlderThanMinutes: data.claimedOlderThanMinutes,
+        limit: data.limit,
+      });
+    }
+
     case "customer-config": {
       const { customerConfigCore } = await import("./customer-config.server");
       const result = await customerConfigCore(ctx, data.customerId);
