@@ -133,7 +133,7 @@ function extractText(json: any): string {
   return texts.join("");
 }
 
-async function callOpenAi(
+export async function callOpenAiStructured(
   system: string,
   user: string,
   schemaName: string,
@@ -221,7 +221,7 @@ async function reasonSales(
     ...(lines.length ? lines : ["(inga strukturerade uppgifter)"]),
   ].join("\n");
 
-  const call = await callOpenAi(SALES_SYSTEM, user, "sales_reasoning", SALES_JSON_SCHEMA, deps);
+  const call = await callOpenAiStructured(SALES_SYSTEM, user, "sales_reasoning", SALES_JSON_SCHEMA, deps);
   if (call.text === null) return { ok: false, meta: call.meta };
 
   try {
@@ -303,7 +303,7 @@ export async function classifyUnclearEvent(
     llm: metaFallback("missing_api_key", 0),
   };
 
-  const call = await callOpenAi(
+  const call = await callOpenAiStructured(
     "Du dirigerar interna uppgifter i testläge. Svara endast med JSON enligt schemat.",
     `Oklart internt event (anonymiserat): ${redactText(description).slice(0, 500)}`,
     "event_routing",
