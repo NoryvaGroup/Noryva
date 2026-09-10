@@ -361,6 +361,56 @@ export type Database = {
           },
         ]
       }
+      customer_mail_channels: {
+        Row: {
+          connection_alias: string | null
+          created_at: string
+          customer_id: string
+          inbound_route_key: string | null
+          provider: string
+          reply_to_email: string
+          sender_email: string
+          sender_name: string | null
+          status: string
+          updated_at: string
+          verified_at: string | null
+        }
+        Insert: {
+          connection_alias?: string | null
+          created_at?: string
+          customer_id: string
+          inbound_route_key?: string | null
+          provider?: string
+          reply_to_email?: string
+          sender_email?: string
+          sender_name?: string | null
+          status?: string
+          updated_at?: string
+          verified_at?: string | null
+        }
+        Update: {
+          connection_alias?: string | null
+          created_at?: string
+          customer_id?: string
+          inbound_route_key?: string | null
+          provider?: string
+          reply_to_email?: string
+          sender_email?: string
+          sender_name?: string | null
+          status?: string
+          updated_at?: string
+          verified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_mail_channels_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: true
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customer_profiles: {
         Row: {
           ai_assistant_enabled: boolean

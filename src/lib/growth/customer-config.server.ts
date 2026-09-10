@@ -9,6 +9,7 @@
  * nycklar eller andra credentials.
  */
 import { defaultProfile, rowToProfile } from "@/lib/ai-sales/profile";
+import { rowToMailChannel } from "./mail-channel";
 import type { GrowthContext } from "./service.server";
 
 export type CustomerConfigResult =
@@ -41,6 +42,16 @@ export async function customerConfigCore(
     ? rowToProfile(profileRow)
     : defaultProfile(customerId, String(customer["industry"] ?? ""));
 
+  // Avsändaridentitet är helt separat från notify-mottagare och fail closed:
+  // saknas raden eller är den inte verifierad blir verified=false, utan fallback.
+  const { data: mailRow, error: mailError } = await ctx.supabase
+    .from("customer_mail_channels")
+    .select("provider, sender_email, sender_name, reply_to_email, inbound_route_key, connection_alias, status, verified_at")
+    .eq("customer_id", customerId)
+    .maybeSingle();
+  if (mailError) throw new Error(mailError.message);
+  const mailChannel = rowToMailChannel(mailRow);
+
   return {
     status: 200,
     body: {
@@ -60,6 +71,7 @@ export async function customerConfigCore(
       leadPrefix: profile.leadPrefix,
       followupRules: profile.followupRules,
       bookingRules: profile.bookingRules,
+      mailChannel,
       externalEffect: false,
     },
   };
