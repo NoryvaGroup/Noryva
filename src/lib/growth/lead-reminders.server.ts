@@ -38,7 +38,29 @@ export type DueLeadReminder = {
   notifyRecipients: string[];
   recipientsMissing: boolean;
   contactUrl: string | null;
+  /** Transportstate i Supabase – aldrig kalkylarksstatus. */
+  reminderStatus: ReminderStatus;
+  claimable: boolean;
+  needsManualReview: boolean;
 };
+
+/** Enda påminnelsetypen i piloten. */
+export const REMINDER_KIND = "contact_24h";
+export const REMINDER_TABLE = "lead_reminder_deliveries";
+/** En claim som legat längre än så här kräver manuell avstämning. */
+export const STALE_CLAIM_MINUTES = 15;
+
+export type ReminderStatus = "none" | "pending" | "claimed" | "sent" | "failed" | "unknown";
+
+function readReminderStatus(value: unknown): ReminderStatus {
+  return value === "pending" ||
+    value === "claimed" ||
+    value === "sent" ||
+    value === "failed" ||
+    value === "unknown"
+    ? value
+    : "none";
+}
 
 export async function dueLeadRemindersCore(
   ctx: GrowthContext,
