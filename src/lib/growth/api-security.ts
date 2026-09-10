@@ -37,6 +37,9 @@ export type GrowthOperation =
   | "register-reviewed-nurture-reply"
   | "customer-config"
   | "due-lead-reminders"
+  | "claim-lead-reminder"
+  | "complete-lead-reminder"
+  | "fail-lead-reminder"
   | "delivery-recovery"
   | "review-reconciliation";
 
