@@ -39,7 +39,17 @@ import {
   stableHash,
 } from "./nurture-review";
 import type { RuntimeEnv } from "./runtime-env";
-import { evaluateOutboundIdentity, rowToMailChannel, type MailChannel } from "./mail-channel";
+import {
+  EMPTY_MAIL_CHANNEL,
+  evaluateOutboundIdentity,
+  rowToMailChannel,
+  type MailChannel,
+} from "./mail-channel";
+import {
+  evaluateReconcileRequest,
+  evaluateSendContract,
+  type SendContractResult,
+} from "./review-contract";
 
 /**
  * Läser kundens avsändaridentitet (read-only). Fail closed: saknas raden finns
@@ -53,6 +63,36 @@ async function readMailChannel(ctx: GrowthContext, customerId: string): Promise<
     .maybeSingle();
   if (error) throw new Error(error.message);
   return rowToMailChannel(data as Record<string, unknown> | null);
+}
+
+/**
+ * Prövar utskickskontraktet mot LIVE-data: kunden härleds ur förfrågan,
+ * mottagaren måste vara den lagrade lead-adressen och kundens mailidentitet
+ * måste vara verifierad. Fail closed – ingen fallback till någon annan adress.
+ */
+async function checkSendContract(
+  ctx: GrowthContext,
+  input: { leadId: string; reviewCustomerId: string; reviewRecipient: string },
+): Promise<{ contract: SendContractResult; mailChannel: MailChannel }> {
+  const { data: lead } = await ctx.supabase
+    .from("leads")
+    .select("id, customer_id, payload")
+    .eq("id", input.leadId)
+    .maybeSingle();
+
+  const leadCustomerId = String((lead as Record<string, unknown> | null)?.["customer_id"] ?? "");
+  const mailChannel = leadCustomerId
+    ? await readMailChannel(ctx, leadCustomerId)
+    : EMPTY_MAIL_CHANNEL;
+
+  const contract = evaluateSendContract({
+    reviewCustomerId: input.reviewCustomerId,
+    leadCustomerId,
+    reviewRecipient: input.reviewRecipient,
+    storedLeadRecipient: recipientFromLead((lead as Record<string, unknown> | null)?.["payload"]),
+    mailChannel,
+  });
+  return { contract, mailChannel };
 }
 
 const TABLE = "nurture_reviews";
@@ -536,6 +576,21 @@ export async function approveNurtureReviewCore(
     };
   }
 
+  // Strikt utskickskontrakt: rätt kund, lagrad mottagare och verifierad
+  // mailidentitet. Håller det inte spärras posten i stället för att godkännas.
+  const { contract } = await checkSendContract(ctx, {
+    leadId: existing.lead_id,
+    reviewCustomerId: existing.customer_id,
+    reviewRecipient: existing.recipient_email,
+  });
+  if (!contract.ok) {
+    await writer.supabase
+      .from(TABLE)
+      .update({ status: "blocked", blocked_reason: contract.reason })
+      .eq("id", existing.id);
+    return { ok: false, code: contract.code, message: contract.reason, reviewId: existing.id };
+  }
+
   const { data: rpc, error } = await ctx.supabase.rpc("approve_nurture_review", {
     p_review_id: existing.id,
     p_fingerprint: input.expectedFingerprint,
@@ -671,6 +726,16 @@ export async function claimNurtureReviewCore(
     return { ok: false as const, status: 409, code: "stale_source" };
   }
 
+  // Strikt utskickskontrakt PRÖVAS FÖRE hämtningen: fel kund, annan mottagare
+  // än den lagrade eller overifierad mailidentitet ger inget innehåll alls.
+  const { contract, mailChannel } = await checkSendContract(ctx, {
+    leadId: existing.lead_id,
+    reviewCustomerId: existing.customer_id,
+    reviewRecipient: existing.recipient_email,
+  });
+  if (!contract.ok) {
+    return { ok: false as const, status: 409, code: contract.code, reason: contract.reason };
+  }
 
   const { data, error } = await ctx.supabase.rpc("claim_nurture_review", {
     p_review_id: existing.id,
@@ -682,9 +747,8 @@ export async function claimNurtureReviewCore(
     return { ok: false as const, status: 409, code: String(result["code"] ?? "not_claimable") };
   }
 
-  // Avsändaridentitet läses read-only i samma svar så att Make slipper en
-  // extra signerad customer-config-läsning. Ingen fallback, inga credentials.
-  const mailChannel = await readMailChannel(ctx, String(result["customerId"] ?? ""));
+  // Avsändaridentitet ingår i svaret så att Make slipper en extra signerad
+  // customer-config-läsning. Ingen fallback, inga credentials.
   const outbound = evaluateOutboundIdentity(mailChannel);
 
   return {
@@ -772,6 +836,69 @@ export async function failNurtureReviewCore(
     code: String(result["code"] ?? "invalid"),
     reviewStatus: result["status"] ?? null,
     releasedForRetry: false as const,
+  };
+}
+
+/**
+ * MANUELL AVSTÄMNING av ett fastnat eller osäkert utskick.
+ *
+ * Endast administratör (behörigheten prövas i SQL). Lägen:
+ *   SENT      – utskicket är styrkt; kräver transportens meddelande-id och
+ *               bokför steg + konversationslogg exakt en gång.
+ *   NOT_SENT  – bekräftat att inget mail gick iväg.
+ *   UNKNOWN   – fortsatt osäkert.
+ *
+ * Inget läge släpper posten tillbaka för nytt automatiskt utskick, och
+ * funktionen skickar aldrig något själv.
+ */
+export async function reconcileNurtureReviewCore(
+  ctx: GrowthContext,
+  input: {
+    reviewId: string;
+    outcome: string;
+    transportMessageId?: string | undefined;
+    reason?: string | undefined;
+  },
+) {
+  const existing = await readReview(ctx, input.reviewId);
+  if (!existing) {
+    return { ok: false as const, status: 404, code: "not_found", releasedForRetry: false as const };
+  }
+
+  const gate = evaluateReconcileRequest({
+    reviewStatus: existing.status,
+    outcome: input.outcome,
+    transportMessageId: input.transportMessageId,
+  });
+  if (!gate.ok) {
+    return {
+      ok: false as const,
+      status: gate.code === "invalid_status" ? 409 : 400,
+      code: gate.code,
+      message: gate.reason,
+      reviewStatus: existing.status,
+      releasedForRetry: false as const,
+    };
+  }
+
+  const { data, error } = await ctx.supabase.rpc("reconcile_nurture_review", {
+    p_review_id: input.reviewId,
+    p_outcome: gate.outcome,
+    p_transport_message_id: (input.transportMessageId ?? "").trim(),
+    p_reason: (input.reason ?? "").trim(),
+  });
+  if (error) throw new Error(error.message);
+  const result = (data ?? {}) as Record<string, any>;
+
+  return {
+    ok: result["ok"] === true,
+    status: result["ok"] === true ? 200 : 409,
+    code: String(result["code"] ?? "invalid"),
+    duplicate: result["duplicate"] === true,
+    reviewStatus: result["status"] ?? existing.status,
+    releasedForRetry: false as const,
+    externalEffect: false as const,
+    notificationSent: false as const,
   };
 }
 

@@ -19,6 +19,7 @@ import {
   failNurtureReviewCore,
   recipientFromLead,
   refreshDueNurtureReviewsCore,
+  reconcileNurtureReviewCore,
   registerReviewedNurtureReplyCore,
 } from "./nurture-review.server";
 
@@ -96,6 +97,30 @@ function makeSupabase() {
         execution_mode: "review",
         local_postal_prefix: "",
         regional_postal_prefix: "",
+      },
+    ],
+    customer_mail_channels: [
+      {
+        customer_id: CUST_A,
+        provider: "smtp",
+        sender_email: "no-reply@boras-varuautomater.se",
+        sender_name: "Borås varuautomater",
+        reply_to_email: "svar@boras-varuautomater.se",
+        inbound_route_key: "route-a",
+        connection_alias: "kund-a-smtp",
+        status: "verified",
+        verified_at: PAST,
+      },
+      {
+        customer_id: CUST_B,
+        provider: "smtp",
+        sender_email: "no-reply@taklyftet.se",
+        sender_name: "Taklyftet",
+        reply_to_email: "svar@taklyftet.se",
+        inbound_route_key: "route-b",
+        connection_alias: "kund-b-smtp",
+        status: "verified",
+        verified_at: PAST,
       },
     ],
     conversations: [],
@@ -360,6 +385,40 @@ function makeSupabase() {
         found["status"] = args["p_ok"] === true ? "done" : "failed";
         found["result"] = args["p_result"] ?? {};
         return { data: { ok: true }, error: null };
+      }
+      case "reconcile_nurture_review": {
+        const r = find();
+        if (!r) return { data: { ok: false, code: "not_found" }, error: null };
+        const outcome = String(args["p_outcome"] ?? "").toUpperCase();
+        const msg = String(args["p_transport_message_id"] ?? "").trim();
+        if (r["status"] === "sent") {
+          if (outcome !== "SENT")
+            return { data: { ok: false, code: "invalid_status", status: r["status"] }, error: null };
+          if ((r["transport_message_id"] ?? "") !== msg)
+            return { data: { ok: false, code: "transport_mismatch" }, error: null };
+          return {
+            data: { ok: true, code: "already_sent", duplicate: true, status: "sent", releasedForRetry: false },
+            error: null,
+          };
+        }
+        if (!["claimed", "unknown"].includes(r["status"]))
+          return { data: { ok: false, code: "invalid_status", status: r["status"] }, error: null };
+        if (outcome === "UNKNOWN") {
+          Object.assign(r, { status: "unknown", failure_reason: args["p_reason"] || "Osäker leverans." });
+          return { data: { ok: true, code: "unknown", status: "unknown", duplicate: false }, error: null };
+        }
+        if (outcome === "NOT_SENT") {
+          Object.assign(r, { status: "failed", failure_reason: args["p_reason"] || "Bekräftat ej skickat." });
+          return { data: { ok: true, code: "not_sent", status: "failed", duplicate: false }, error: null };
+        }
+        if (!msg) return { data: { ok: false, code: "missing_message_id" }, error: null };
+        Object.assign(r, { status: "sent", transport_message_id: msg, failure_reason: "" });
+        const ns = (state["growth_nurture_state"] ??= []).find((x) => x["lead_id"] === r["lead_id"]);
+        if (ns) ns["steps_taken"] = (ns["steps_taken"] ?? 0) + 1;
+        return {
+          data: { ok: true, code: "sent", status: "sent", duplicate: false, transportMessageId: msg },
+          error: null,
+        };
       }
       case "fail_nurture_review": {
         const r = find();
@@ -888,15 +947,13 @@ describe("claim inkluderar säker mailidentitet utan fallback", () => {
     );
   });
 
-  it("saknad kanal ger verified=false och allowed=false utan fallback", async () => {
+  it("saknad kanal spärrar både godkännande och hämtning – ingen fallback", async () => {
     const { supabase, state } = makeSupabase();
     const ctx = ctxOf(supabase);
+    state["customer_mail_channels"] = [];
     const claim: any = await claimable(state, ctx);
-    expect(claim.ok).toBe(true);
-    expect(claim.mailChannel.configured).toBe(false);
-    expect(claim.mailChannel.verified).toBe(false);
-    expect(claim.outboundIdentityAllowed).toBe(false);
-    expect(claim.outboundIdentityReason).toContain("Ingen mailidentitet");
+    expect(claim.ok).toBe(false);
+    expect(JSON.stringify(claim)).not.toMatch(/noryva\.se|@kundexempel/i);
   });
 
   it("draft-kanal räcker inte – fail closed", async () => {
@@ -916,9 +973,162 @@ describe("claim inkluderar säker mailidentitet utan fallback", () => {
       },
     ];
     const claim: any = await claimable(state, ctx);
+    expect(claim.ok).toBe(false);
+    expect(state["nurture_reviews"]![0]!["status"]).toBe("blocked");
+  });
+});
+
+/* ------------------------------------------- kontrakt + manuell avstämning */
+
+describe("strikt utskickskontrakt och manuell avstämning", () => {
+  async function seeded() {
+    const { supabase, state } = makeSupabase();
+    const ctx = ctxOf(supabase);
+    const review = await seedReview(ctx, state, LEAD_A);
+    return { ctx, state, review, supabase };
+  }
+
+  it("spärrar godkännande när kunden på posten inte är leadets kund", async () => {
+    const { ctx, review } = await seeded();
+    review["customer_id"] = CUST_B;
+    const result = await approveNurtureReviewCore(
+      ctx,
+      { reviewId: review["id"], expectedFingerprint: review["content_fingerprint"] },
+      ENV_ON,
+      okDispatch,
+    );
+    expect(result.ok).toBe(false);
+    expect(result.code).toBe("customer_mismatch");
+    expect(review["status"]).toBe("blocked");
+  });
+
+  it("spärrar godkännande när mottagaren inte är den lagrade lead-adressen", async () => {
+    const { ctx, review } = await seeded();
+    review["recipient_email"] = "annan@example.com";
+    const result = await approveNurtureReviewCore(
+      ctx,
+      { reviewId: review["id"], expectedFingerprint: review["content_fingerprint"] },
+      ENV_ON,
+      okDispatch,
+    );
+    expect(["recipient_mismatch", "stale"]).toContain(result.code);
+    expect(result.ok).toBe(false);
+  });
+
+  it("spärrar godkännande utan verifierad mailidentitet", async () => {
+    const { ctx, state, review } = await seeded();
+    state["customer_mail_channels"]!.find((c) => c["customer_id"] === CUST_A)!["status"] = "draft";
+    const result = await approveNurtureReviewCore(
+      ctx,
+      { reviewId: review["id"], expectedFingerprint: review["content_fingerprint"] },
+      ENV_ON,
+      okDispatch,
+    );
+    expect(result.ok).toBe(false);
+    expect(result.code).toBe("mail_identity_unverified");
+    expect(review["status"]).toBe("blocked");
+  });
+
+  it("lämnar inte ut innehåll vid hämtning när mailidentiteten saknas", async () => {
+    const { ctx, state, review } = await seeded();
+    await approveNurtureReviewCore(
+      ctx,
+      { reviewId: review["id"], expectedFingerprint: review["content_fingerprint"] },
+      ENV_ON,
+      okDispatch,
+    );
+    expect(review["status"]).toBe("approved");
+    state["customer_mail_channels"] = [];
+    const claim = await claimNurtureReviewCore(ctx, { reviewId: review["id"] }, {});
+    expect(claim.ok).toBe(false);
+    expect((claim as any).code).toBe("mail_identity_unverified");
+    expect(JSON.stringify(claim)).not.toContain(review["body"]);
+    expect(review["status"]).toBe("approved");
+  });
+
+  it("stämmer av ett osäkert utskick till bekräftat skickat, idempotent", async () => {
+    const { ctx, state, review } = await seeded();
+    await approveNurtureReviewCore(
+      ctx,
+      { reviewId: review["id"], expectedFingerprint: review["content_fingerprint"] },
+      ENV_ON,
+      okDispatch,
+    );
+    const claim = await claimNurtureReviewCore(ctx, { reviewId: review["id"] }, {});
     expect(claim.ok).toBe(true);
-    expect(claim.mailChannel.verified).toBe(false);
-    expect(claim.outboundIdentityAllowed).toBe(false);
-    expect(claim.outboundIdentityReason).toContain("inte verifierad");
+    await failNurtureReviewCore(ctx, {
+      reviewId: review["id"],
+      attemptId: (claim as any).attemptId,
+      outcome: "unknown",
+    });
+    expect(review["status"]).toBe("unknown");
+
+    const steps = () =>
+      state["growth_nurture_state"]!.find((s) => s["lead_id"] === LEAD_A)!["steps_taken"];
+    const before = steps();
+
+    const first = await reconcileNurtureReviewCore(ctx, {
+      reviewId: review["id"],
+      outcome: "SENT",
+      transportMessageId: "tm-manual-1",
+    });
+    expect(first.ok).toBe(true);
+    expect(first.code).toBe("sent");
+    expect(first.releasedForRetry).toBe(false);
+    expect(steps()).toBe(before + 1);
+
+    const again = await reconcileNurtureReviewCore(ctx, {
+      reviewId: review["id"],
+      outcome: "SENT",
+      transportMessageId: "tm-manual-1",
+    });
+    expect(again.ok).toBe(true);
+    expect(again.duplicate).toBe(true);
+    expect(steps()).toBe(before + 1);
+  });
+
+  it("släpper aldrig ett osäkert utskick för nytt automatiskt försök", async () => {
+    const { ctx, review } = await seeded();
+    await approveNurtureReviewCore(
+      ctx,
+      { reviewId: review["id"], expectedFingerprint: review["content_fingerprint"] },
+      ENV_ON,
+      okDispatch,
+    );
+    const claim = await claimNurtureReviewCore(ctx, { reviewId: review["id"] }, {});
+    await failNurtureReviewCore(ctx, {
+      reviewId: review["id"],
+      attemptId: (claim as any).attemptId,
+      outcome: "unknown",
+    });
+
+    // Bekräftat skickat kräver transport-id.
+    const missing = await reconcileNurtureReviewCore(ctx, { reviewId: review["id"], outcome: "SENT" });
+    expect(missing.ok).toBe(false);
+    expect(missing.code).toBe("missing_message_id");
+
+    // Ny hämtning är omöjlig från osäker status – ingen automatisk omsändning.
+    const reclaim = await claimNurtureReviewCore(ctx, { reviewId: review["id"] }, {});
+    expect(reclaim.ok).toBe(false);
+    expect((reclaim as any).code).toBe("not_claimable");
+
+    const notSent = await reconcileNurtureReviewCore(ctx, {
+      reviewId: review["id"],
+      outcome: "NOT_SENT",
+      reason: "Transporten bekräftade avbrott.",
+    });
+    expect(notSent.ok).toBe(true);
+    expect(notSent.reviewStatus).toBe("failed");
+    expect(notSent.releasedForRetry).toBe(false);
+  });
+
+  it("stämmer inte av poster som inte är hämtade eller osäkra", async () => {
+    const { ctx, review } = await seeded();
+    const result = await reconcileNurtureReviewCore(ctx, {
+      reviewId: review["id"],
+      outcome: "NOT_SENT",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.code).toBe("invalid_status");
   });
 });
