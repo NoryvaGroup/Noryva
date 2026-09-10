@@ -1,4 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { useState } from "react";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -9,6 +12,22 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  decideAgentTask,
+  dispatchAgentEvent,
+  listAgentTasks,
+  runAgentTask,
+  verifyAgentTask,
+} from "@/lib/agents.functions";
+import {
+  AGENT_LABEL,
+  APPROVAL_LABEL,
+  PRIORITY_LABEL,
+  STATUS_LABEL,
+  TASK_TYPE_LABEL,
+  VERIFICATION_LABEL,
+  type AgentName,
+} from "@/lib/agents/tasks";
 
 export const Route = createFileRoute("/_authenticated/admin/agents")({
   head: () => ({
@@ -16,13 +35,13 @@ export const Route = createFileRoute("/_authenticated/admin/agents")({
       { title: "Agent HQ – Noryva" },
       {
         name: "description",
-        content: "Intern grundvy för Noryvas agentroller, uppgiftskö och godkännanden i testläge.",
+        content: "Intern vy för Noryvas agentroller, uppgiftskö, verifiering och godkännanden i testläge.",
       },
       { name: "robots", content: "noindex, nofollow" },
       { property: "og:title", content: "Agent HQ – Noryva" },
       {
         property: "og:description",
-        content: "Intern grundvy för Noryvas agentroller, uppgiftskö och godkännanden i testläge.",
+        content: "Intern vy för Noryvas agentroller, uppgiftskö, verifiering och godkännanden i testläge.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -35,102 +54,67 @@ const ORCHESTRATOR = {
   name: "Orchestrator",
   role: "Huvudagent / chef",
   description:
-    "Tar emot händelser, tolkar mål, bryter ner arbetet i uppgifter och fördelar dem till specialisterna. Utför aldrig externa actions själv.",
+    "Tar emot händelser, tolkar mål och skapar rätt uppgift till rätt specialist. Deterministisk, utan AI-anrop och utan externa actions.",
 };
 
-const SPECIALISTS = [
-  {
-    name: "Sales",
-    description: "Kvalificering, nästa steg och utkast till svar. Allt går till granskning.",
-  },
-  {
-    name: "Systems & QA",
-    description: "Verifierar resultat, kontrollerar regler, data och tekniska fel.",
-  },
-  {
-    name: "Customer Success",
-    description: "Uppföljning, kundhälsa och påminnelser i granskningsläge.",
-  },
-  {
-    name: "Growth",
-    description: "Experiment, mätning och optimeringsförslag. Rekommenderar endast.",
-  },
-  {
-    name: "Admin & Finance",
-    description: "Administrativa underlag, kostnadsöversikt och intern rapportering.",
-  },
+const SPECIALISTS: { key: AgentName; description: string; active: boolean }[] = [
+  { key: "sales", description: "Kvalificering och internt utkast från befintlig leaddata.", active: true },
+  { key: "systems_qa", description: "Verifierar resultat mot regler och kontrollerar leveransstatus.", active: true },
+  { key: "customer_success", description: "Uppföljning och påminnelser. Ej aktiverad.", active: false },
+  { key: "growth", description: "Experiment och optimeringsförslag. Ej aktiverad.", active: false },
+  { key: "admin_finance", description: "Kostnadsöversikt och rapportering. Ej aktiverad.", active: false },
 ];
 
-type Task = {
+type TaskRow = {
   id: string;
-  agent: string;
-  type: string;
-  priority: "Låg" | "Normal" | "Hög";
-  status: "Kö" | "Pågår" | "Väntar granskning" | "Klar";
-  requiresApproval: boolean;
-  verification: "Ej påbörjad" | "Godkänd" | "Underkänd";
+  assigned_agent: string;
+  task_type: string;
+  priority: string;
+  status: string;
+  approval_status: string;
+  verification_status: string;
+  verification_reasons: unknown;
+  requires_approval: boolean;
+  result: { nextStep?: string } | null;
 };
 
-/** FOUNDATION: statiska exempelrader, ingen backend och ingen körning. */
-const TASKS: Task[] = [
-  {
-    id: "TASK-0001",
-    agent: "Sales",
-    type: "Utkast till första svar",
-    priority: "Hög",
-    status: "Väntar granskning",
-    requiresApproval: true,
-    verification: "Godkänd",
-  },
-  {
-    id: "TASK-0002",
-    agent: "Systems & QA",
-    type: "Verifiera leveransstatus",
-    priority: "Normal",
-    status: "Pågår",
-    requiresApproval: false,
-    verification: "Ej påbörjad",
-  },
-  {
-    id: "TASK-0003",
-    agent: "Customer Success",
-    type: "24-timmarspåminnelse",
-    priority: "Normal",
-    status: "Kö",
-    requiresApproval: true,
-    verification: "Ej påbörjad",
-  },
-  {
-    id: "TASK-0004",
-    agent: "Growth",
-    type: "Experimentutvärdering",
-    priority: "Låg",
-    status: "Klar",
-    requiresApproval: false,
-    verification: "Godkänd",
-  },
-  {
-    id: "TASK-0005",
-    agent: "Admin & Finance",
-    type: "Kostnadssammanställning",
-    priority: "Låg",
-    status: "Kö",
-    requiresApproval: false,
-    verification: "Ej påbörjad",
-  },
-];
-
-const REVIEWS = TASKS.filter((t) => t.requiresApproval);
+type EventRow = { id: string; event_type: string; actor: string; created_at: string };
 
 function AgentHqPage() {
+  const fetchTasks = useServerFn(listAgentTasks);
+  const dispatch = useServerFn(dispatchAgentEvent);
+  const run = useServerFn(runAgentTask);
+  const verify = useServerFn(verifyAgentTask);
+  const decide = useServerFn(decideAgentTask);
+  const queryClient = useQueryClient();
+  const [leadId, setLeadId] = useState("");
+  const [message, setMessage] = useState("");
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["agent-tasks"],
+    queryFn: () => fetchTasks(),
+  });
+
+  const mutation = useMutation({
+    mutationFn: async (action: () => Promise<{ ok?: boolean } & Record<string, unknown>>) => action(),
+    onSuccess: (res) => {
+      setMessage(res["duplicate"] ? "Uppgiften fanns redan (idempotent)." : "Klart.");
+      queryClient.invalidateQueries({ queryKey: ["agent-tasks"] });
+    },
+    onError: (e: Error) => setMessage(e.message),
+  });
+
+  const tasks = (data?.tasks ?? []) as unknown as TaskRow[];
+  const reviews = tasks.filter((t) => t.requires_approval && t.approval_status === "pending");
+
   return (
     <AdminShell title="Noryva Agent HQ">
       <div className="space-y-8">
         <section className="rounded-xl border border-amber-500/40 bg-amber-500/5 p-4 text-sm">
-          <p className="font-medium">FOUNDATION / TEST</p>
+          <p className="font-medium">Körläge: {data?.mode ?? "TEST/REVIEW"}</p>
           <p className="text-muted-foreground">
-            Detta är en grundvy utan koppling till drift. Inga agenter körs, inga AI-anrop görs och
-            ingen agent får utföra externa actions. All data nedan är exempeldata.
+            Agenterna kör deterministiskt och internt. Inga AI-anrop, inga mail, inga bokningar och
+            inga Make-actions. Godkännande ändrar endast intern status.
           </p>
         </section>
 
@@ -146,10 +130,12 @@ function AgentHqPage() {
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             {SPECIALISTS.map((s) => (
-              <div key={s.name} className="rounded-xl border border-border bg-card p-4">
+              <div key={s.key} className="rounded-xl border border-border bg-card p-4">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium">{s.name}</span>
-                  <Badge variant="secondary">Specialistagent</Badge>
+                  <span className="font-medium">{AGENT_LABEL[s.key]}</span>
+                  <Badge variant={s.active ? "default" : "secondary"}>
+                    {s.active ? "Aktiv i testläge" : "Vilande"}
+                  </Badge>
                 </div>
                 <p className="mt-1.5 text-sm text-muted-foreground">{s.description}</p>
               </div>
@@ -157,8 +143,40 @@ function AgentHqPage() {
           </div>
         </section>
 
+        <section className="rounded-xl border border-border bg-card p-4">
+          <h2 className="mb-2 text-lg font-semibold">Skapa testhändelse</h2>
+          <p className="mb-3 text-sm text-muted-foreground">
+            Orchestratorn skapar en uppgift av händelsen. Samma händelse och förfrågan ger aldrig en
+            dubblett.
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              value={leadId}
+              onChange={(e) => setLeadId(e.target.value)}
+              placeholder="Förfrågans id (UUID)"
+              className="min-w-[22rem] rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            />
+            {(["new_lead", "delivery_error", "lead_followup_due"] as const).map((type) => (
+              <button
+                key={type}
+                type="button"
+                disabled={!leadId || mutation.isPending}
+                onClick={() => mutation.mutate(() => dispatch({ data: { type, leadId } }))}
+                className="rounded-full border border-border px-3 py-2 text-sm disabled:opacity-50"
+              >
+                {type}
+              </button>
+            ))}
+          </div>
+          {message ? <p className="mt-3 text-sm text-muted-foreground">{message}</p> : null}
+        </section>
+
         <section>
           <h2 className="mb-3 text-lg font-semibold">Uppgiftskö</h2>
+          {isLoading ? <p className="text-sm text-muted-foreground">Hämtar …</p> : null}
+          {error ? (
+            <p className="text-sm text-destructive">Kunde inte hämta: {(error as Error).message}</p>
+          ) : null}
           <div className="overflow-x-auto rounded-xl border border-border">
             <Table>
               <TableHeader>
@@ -168,22 +186,52 @@ function AgentHqPage() {
                   <TableHead>Typ</TableHead>
                   <TableHead>Prioritet</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Kräver godkännande</TableHead>
+                  <TableHead>Godkännande</TableHead>
                   <TableHead>Verifiering</TableHead>
+                  <TableHead>Åtgärd</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {TASKS.map((t) => (
+                {tasks.map((t) => (
                   <TableRow key={t.id}>
-                    <TableCell className="font-mono text-xs">{t.id}</TableCell>
-                    <TableCell>{t.agent}</TableCell>
-                    <TableCell>{t.type}</TableCell>
-                    <TableCell>{t.priority}</TableCell>
-                    <TableCell>{t.status}</TableCell>
-                    <TableCell>{t.requiresApproval ? "Ja" : "Nej"}</TableCell>
-                    <TableCell>{t.verification}</TableCell>
+                    <TableCell className="font-mono text-xs">{String(t.id).slice(0, 8)}</TableCell>
+                    <TableCell>{AGENT_LABEL[t.assigned_agent as AgentName]}</TableCell>
+                    <TableCell>{TASK_TYPE_LABEL[t.task_type as keyof typeof TASK_TYPE_LABEL]}</TableCell>
+                    <TableCell>{PRIORITY_LABEL[t.priority as keyof typeof PRIORITY_LABEL]}</TableCell>
+                    <TableCell>{STATUS_LABEL[t.status as keyof typeof STATUS_LABEL]}</TableCell>
+                    <TableCell>
+                      {APPROVAL_LABEL[t.approval_status as keyof typeof APPROVAL_LABEL]}
+                    </TableCell>
+                    <TableCell>
+                      {VERIFICATION_LABEL[t.verification_status as keyof typeof VERIFICATION_LABEL]}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      <button
+                        type="button"
+                        disabled={t.status !== "queued" || mutation.isPending}
+                        onClick={() => mutation.mutate(() => run({ data: { taskId: t.id } }))}
+                        className="mr-2 rounded-full border border-border px-3 py-1 text-xs disabled:opacity-40"
+                      >
+                        Kör
+                      </button>
+                      <button
+                        type="button"
+                        disabled={mutation.isPending}
+                        onClick={() => mutation.mutate(() => verify({ data: { taskId: t.id } }))}
+                        className="rounded-full border border-border px-3 py-1 text-xs disabled:opacity-40"
+                      >
+                        Verifiera
+                      </button>
+                    </TableCell>
                   </TableRow>
                 ))}
+                {tasks.length === 0 && !isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-sm text-muted-foreground">
+                      Inga uppgifter ännu.
+                    </TableCell>
+                  </TableRow>
+                ) : null}
               </TableBody>
             </Table>
           </div>
@@ -192,41 +240,77 @@ function AgentHqPage() {
         <section>
           <h2 className="mb-3 text-lg font-semibold">Granskning och godkännande</h2>
           <p className="mb-3 text-sm text-muted-foreground">
-            Här kommer en människa framöver att godkänna eller avvisa uppgifter innan något får
-            utföras. Knapparna är avsiktligt inaktiva i detta steg.
+            Godkännande krävs innan en uppgift räknas som klar. Beslutet ändrar endast intern status –
+            ingen agent får någon extern förmåga av det.
           </p>
           <ul className="space-y-3">
-            {REVIEWS.map((t) => (
+            {reviews.map((t) => (
               <li
                 key={t.id}
                 className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4"
               >
-                <div>
+                <div className="min-w-0">
                   <p className="font-medium">
-                    {t.type} <span className="font-mono text-xs text-muted-foreground">{t.id}</span>
+                    {TASK_TYPE_LABEL[t.task_type as keyof typeof TASK_TYPE_LABEL]}{" "}
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {String(t.id).slice(0, 8)}
+                    </span>
                   </p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    {t.agent} · Verifiering: {t.verification}
+                    {AGENT_LABEL[t.assigned_agent as AgentName]} · Verifiering:{" "}
+                    {VERIFICATION_LABEL[t.verification_status as keyof typeof VERIFICATION_LABEL]}
+                    {Array.isArray(t.verification_reasons) && t.verification_reasons.length > 0
+                      ? ` · ${t.verification_reasons.join(" ")}`
+                      : ""}
                   </p>
+                  {t.result?.nextStep ? (
+                    <p className="mt-1 text-sm">Föreslaget nästa steg: {t.result.nextStep}</p>
+                  ) : null}
                 </div>
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    disabled
-                    className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground opacity-60"
+                    disabled={t.verification_status !== "passed" || mutation.isPending}
+                    onClick={() =>
+                      mutation.mutate(() => decide({ data: { taskId: t.id, decision: "approved" } }))
+                    }
+                    className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
                   >
                     Godkänn
                   </button>
                   <button
                     type="button"
-                    disabled
-                    className="rounded-full border border-border px-4 py-2 text-sm opacity-60"
+                    disabled={mutation.isPending}
+                    onClick={() =>
+                      mutation.mutate(() => decide({ data: { taskId: t.id, decision: "rejected" } }))
+                    }
+                    className="rounded-full border border-border px-4 py-2 text-sm disabled:opacity-50"
                   >
                     Avvisa
                   </button>
                 </div>
               </li>
             ))}
+            {reviews.length === 0 ? (
+              <li className="text-sm text-muted-foreground">Inget väntar på granskning.</li>
+            ) : null}
+          </ul>
+        </section>
+
+        <section>
+          <h2 className="mb-3 text-lg font-semibold">Senaste händelser</h2>
+          <ul className="space-y-2 text-sm">
+            {((data?.events ?? []) as unknown as EventRow[]).map((e) => (
+              <li key={e.id} className="rounded-lg border border-border bg-card px-3 py-2">
+                <span className="font-mono text-xs text-muted-foreground">
+                  {new Date(e.created_at).toLocaleString("sv-SE")}
+                </span>{" "}
+                · {e.event_type} · {e.actor}
+              </li>
+            ))}
+            {(data?.events ?? []).length === 0 ? (
+              <li className="text-muted-foreground">Inga händelser ännu.</li>
+            ) : null}
           </ul>
         </section>
       </div>

@@ -14,6 +14,122 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_task_events: {
+        Row: {
+          actor: string
+          actor_user_id: string | null
+          created_at: string
+          detail: Json
+          event_type: string
+          id: string
+          task_id: string
+        }
+        Insert: {
+          actor: string
+          actor_user_id?: string | null
+          created_at?: string
+          detail?: Json
+          event_type: string
+          id?: string
+          task_id: string
+        }
+        Update: {
+          actor?: string
+          actor_user_id?: string | null
+          created_at?: string
+          detail?: Json
+          event_type?: string
+          id?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_task_events_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "agent_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_tasks: {
+        Row: {
+          approval_status: string
+          assigned_agent: string
+          created_at: string
+          customer_id: string | null
+          execution_mode: string
+          id: string
+          idempotency_key: string
+          instructions: string
+          lead_id: string | null
+          priority: string
+          requires_approval: boolean
+          result: Json
+          source_event: string
+          status: string
+          task_type: string
+          updated_at: string
+          verification_reasons: Json
+          verification_status: string
+        }
+        Insert: {
+          approval_status?: string
+          assigned_agent: string
+          created_at?: string
+          customer_id?: string | null
+          execution_mode?: string
+          id?: string
+          idempotency_key: string
+          instructions?: string
+          lead_id?: string | null
+          priority?: string
+          requires_approval?: boolean
+          result?: Json
+          source_event?: string
+          status?: string
+          task_type: string
+          updated_at?: string
+          verification_reasons?: Json
+          verification_status?: string
+        }
+        Update: {
+          approval_status?: string
+          assigned_agent?: string
+          created_at?: string
+          customer_id?: string | null
+          execution_mode?: string
+          id?: string
+          idempotency_key?: string
+          instructions?: string
+          lead_id?: string | null
+          priority?: string
+          requires_approval?: boolean
+          result?: Json
+          source_event?: string
+          status?: string
+          task_type?: string
+          updated_at?: string
+          verification_reasons?: Json
+          verification_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_tasks_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_tasks_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_cost_events: {
         Row: {
           assumed: boolean
