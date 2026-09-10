@@ -1190,7 +1190,7 @@ describe("register-nurture-reply-test", () => {
 });
 
 describe("customer-config (read-only)", () => {
-  function configState(profiles: Row[]) {
+  function configState(profiles: Row[], mailChannels: Row[] = []) {
     const state = baseState(COMPLETE_ANSWERS);
     state["customers"] = [
       {
@@ -1202,8 +1202,21 @@ describe("customer-config (read-only)", () => {
       },
     ];
     state["customer_profiles"] = profiles;
+    state["customer_mail_channels"] = mailChannels;
     return state;
   }
+
+  const MAIL_CHANNEL: Row = {
+    customer_id: CUSTOMER_ID,
+    provider: "smtp",
+    sender_email: "no-reply@kund.se",
+    sender_name: "Kund AB",
+    reply_to_email: "svar@kund.se",
+    inbound_route_key: "route-abc",
+    connection_alias: "kund-smtp",
+    status: "verified",
+    verified_at: "2026-09-01T10:00:00Z",
+  };
 
   const PROFILE: Row = {
     customer_id: CUSTOMER_ID,
