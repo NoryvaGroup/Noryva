@@ -70,6 +70,26 @@ const SPECIALISTS: { key: AgentName; description: string; active: boolean }[] = 
   { key: "admin_finance", description: "Kostnadsöversikt och rapportering. Ej aktiverad.", active: false },
 ];
 
+type LlmMetaRow = {
+  used?: boolean;
+  model?: string;
+  promptVersion?: string;
+  attempts?: number;
+  usedFallback?: boolean;
+  fallbackReason?: string;
+  latencyMs?: number;
+  inputTokens?: number;
+  outputTokens?: number;
+};
+
+type TaskResultRow = {
+  nextStep?: string;
+  internalNotes?: string[];
+  draft?: { subject?: string; body?: string };
+  generatedBy?: string;
+  llm?: LlmMetaRow;
+} | null;
+
 type TaskRow = {
   id: string;
   assigned_agent: string;
@@ -80,10 +100,53 @@ type TaskRow = {
   verification_status: string;
   verification_reasons: unknown;
   requires_approval: boolean;
-  result: { nextStep?: string } | null;
+  result: TaskResultRow;
 };
 
 type EventRow = { id: string; event_type: string; actor: string; created_at: string };
+
+const FILTERS = [
+  { key: "all", label: "Alla" },
+  { key: "awaiting_review", label: "Väntar granskning" },
+  { key: "done", label: "Klara" },
+  { key: "failed", label: "Fel" },
+] as const;
+type FilterKey = (typeof FILTERS)[number]["key"];
+
+function ResultDetails({ result }: { result: TaskResultRow }) {
+  if (!result) return null;
+  const llm = result.llm;
+  return (
+    <div className="mt-2 space-y-2 text-sm">
+      {result.draft?.subject ? (
+        <p>
+          <span className="text-muted-foreground">Ämne:</span> {result.draft.subject}
+        </p>
+      ) : null}
+      {result.draft?.body ? (
+        <pre className="whitespace-pre-wrap rounded-lg border border-border bg-background p-3 text-xs">
+          {result.draft.body}
+        </pre>
+      ) : null}
+      {result.nextStep ? <p>Föreslaget nästa steg: {result.nextStep}</p> : null}
+      {Array.isArray(result.internalNotes) && result.internalNotes.length > 0 ? (
+        <ul className="list-disc space-y-0.5 pl-5 text-muted-foreground">
+          {result.internalNotes.map((n) => (
+            <li key={n}>{n}</li>
+          ))}
+        </ul>
+      ) : null}
+      {llm ? (
+        <p className="text-xs text-muted-foreground">
+          Källa: {result.generatedBy === "llm" ? "OpenAI-resonemang" : "Deterministisk"} · modell{" "}
+          {llm.model ?? "–"} · försök {llm.attempts ?? 0} ·{" "}
+          {llm.usedFallback ? `reserv (${llm.fallbackReason || "okänd orsak"})` : "ingen reserv"} ·{" "}
+          {llm.inputTokens ?? 0}/{llm.outputTokens ?? 0} tokens · {llm.latencyMs ?? 0} ms
+        </p>
+      ) : null}
+    </div>
+  );
+}
 
 function AgentHqPage() {
   const fetchTasks = useServerFn(listAgentTasks);
@@ -94,10 +157,13 @@ function AgentHqPage() {
   const queryClient = useQueryClient();
   const [leadId, setLeadId] = useState("");
   const [message, setMessage] = useState("");
+  const [filter, setFilter] = useState<FilterKey>("all");
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["agent-tasks"],
     queryFn: () => fetchTasks(),
+    // Endast läsning. Uppdateringen skapar aldrig uppgifter eller AI-anrop.
+    refetchInterval: 10_000,
   });
 
   const mutation = useMutation({
@@ -110,6 +176,7 @@ function AgentHqPage() {
   });
 
   const tasks = (data?.tasks ?? []) as unknown as TaskRow[];
+  const visibleTasks = filter === "all" ? tasks : tasks.filter((t) => t.status === filter);
   const reviews = tasks.filter((t) => t.requires_approval && t.approval_status === "pending");
 
   return (
@@ -118,8 +185,10 @@ function AgentHqPage() {
         <section className="rounded-xl border border-amber-500/40 bg-amber-500/5 p-4 text-sm">
           <p className="font-medium">Körläge: {data?.mode ?? "TEST/REVIEW"}</p>
           <p className="text-muted-foreground">
-            Agenterna kör deterministiskt och internt. Inga AI-anrop, inga mail, inga bokningar och
-            inga Make-actions. Godkännande ändrar endast intern status.
+            Sales-agenten får använda OpenAI-resonemang i testläge för intern analys och utkast, med
+            deterministisk reserv om anropet fallerar. Systems & QA är enbart läsning och
+            verifiering. Inga mail, SMS, bokningar eller Make-actions sker – godkännande ändrar
+            endast intern status.
           </p>
         </section>
 
