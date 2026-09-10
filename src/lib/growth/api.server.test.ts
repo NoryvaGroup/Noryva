@@ -1298,9 +1298,57 @@ describe("customer-config (read-only)", () => {
   });
 
   it("skriver inget till kundtabellerna", async () => {
-    await call(configState([PROFILE]), { customerId: CUSTOMER_ID });
+    await call(configState([PROFILE], [MAIL_CHANNEL]), { customerId: CUSTOMER_ID });
     expect(fake.inserted["customers"]).toBeUndefined();
     expect(fake.inserted["customer_profiles"]).toBeUndefined();
+    expect(fake.inserted["customer_mail_channels"]).toBeUndefined();
+  });
+
+  it("verifierad mailidentitet returneras som säker metadata", async () => {
+    const { body } = await call(configState([PROFILE], [MAIL_CHANNEL]), {
+      customerId: CUSTOMER_ID,
+    });
+    expect(body.mailChannel).toEqual({
+      configured: true,
+      verified: true,
+      provider: "smtp",
+      senderEmail: "no-reply@kund.se",
+      senderName: "Kund AB",
+      replyToEmail: "svar@kund.se",
+      inboundRouteKey: "route-abc",
+      connectionAlias: "kund-smtp",
+      status: "verified",
+      verifiedAt: "2026-09-01T10:00:00Z",
+    });
+    // Avsändaridentitet är separat från notify-mottagare.
+    expect(body.notifyRecipients).toEqual(["info@noryva.se"]);
+  });
+
+  it("saknad mailidentitet är fail closed utan fallback till Noryva", async () => {
+    const { body } = await call(configState([PROFILE], []), { customerId: CUSTOMER_ID });
+    expect(body.mailChannel.configured).toBe(false);
+    expect(body.mailChannel.verified).toBe(false);
+    expect(body.mailChannel.senderEmail).toBe("");
+    expect(body.mailChannel.replyToEmail).toBe("");
+    expect(JSON.stringify(body.mailChannel)).not.toMatch(/noryva/i);
+  });
+
+  it("ej verifierad mailidentitet ger verified=false", async () => {
+    const { body } = await call(
+      configState([PROFILE], [{ ...MAIL_CHANNEL, status: "draft", verified_at: null }]),
+      { customerId: CUSTOMER_ID },
+    );
+    expect(body.mailChannel.configured).toBe(true);
+    expect(body.mailChannel.verified).toBe(false);
+    expect(body.mailChannel.status).toBe("draft");
+  });
+
+  it("credential-liknande kolumner läcker aldrig ut", async () => {
+    const { body } = await call(
+      configState([PROFILE], [{ ...MAIL_CHANNEL, smtp_password: "hemligt", api_key: "nyckel" }]),
+      { customerId: CUSTOMER_ID },
+    );
+    expect(JSON.stringify(body)).not.toMatch(/hemligt|nyckel|password|api_key/i);
   });
 });
 
