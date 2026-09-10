@@ -77,7 +77,12 @@ export const registerNurtureReply = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const ctx = context as GrowthContext;
     await assertAdmin(ctx);
-    return registerNurtureReplyCore(ctx, { leadId: data.leadId, body: data.body, source: "admin_test" });
+    return registerNurtureReplyCore(ctx, {
+      leadId: data.leadId,
+      body: data.body,
+      source: "admin_test",
+      reasoning: { env: serverEnv() },
+    });
   });
 
 /* -------------------------------------------------------------------------

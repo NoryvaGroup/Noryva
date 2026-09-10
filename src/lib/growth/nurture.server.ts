@@ -9,8 +9,9 @@
  *  - Modulen är fri från auth; anroparen ansvarar för behörighet.
  */
 import { assertExecutableMode } from "@/lib/ai-sales/execution-mode";
-import { classifyReplyDeterministic } from "@/lib/ai-sales/reply";
-import { redactText } from "@/lib/ai-sales/context";
+import { classifyReplySemantic } from "@/lib/ai-sales/reply-reasoning.server";
+import type { ReasoningDeps } from "@/lib/agents/reasoning.server";
+import { redactReplyBody } from "@/lib/ai-sales/reply-redact";
 import {
   applyReplyToNurture,
   buildNurturePlan,
@@ -373,8 +374,9 @@ export async function setNurtureStatusCore(
 /**
  * Registrerar ett inkommande svar i test/granskningsläge.
  *
- * Kör befintlig deterministisk klassificering, uppdaterar nurture-state och
- * registrerar utfall så att intent räknas om. Ingen notifiering skickas –
+ * Kör säkerhetsregler och högst en semantisk klassificering av den aktuella,
+ * ociterade svarsdelen. Endast tydlig köpavsikt får registrera positivt utfall.
+ * Ingen notifiering skickas –
  * `upgradeSignal` är enbart en flagga för ett senare, separat steg.
  */
 export async function registerNurtureReplyCore(
@@ -385,14 +387,16 @@ export async function registerNurtureReplyCore(
     source?: string;
     sourceRef?: string | undefined;
     makeContext?: MakeContext | null;
+    reasoning?: ReasoningDeps;
   },
 ) {
   // makeContext kastas LeadBindingError om kunden inte matchar lagrat lead.
   const { lead } = await loadLeadBundle(ctx, input.leadId, {
     makeContext: input.makeContext ?? null,
   });
-  const redacted = redactText(input.body ?? "");
-  const classification = classifyReplyDeterministic(redacted);
+  const redacted = redactReplyBody(input.body ?? "", lead.payload);
+  const semantic = await classifyReplySemantic(redacted, input.reasoning ?? {});
+  const classification = semantic.classification;
   const effect = applyReplyToNurture(classification);
 
   const existing = await readNurtureRow(ctx, lead.id);
@@ -406,7 +410,9 @@ export async function registerNurtureReplyCore(
     reason: effect.reason,
     last_reply_intent: classification.intent,
     human_takeover: effect.humanTakeover || (existing?.human_takeover ?? false),
-    upgrade_signal: effect.upgradeSignal || (existing?.upgrade_signal ?? false),
+    // Den här flaggan beskriver det aktuella svaret. Historiska legitima
+    // outcomes ligger kvar separat och raderas eller skrivs aldrig om här.
+    upgrade_signal: effect.upgradeSignal,
     next_step_at: effect.stop ? null : nextNurtureStepAt("NORMAL"),
     stopped_reason: effect.stop ? effect.reason : "",
     execution_mode: existing?.execution_mode ?? "review",
@@ -471,5 +477,6 @@ export async function registerNurtureReplyCore(
     notificationSent: false as const,
     externalEffect: false as const,
     redactedBody: redacted,
+    currentReply: semantic.currentReply,
   };
 }

@@ -28,6 +28,10 @@ export type ReplyClassification = {
     | "handoff_to_human"
     | "book_meeting";
   confidence: number;
+  /** Sätts endast av den semantiska serverbedömningen av det aktuella svaret. */
+  positivePurchaseIntent?: boolean;
+  /** Sätts endast när aktuell text uttryckligen vill boka/gå vidare via möte. */
+  explicitMeetingIntent?: boolean;
 };
 
 /** Intents som ALLTID går till människa – AI får aldrig svara själv. */

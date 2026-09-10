@@ -31,4 +31,6 @@
 - [ ] Sätt NORYVA_NURTURE_EXTERNAL_SEND_ENABLED=true först när riktiga kundutskick ska tillåtas (nu endast info@noryva.se)
 - [ ] Uppdatera Make-scenarierna 7331509 och 7331569 till de nya endpointsen (görs av dig, inte av mig)
 
-- [ ] Semantisk nurture-reply-bedömning: aktuell ociterad text styr upgrade/meeting outcome; historik bevaras; TEST/REVIEW utan externa effekter
+- [x] Semantisk nurture-reply-bedömning: aktuell ociterad text styr upgrade/meeting outcome; historik bevaras; TEST/REVIEW utan externa effekter
+
+- [x] Bekräftat: neutral aktuell reply skapar ingen upgrade/meeting; tydlig köpavsikt kan uppgradera; legitim historik bevaras

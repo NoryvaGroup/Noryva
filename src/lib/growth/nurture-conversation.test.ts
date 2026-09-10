@@ -147,14 +147,25 @@ describe("nurture conversation-kedja (TEST/REVIEW)", () => {
     await previewNurtureTestCore(ctx, LEAD_ID);
 
     const body = "Hej, ni når mig på anna@example.com eller 070-123 45 67. Låter intressant.";
-    const first = await registerNurtureReplyCore(ctx, { leadId: LEAD_ID, body, sourceRef: "make-evt-1" });
+    const reasoning = { env: {} };
+    const first = await registerNurtureReplyCore(ctx, {
+      leadId: LEAD_ID,
+      body,
+      sourceRef: "make-evt-1",
+      reasoning,
+    });
     expect(first.inboundStored).toBe(true);
     expect(first.notificationSent).toBe(false);
     expect(first.externalEffect).toBe(false);
     expect(first.redactedBody).not.toContain("anna@example.com");
     expect(first.redactedBody).not.toContain("070");
 
-    const again = await registerNurtureReplyCore(ctx, { leadId: LEAD_ID, body, sourceRef: "make-evt-1" });
+    const again = await registerNurtureReplyCore(ctx, {
+      leadId: LEAD_ID,
+      body,
+      sourceRef: "make-evt-1",
+      reasoning,
+    });
     expect(again.inboundDuplicate).toBe(true);
 
     const inbound = state["conversation_messages"]!.filter((m) => m["direction"] === "inbound");
@@ -172,10 +183,62 @@ describe("nurture conversation-kedja (TEST/REVIEW)", () => {
     const { supabase, state } = makeSupabase();
     const ctx = ctxOf(supabase);
     const body = "Tack, hör av er om ett par veckor.";
-    const a = await registerNurtureReplyCore(ctx, { leadId: LEAD_ID, body });
-    const b = await registerNurtureReplyCore(ctx, { leadId: LEAD_ID, body });
+    const a = await registerNurtureReplyCore(ctx, { leadId: LEAD_ID, body, reasoning: { env: {} } });
+    const b = await registerNurtureReplyCore(ctx, { leadId: LEAD_ID, body, reasoning: { env: {} } });
     expect(a.sourceRef).toBe(b.sourceRef);
     expect(b.inboundDuplicate).toBe(true);
     expect(state["conversation_messages"]!.filter((m) => m["direction"] === "inbound").length).toBe(1);
+  });
+
+  it("låter neutral aktuell reply förbli signalneutral trots gammalt mötesutfall", async () => {
+    const { supabase, state } = makeSupabase();
+    state["growth_outcomes"]!.push({
+      lead_id: LEAD_ID,
+      variant_id: null,
+      outcome_type: "meeting_booked",
+      outcome_value: null,
+      revenue_value: null,
+    });
+    state["growth_nurture_state"]!.push({
+      lead_id: LEAD_ID,
+      customer_id: CUSTOMER_ID,
+      status: "sent",
+      intent_level: "HÖG",
+      upgrade_signal: true,
+      human_takeover: false,
+      execution_mode: "review",
+      steps_taken: 1,
+    });
+
+    const result = await registerNurtureReplyCore(ctxOf(supabase), {
+      leadId: LEAD_ID,
+      body: "hej! /test\n\nDen 9 sep. 2026 skrev Noryva:\n> Kan vi boka ett möte?",
+      sourceRef: "neutral-after-old-meeting",
+      reasoning: {
+        env: { OPENAI_API_KEY: "sk-test" },
+        fetchImpl: async () =>
+          ({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              output_text: JSON.stringify({
+                intent: "ovrigt",
+                positivePurchaseIntent: false,
+                explicitMeetingIntent: false,
+                confidence: 0.99,
+                reason: "Neutral testtext.",
+              }),
+            }),
+          }) as Response,
+      },
+    });
+
+    expect(result.effect.upgradeSignal).toBe(false);
+    expect(result.effect.outcome).toBeNull();
+    expect(result.state.upgrade_signal).toBe(false);
+    expect(result.intent.level).toBe("HÖG");
+    expect(state["growth_outcomes"]).toHaveLength(1);
+    expect(result.notificationSent).toBe(false);
+    expect(result.externalEffect).toBe(false);
   });
 });

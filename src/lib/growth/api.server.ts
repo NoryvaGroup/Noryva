@@ -208,8 +208,8 @@ async function runOperation(
     }
 
     case "register-nurture-reply-test": {
-      // Ren test/granskningsoperation: registrerar ett svar PII-maskerat och
-      // kör befintlig deterministisk klassificering. Ingen extern effekt.
+      // Ren test/granskningsoperation: säkerhetsregler + högst ett semantiskt
+      // anrop på den aktuella svarsdelen. Ingen extern effekt.
       const { registerNurtureReplyCore } = await import("./nurture.server");
       const result = await registerNurtureReplyCore(ctx, {
         leadId: data.leadId,
@@ -217,6 +217,7 @@ async function runOperation(
         source: GROWTH_API_SOURCE,
         sourceRef: data.sourceRef,
         makeContext: data.makeContext ?? null,
+        reasoning: { env },
       });
       return {
         ok: true,
@@ -365,7 +366,7 @@ async function runOperation(
         fromEmail: data.fromEmail,
         body: data.body,
         messageId: data.messageId,
-      });
+      }, env);
       const { status, ...body } = result as { status: number } & Record<string, unknown>;
       return withStatus(status, body);
     }

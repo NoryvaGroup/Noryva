@@ -111,14 +111,22 @@ describe("svarshantering i nurture", () => {
   });
 
   it("mötesvilja ger uppgraderingssignal och mötesutfall", () => {
-    const e = applyReplyToNurture(classifyReplyDeterministic("Kan vi boka ett möte?"));
+    const e = applyReplyToNurture({
+      ...classifyReplyDeterministic("Kan vi boka ett möte?"),
+      positivePurchaseIntent: true,
+      explicitMeetingIntent: true,
+    });
     expect(e.upgradeSignal).toBe(true);
     expect(e.outcome).toBe("meeting_booked");
     expect(e.humanTakeover).toBe(false);
   });
 
   it("positivt svar ger uppgraderingssignal utan extern notis", () => {
-    const e = applyReplyToNurture(classifyReplyDeterministic("Låter bra, berätta mer"));
+    const e = applyReplyToNurture({
+      ...classifyReplyDeterministic("Låter bra, berätta mer"),
+      positivePurchaseIntent: true,
+      explicitMeetingIntent: false,
+    });
     expect(e.upgradeSignal).toBe(true);
     expect(e.outcome).toBe("replied");
   });
@@ -127,6 +135,8 @@ describe("svarshantering i nurture", () => {
     const e = applyReplyToNurture(classifyReplyDeterministic("Hej!"));
     expect(e.stop).toBe(false);
     expect(e.status).toBe("replied");
+    expect(e.upgradeSignal).toBe(false);
+    expect(e.outcome).toBeNull();
   });
 });
 
@@ -142,7 +152,11 @@ describe("statusmaskin", () => {
 
 describe("intent-uppgradering från svar", () => {
   it("mötesvilja lyfter ett LÅG-lead över NORMAL-tröskeln", () => {
-    const effect = applyReplyToNurture(classifyReplyDeterministic("Kan vi boka ett möte?"));
+    const effect = applyReplyToNurture({
+      ...classifyReplyDeterministic("Kan vi boka ett möte?"),
+      positivePurchaseIntent: true,
+      explicitMeetingIntent: true,
+    });
     const before = computeIntent({ baseScore: 20, outcomes: [] });
     const after = computeIntent({
       baseScore: 20,

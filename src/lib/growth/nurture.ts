@@ -215,6 +215,12 @@ export const UPGRADE_INTENTS: ReplyIntent[] = ["intresserad", "vill_boka"];
  */
 export function applyReplyToNurture(classification: ReplyClassification): NurtureReplyEffect {
   const intent = classification.intent;
+  const semantic = classification as ReplyClassification & {
+    positivePurchaseIntent?: boolean;
+    explicitMeetingIntent?: boolean;
+  };
+  const positivePurchaseIntent = semantic.positivePurchaseIntent === true;
+  const explicitMeetingIntent = semantic.explicitMeetingIntent === true && positivePurchaseIntent;
 
   if (intent === "avbojer") {
     return {
@@ -222,7 +228,7 @@ export function applyReplyToNurture(classification: ReplyClassification): Nurtur
       stop: true,
       humanTakeover: false,
       upgradeSignal: false,
-      outcome: "replied",
+      outcome: null,
       reason: "Leadet tackade nej – uppföljningen stoppas.",
     };
   }
@@ -232,21 +238,21 @@ export function applyReplyToNurture(classification: ReplyClassification): Nurtur
       status: "review",
       stop: true,
       humanTakeover: true,
-      upgradeSignal: intent === "pris_offert" || intent === "forhandling",
-      outcome: "replied",
+      upgradeSignal: false,
+      outcome: null,
       reason: "Pris, förhandling, klagomål och juridik hanteras alltid av en människa.",
     };
   }
 
-  if (UPGRADE_INTENTS.includes(intent)) {
+  if (positivePurchaseIntent && UPGRADE_INTENTS.includes(intent)) {
     return {
       status: "review",
       stop: true,
       humanTakeover: false,
       upgradeSignal: true,
-      outcome: intent === "vill_boka" ? "meeting_booked" : "replied",
+      outcome: explicitMeetingIntent ? "meeting_booked" : "replied",
       reason:
-        intent === "vill_boka"
+        explicitMeetingIntent
           ? "Leadet vill boka – uppgraderingssignal för kundnotifiering (skickas inte här)."
           : "Positivt svar – uppgraderingssignal för kundnotifiering (skickas inte här).",
     };
@@ -257,7 +263,7 @@ export function applyReplyToNurture(classification: ReplyClassification): Nurtur
     stop: false,
     humanTakeover: false,
     upgradeSignal: false,
-    outcome: "replied",
+    outcome: null,
     reason: "Svar mottaget – fortsatt billig uppföljning.",
   };
 }
