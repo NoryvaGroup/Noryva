@@ -38,6 +38,7 @@ import { Route as ApiPublicGrowthAssignVariantRouteImport } from './routes/api/p
 import { Route as ApiPublicGrowthClaimNurtureReviewRouteImport } from './routes/api/public/growth/claim-nurture-review'
 import { Route as ApiPublicGrowthCompleteNurtureReviewRouteImport } from './routes/api/public/growth/complete-nurture-review'
 import { Route as ApiPublicGrowthCustomerConfigRouteImport } from './routes/api/public/growth/customer-config'
+import { Route as ApiPublicGrowthDeliveryRecoveryRouteImport } from './routes/api/public/growth/delivery-recovery'
 import { Route as ApiPublicGrowthDueLeadRemindersRouteImport } from './routes/api/public/growth/due-lead-reminders'
 import { Route as ApiPublicGrowthDueNurtureReviewsRouteImport } from './routes/api/public/growth/due-nurture-reviews'
 import { Route as ApiPublicGrowthFailNurtureReviewRouteImport } from './routes/api/public/growth/fail-nurture-review'
@@ -203,6 +204,12 @@ const ApiPublicGrowthCustomerConfigRoute =
     path: '/api/public/growth/customer-config',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicGrowthDeliveryRecoveryRoute =
+  ApiPublicGrowthDeliveryRecoveryRouteImport.update({
+    id: '/api/public/growth/delivery-recovery',
+    path: '/api/public/growth/delivery-recovery',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicGrowthDueLeadRemindersRoute =
   ApiPublicGrowthDueLeadRemindersRouteImport.update({
     id: '/api/public/growth/due-lead-reminders',
@@ -287,6 +294,7 @@ export interface FileRoutesByFullPath {
   '/api/public/growth/claim-nurture-review': typeof ApiPublicGrowthClaimNurtureReviewRoute
   '/api/public/growth/complete-nurture-review': typeof ApiPublicGrowthCompleteNurtureReviewRoute
   '/api/public/growth/customer-config': typeof ApiPublicGrowthCustomerConfigRoute
+  '/api/public/growth/delivery-recovery': typeof ApiPublicGrowthDeliveryRecoveryRoute
   '/api/public/growth/due-lead-reminders': typeof ApiPublicGrowthDueLeadRemindersRoute
   '/api/public/growth/due-nurture-reviews': typeof ApiPublicGrowthDueNurtureReviewsRoute
   '/api/public/growth/fail-nurture-review': typeof ApiPublicGrowthFailNurtureReviewRoute
@@ -326,6 +334,7 @@ export interface FileRoutesByTo {
   '/api/public/growth/claim-nurture-review': typeof ApiPublicGrowthClaimNurtureReviewRoute
   '/api/public/growth/complete-nurture-review': typeof ApiPublicGrowthCompleteNurtureReviewRoute
   '/api/public/growth/customer-config': typeof ApiPublicGrowthCustomerConfigRoute
+  '/api/public/growth/delivery-recovery': typeof ApiPublicGrowthDeliveryRecoveryRoute
   '/api/public/growth/due-lead-reminders': typeof ApiPublicGrowthDueLeadRemindersRoute
   '/api/public/growth/due-nurture-reviews': typeof ApiPublicGrowthDueNurtureReviewsRoute
   '/api/public/growth/fail-nurture-review': typeof ApiPublicGrowthFailNurtureReviewRoute
@@ -367,6 +376,7 @@ export interface FileRoutesById {
   '/api/public/growth/claim-nurture-review': typeof ApiPublicGrowthClaimNurtureReviewRoute
   '/api/public/growth/complete-nurture-review': typeof ApiPublicGrowthCompleteNurtureReviewRoute
   '/api/public/growth/customer-config': typeof ApiPublicGrowthCustomerConfigRoute
+  '/api/public/growth/delivery-recovery': typeof ApiPublicGrowthDeliveryRecoveryRoute
   '/api/public/growth/due-lead-reminders': typeof ApiPublicGrowthDueLeadRemindersRoute
   '/api/public/growth/due-nurture-reviews': typeof ApiPublicGrowthDueNurtureReviewsRoute
   '/api/public/growth/fail-nurture-review': typeof ApiPublicGrowthFailNurtureReviewRoute
@@ -408,6 +418,7 @@ export interface FileRouteTypes {
     | '/api/public/growth/claim-nurture-review'
     | '/api/public/growth/complete-nurture-review'
     | '/api/public/growth/customer-config'
+    | '/api/public/growth/delivery-recovery'
     | '/api/public/growth/due-lead-reminders'
     | '/api/public/growth/due-nurture-reviews'
     | '/api/public/growth/fail-nurture-review'
@@ -447,6 +458,7 @@ export interface FileRouteTypes {
     | '/api/public/growth/claim-nurture-review'
     | '/api/public/growth/complete-nurture-review'
     | '/api/public/growth/customer-config'
+    | '/api/public/growth/delivery-recovery'
     | '/api/public/growth/due-lead-reminders'
     | '/api/public/growth/due-nurture-reviews'
     | '/api/public/growth/fail-nurture-review'
@@ -487,6 +499,7 @@ export interface FileRouteTypes {
     | '/api/public/growth/claim-nurture-review'
     | '/api/public/growth/complete-nurture-review'
     | '/api/public/growth/customer-config'
+    | '/api/public/growth/delivery-recovery'
     | '/api/public/growth/due-lead-reminders'
     | '/api/public/growth/due-nurture-reviews'
     | '/api/public/growth/fail-nurture-review'
@@ -521,6 +534,7 @@ export interface RootRouteChildren {
   ApiPublicGrowthClaimNurtureReviewRoute: typeof ApiPublicGrowthClaimNurtureReviewRoute
   ApiPublicGrowthCompleteNurtureReviewRoute: typeof ApiPublicGrowthCompleteNurtureReviewRoute
   ApiPublicGrowthCustomerConfigRoute: typeof ApiPublicGrowthCustomerConfigRoute
+  ApiPublicGrowthDeliveryRecoveryRoute: typeof ApiPublicGrowthDeliveryRecoveryRoute
   ApiPublicGrowthDueLeadRemindersRoute: typeof ApiPublicGrowthDueLeadRemindersRoute
   ApiPublicGrowthDueNurtureReviewsRoute: typeof ApiPublicGrowthDueNurtureReviewsRoute
   ApiPublicGrowthFailNurtureReviewRoute: typeof ApiPublicGrowthFailNurtureReviewRoute
@@ -737,6 +751,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicGrowthCustomerConfigRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/growth/delivery-recovery': {
+      id: '/api/public/growth/delivery-recovery'
+      path: '/api/public/growth/delivery-recovery'
+      fullPath: '/api/public/growth/delivery-recovery'
+      preLoaderRoute: typeof ApiPublicGrowthDeliveryRecoveryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/growth/due-lead-reminders': {
       id: '/api/public/growth/due-lead-reminders'
       path: '/api/public/growth/due-lead-reminders'
@@ -852,6 +873,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicGrowthCompleteNurtureReviewRoute:
     ApiPublicGrowthCompleteNurtureReviewRoute,
   ApiPublicGrowthCustomerConfigRoute: ApiPublicGrowthCustomerConfigRoute,
+  ApiPublicGrowthDeliveryRecoveryRoute: ApiPublicGrowthDeliveryRecoveryRoute,
   ApiPublicGrowthDueLeadRemindersRoute: ApiPublicGrowthDueLeadRemindersRoute,
   ApiPublicGrowthDueNurtureReviewsRoute: ApiPublicGrowthDueNurtureReviewsRoute,
   ApiPublicGrowthFailNurtureReviewRoute: ApiPublicGrowthFailNurtureReviewRoute,
