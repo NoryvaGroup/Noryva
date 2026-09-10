@@ -19,17 +19,32 @@ function makeSupabase(state: Record<string, Row[]>) {
   const supabase = {
     from(table: string) {
       const filters: Array<[string, any]> = [];
+      const ltFilters: Array<[string, any]> = [];
+      let rowLimit = Infinity;
       const rows = () =>
-        (state[table] ?? []).filter((r) => filters.every(([c, v]) => r[c] === v));
+        (state[table] ?? [])
+          .filter(
+            (r) =>
+              filters.every(([c, v]) => r[c] === v) &&
+              ltFilters.every(([c, v]) => String(r[c]) < String(v)),
+          )
+          .slice(0, rowLimit);
       const builder: any = {
         select: () => builder,
         eq: (c: string, v: any) => {
           filters.push([c, v]);
           return builder;
         },
+        lt: (c: string, v: any) => {
+          ltFilters.push([c, v]);
+          return builder;
+        },
         gte: () => builder,
         order: () => builder,
-        limit: () => builder,
+        limit: (n: number) => {
+          rowLimit = n;
+          return builder;
+        },
         maybeSingle: async () => ({ data: rows()[0] ?? null, error: null }),
         insert: (row: Row) => {
           (inserted[table] ??= []).push(row);
