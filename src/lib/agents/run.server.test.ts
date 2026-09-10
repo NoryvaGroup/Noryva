@@ -184,6 +184,19 @@ describe("agents-process-test", () => {
     const task = state["agent_tasks"]![0]!;
     expect(task["status"]).toBe("awaiting_review");
     expect((task["result"] as any).kind).toBe("sales_analysis");
+    // Utan OPENAI_API_KEY i testmiljön: noll LLM-anrop och deterministiskt utkast.
+    expect((task["result"] as any).llm).toMatchObject({
+      used: false,
+      attempts: 0,
+      usedFallback: true,
+      fallbackReason: "missing_api_key",
+    });
+    expect((task["result"] as any).generatedBy).toBe("deterministic");
+
+    const llmEvent = state["agent_task_events"]!.find((e) => e["event_type"] === "llm_call")!;
+    expect(llmEvent["actor"]).toBe("agent");
+    expect(Object.keys(llmEvent["detail"] as object)).not.toContain("prompt");
+    expect((llmEvent["detail"] as any).externalEffect).toBe(false);
   });
 
   it("Systems & QA gör read-only leveranskontroll", async () => {
