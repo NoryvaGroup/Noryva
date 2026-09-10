@@ -20,19 +20,25 @@ function makeSupabase(state: Record<string, Row[]>) {
     from(table: string) {
       const filters: Array<[string, any]> = [];
       const ltFilters: Array<[string, any]> = [];
+      const inFilters: Array<[string, any[]]> = [];
       let rowLimit = Infinity;
       const rows = () =>
         (state[table] ?? [])
           .filter(
             (r) =>
               filters.every(([c, v]) => r[c] === v) &&
-              ltFilters.every(([c, v]) => String(r[c]) < String(v)),
+              ltFilters.every(([c, v]) => String(r[c]) < String(v)) &&
+              inFilters.every(([c, v]) => v.includes(r[c])),
           )
           .slice(0, rowLimit);
       const builder: any = {
         select: () => builder,
         eq: (c: string, v: any) => {
           filters.push([c, v]);
+          return builder;
+        },
+        in: (c: string, v: any[]) => {
+          inFilters.push([c, v]);
           return builder;
         },
         lt: (c: string, v: any) => {
@@ -1403,5 +1409,62 @@ describe("due-lead-reminders (read-only)", () => {
     expect(state["leads"]![0]!["contacted_at"]).toBeNull();
     expect(fake.inserted["leads"]).toBeUndefined();
     expect(fake.inserted["customer_profiles"]).toBeUndefined();
+  });
+});
+
+describe("delivery-recovery (dry-run som standard)", () => {
+  function recoveryState() {
+    const state = baseState(COMPLETE_ANSWERS);
+    state["leads"] = [
+      {
+        id: LEAD_ID,
+        customer_id: CUSTOMER_ID,
+        industry: "tak",
+        payload: { answers: COMPLETE_ANSWERS },
+        idempotency_key: `${CUSTOMER_ID}:sub`,
+        delivery_status: "failed",
+        delivery_attempts: 1,
+        created_at: "2026-09-01T08:00:00.000Z",
+        last_attempt_at: "2026-09-01T08:00:00.000Z",
+      },
+    ];
+    state["inbound_webhook_events"] = [];
+    return state;
+  }
+
+  it("kräver giltig signatur", async () => {
+    const res = await handleGrowthApi(
+      "delivery-recovery",
+      signedRequest("delivery-recovery", {}, { secret: "fel" }),
+      deps(recoveryState()),
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it("returnerar kandidater utan att skriva något", async () => {
+    const state = recoveryState();
+    const res = await handleGrowthApi(
+      "delivery-recovery",
+      signedRequest("delivery-recovery", {}),
+      deps(state),
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as any;
+    expect(body.dryRun).toBe(true);
+    expect(body.executed).toBe(false);
+    expect(body.count).toBe(1);
+    expect(state["leads"]![0]!["delivery_status"]).toBe("failed");
+    expect(fake.rpcCalls.filter(([n]) => n === "claim_lead_delivery")).toHaveLength(0);
+  });
+
+  it("blockerar execute när runtime-flaggan saknas", async () => {
+    const res = await handleGrowthApi(
+      "delivery-recovery",
+      signedRequest("delivery-recovery", { execute: true }),
+      deps(recoveryState()),
+    );
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as any;
+    expect(body.blocked).toBe(true);
   });
 });
