@@ -1534,7 +1534,7 @@ describe("review-reconciliation", () => {
     // Inga mutationsanrop mot RPC gjordes.
     expect(fake.rpcCalls).toHaveLength(0);
     // Radstatus ändrades aldrig.
-    expect(state.nurture_reviews!.find((r) => r.id === "rv-stale")!.status).toBe("claimed");
+    expect(state.nurture_reviews!.find((r) => r["id"] === "rv-stale")!["status"]).toBe("claimed");
   });
 
   it("respekterar claimedOlderThanMinutes", async () => {
