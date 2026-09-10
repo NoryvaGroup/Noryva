@@ -576,6 +576,21 @@ export async function approveNurtureReviewCore(
     };
   }
 
+  // Strikt utskickskontrakt: rätt kund, lagrad mottagare och verifierad
+  // mailidentitet. Håller det inte spärras posten i stället för att godkännas.
+  const { contract } = await checkSendContract(ctx, {
+    leadId: existing.lead_id,
+    reviewCustomerId: existing.customer_id,
+    reviewRecipient: existing.recipient_email,
+  });
+  if (!contract.ok) {
+    await writer.supabase
+      .from(TABLE)
+      .update({ status: "blocked", blocked_reason: contract.reason })
+      .eq("id", existing.id);
+    return { ok: false, code: contract.code, message: contract.reason, reviewId: existing.id };
+  }
+
   const { data: rpc, error } = await ctx.supabase.rpc("approve_nurture_review", {
     p_review_id: existing.id,
     p_fingerprint: input.expectedFingerprint,
