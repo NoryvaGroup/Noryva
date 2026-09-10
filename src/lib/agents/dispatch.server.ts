@@ -13,6 +13,7 @@ export type DispatchInput = {
   type: AgentEventType;
   leadId: string;
   occurrence?: string | undefined;
+  auditSource?: "make_growth" | "shadow_review" | undefined;
 };
 
 export type DispatchOutcome = { status: number; body: Record<string, unknown> };
@@ -82,7 +83,19 @@ export async function dispatchAgentEventCore(
     })
     .select("id")
     .single();
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (/duplicate key|23505/i.test(error.message)) {
+      const { data: raced } = await ctx.supabase
+        .from("agent_tasks")
+        .select("id")
+        .eq("idempotency_key", spec.idempotencyKey)
+        .maybeSingle();
+      if (raced?.id) {
+        return { status: 200, body: { ok: true, taskId: raced.id, duplicate: true, ...base } };
+      }
+    }
+    throw new Error(error.message);
+  }
 
   // Audit: endast metadata, aldrig lead-PII.
   try {
@@ -95,7 +108,7 @@ export async function dispatchAgentEventCore(
         agent: spec.assignedAgent,
         taskType: spec.taskType,
         priority: spec.priority,
-        source: "make_growth",
+        source: input.auditSource ?? "make_growth",
         externalEffect: false,
       },
     });

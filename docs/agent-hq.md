@@ -68,6 +68,20 @@ uppgift, med samma säkerhetslager och samma secret (ingen ny secret).
 - Godkännande är fortfarande mänskligt i `/admin/agents`. Ingen LLM, inga mail,
   SMS, bokningar eller Make-callbacks.
 
+`POST /api/public/agents/shadow-review-test` fyller en separat intern
+Shadow Review-kö från nyliga, verkliga leads utan att köra Sales-workern.
+
+- Payload: `{ executionMode: "test", limit?, recentHours? }`; `limit` är högst
+  10 och andra körlägen avvisas.
+- Endast lead-id, customer-id och created_at läses. Lead-payload och PII läses
+  eller returneras inte.
+- Saknad lead- eller kundbindning hoppas över utan gissningar.
+- Varje lead routas som `new_lead` med occurrence `shadow-review-v1`, vilket ger
+  en idempotent, köad Sales-uppgift i testläge med väntande godkännande.
+- Svaret innehåller endast räknare och task-id:n samt `externalEffect: false`.
+- Endpointen kör aldrig worker/OpenAI och påverkar inte Make-, mail-, CRM-,
+  Growth-, nurture- eller formulärflöden. Processkedjan anropas separat.
+
 ## Säkerhetsspärrar
 
 - Alla serverfunktioner kräver inloggad admin (`has_role`).
