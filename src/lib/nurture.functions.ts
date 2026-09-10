@@ -162,3 +162,39 @@ export const cancelNurtureReview = createServerFn({ method: "POST" })
     await assertAdmin(ctx);
     return cancelNurtureReviewCore(ctx, { reviewId: data.reviewId, reason: data.reason ?? "" });
   });
+
+/**
+ * Manuell avstämning av ett hämtat eller osäkert utskick.
+ *
+ * SÄKERHET: skickar aldrig något, släpper aldrig posten för nytt automatiskt
+ * försök. Behörigheten prövas både här och i databasfunktionen.
+ */
+export const reconcileNurtureReview = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (input: {
+      reviewId: string;
+      outcome: string;
+      transportMessageId?: string;
+      reason?: string;
+    }) =>
+      z
+        .object({
+          reviewId: z.string().uuid(),
+          outcome: z.enum(RECONCILE_OUTCOMES),
+          transportMessageId: z.string().trim().min(1).max(400).optional(),
+          reason: z.string().trim().max(400).optional(),
+        })
+        .strict()
+        .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const ctx = context as GrowthContext;
+    await assertAdmin(ctx);
+    return reconcileNurtureReviewCore(ctx, {
+      reviewId: data.reviewId,
+      outcome: data.outcome,
+      transportMessageId: data.transportMessageId,
+      reason: data.reason,
+    });
+  });
