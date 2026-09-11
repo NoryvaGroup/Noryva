@@ -1417,7 +1417,8 @@ describe("customer-config (read-only)", () => {
 
 describe("due-lead-reminders (read-only)", () => {
   const OLD = "2026-09-01T08:00:00.000Z";
-  const NEW = "2026-09-09T23:00:00.000Z";
+  // Relativ tid: ett färskt lead ska aldrig bli "gammalt" när kalendern går vidare.
+  const NEW = new Date(Date.now() - 60 * 60 * 1000).toISOString();
   const NOW = new Date("2026-09-10T00:00:00.000Z");
 
   function reminderState(leads: Row[], profiles: Row[] = []) {

@@ -1,6 +1,9 @@
 /**
- * Agent HQ – serverlager. Allt är admin-gated och helt internt:
- * inga mail, inga Make-anrop, inga bokningar och ingen LLM.
+ * Agent HQ – serverlager (kontrollplan). Allt är admin-gated och internt:
+ * inga mail, inga Make-anrop, inga bokningar och inga externa actions.
+ *
+ * De aktiva v1-rollerna (Noryva Manager, Product & Tech) körs av OpenAI Agents
+ * API-harnessen via `v2.server.ts`. Saknas konfiguration görs ingenting alls.
  */
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
@@ -18,7 +21,7 @@ import {
 type AdminContext = { supabase: any; userId: string };
 
 const TASK_COLUMNS =
-  "id, customer_id, lead_id, assigned_agent, task_type, priority, status, instructions, result, verification_status, verification_reasons, requires_approval, approval_status, source_event, idempotency_key, execution_mode, created_at, updated_at";
+  "id, customer_id, lead_id, assigned_agent, task_type, priority, status, instructions, result, verification_status, verification_reasons, requires_approval, approval_status, source_event, idempotency_key, execution_mode, provider_type, provider_agent_id, provider_run_id, run_status, usage, run_budget, runs_used, created_at, updated_at";
 
 async function assertAdmin(context: AdminContext) {
   const { data, error } = await context.supabase.rpc("has_role", {
@@ -83,7 +86,55 @@ export const listAgentTasks = createServerFn({ method: "GET" })
     return { tasks: tasks ?? [], events: events ?? [], mode: "TEST/REVIEW" as const };
   });
 
-/* -------------------------------------------------------- orchestrator */
+/* ------------------------------------------------------ harness (v2) */
+
+/** Status för agent-harnessen. Returnerar aldrig nycklar eller hemligheter. */
+export const getAgentHarnessStatus = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const ctx = context as AdminContext;
+    await assertAdmin(ctx);
+    const { readHarnessStatus } = await import("@/lib/agents/openai-agents.server");
+    return readHarnessStatus({});
+  });
+
+const v2Input = z.object({
+  role: z.enum(["noryva_manager", "product_tech"]),
+  goal: z.string().trim().max(400).optional(),
+});
+
+/** Skapar EN uppgift för en aktiv v1-roll. Ingen körning startas här. */
+export const createV2Task = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => v2Input.parse(input))
+  .handler(async ({ data, context }) => {
+    const ctx = context as AdminContext;
+    await assertAdmin(ctx);
+    const { createV2TaskCore } = await import("@/lib/agents/v2.server");
+    const result = await createV2TaskCore(ctx, {
+      role: data.role,
+      executionMode: "test",
+      ...(data.goal ? { goal: data.goal } : {}),
+    });
+    if (result.status !== 200) throw new Error(String(result.body["error"] ?? "Kunde inte skapa."));
+    return { ok: true as const, ...result.body, externalEffect: false as const };
+  });
+
+/** Kör EN v1-uppgift via harnessen. Fail closed utan konfiguration. */
+export const runV2Task = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ taskId: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const ctx = context as AdminContext;
+    await assertAdmin(ctx);
+    const { runV2TaskCore } = await import("@/lib/agents/v2.server");
+    const result = await runV2TaskCore(ctx, { taskId: data.taskId });
+    if (result.status !== 200) throw new Error(String(result.body["error"] ?? "Körningen stoppades."));
+    return { ok: true as const, ...result.body, externalEffect: false as const };
+  });
+
+/* ---------------------------------------------- orchestrator (legacy) */
+
 
 const eventInput = z.object({
   type: z.enum(["new_lead", "delivery_error", "lead_followup_due"]),

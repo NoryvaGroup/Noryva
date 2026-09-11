@@ -16,6 +16,8 @@ export const AGENTS = [
   "customer_success",
   "growth",
   "admin_finance",
+  "noryva_manager",
+  "product_tech",
 ] as const;
 export type AgentName = (typeof AGENTS)[number];
 
@@ -26,14 +28,43 @@ export const AGENT_LABEL: Record<AgentName, string> = {
   customer_success: "Customer Success",
   growth: "Growth",
   admin_finance: "Admin & Finance",
+  noryva_manager: "Noryva Manager",
+  product_tech: "Product & Tech",
 };
+
+/** Aktiva roller i v1. Endast dessa får starta ett agent-run. */
+export const ACTIVE_AGENTS_V1 = ["noryva_manager", "product_tech"] as const;
+export type ActiveAgentV1 = (typeof ACTIVE_AGENTS_V1)[number];
+
+/** Roller som finns i modellen men är vilande (kan inte köras). */
+export const DORMANT_AGENTS_V1 = ["sales", "customer_success", "systems_qa"] as const;
+
+export function isActiveAgentV1(agent: string): agent is ActiveAgentV1 {
+  return (ACTIVE_AGENTS_V1 as readonly string[]).includes(agent);
+}
+
+/**
+ * Befogenhetskedjan. UTFÖRA är spärrat i den här versionen för allt som kan
+ * påverka produktion, kunder eller externa system.
+ */
+export const AUTHORITY_CHAIN = [
+  "LÄSA",
+  "ANALYSERA",
+  "FÖRESLÅ",
+  "TESTA",
+  "BE OM GODKÄNNANDE",
+  "UTFÖRA",
+] as const;
+export const AUTHORITY_EXECUTE_ENABLED = false;
 
 export type TaskType =
   | "sales_draft"
   | "delivery_check"
   | "followup_review"
   | "qa_review"
-  | "cto_improvement_review";
+  | "cto_improvement_review"
+  | "manager_directive"
+  | "product_tech_review";
 export type TaskPriority = "low" | "normal" | "high";
 export type TaskStatus = "queued" | "in_progress" | "awaiting_review" | "done" | "failed" | "cancelled";
 export type VerificationStatus = "not_started" | "passed" | "failed";
@@ -45,7 +76,10 @@ export const TASK_TYPE_LABEL: Record<TaskType, string> = {
   followup_review: "Uppföljning att granska",
   qa_review: "Teknisk kontroll",
   cto_improvement_review: "Intern systemgranskning",
+  manager_directive: "Prioritering och delegering",
+  product_tech_review: "Produkt- och teknikgranskning",
 };
+
 
 export const PRIORITY_LABEL: Record<TaskPriority, string> = {
   low: "Låg",
@@ -309,6 +343,39 @@ export function verifyTaskResult(input: QaWorkerInput): QaVerdict {
     }
     if (!input.requiresApproval) reasons.push("Systemgranskning måste kräva godkännande.");
   }
+
+  if (input.taskType === "manager_directive") {
+    const r = result as { summary?: unknown; priorities?: unknown; externalEffect?: unknown };
+    if (typeof r.summary !== "string" || r.summary.trim().length < 10) {
+      reasons.push("Sammanfattningen saknas.");
+    }
+    if (!Array.isArray(r.priorities) || r.priorities.length === 0) {
+      reasons.push("Minst en prioritering krävs.");
+    }
+    if (r.externalEffect !== false) reasons.push("Resultatet får inte ha extern effekt.");
+    if (!input.requiresApproval) reasons.push("Managerbeslut måste kräva godkännande.");
+  }
+
+  if (input.taskType === "product_tech_review") {
+    const r = result as {
+      summary?: unknown;
+      recommendations?: unknown;
+      implementationPrompt?: unknown;
+      externalEffect?: unknown;
+    };
+    if (typeof r.summary !== "string" || r.summary.trim().length < 10) {
+      reasons.push("Sammanfattningen saknas.");
+    }
+    if (!Array.isArray(r.recommendations) || r.recommendations.length === 0) {
+      reasons.push("Minst en rekommendation krävs.");
+    }
+    if (typeof r.implementationPrompt !== "string" || r.implementationPrompt.trim().length < 30) {
+      reasons.push("Implementationsprompt saknas.");
+    }
+    if (r.externalEffect !== false) reasons.push("Resultatet får inte ha extern effekt.");
+    if (!input.requiresApproval) reasons.push("Granskningen måste kräva godkännande.");
+  }
+
 
   if (input.taskType === "delivery_check" && hasResult) {
     const status = (result as { deliveryStatus?: unknown }).deliveryStatus;

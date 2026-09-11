@@ -14,15 +14,19 @@ import {
 } from "@/components/ui/table";
 import {
   createImprovementReview,
+  createV2Task,
   decideAgentTask,
   dispatchAgentEvent,
+  getAgentHarnessStatus,
   listAgentTasks,
   runAgentTask,
+  runV2Task,
   verifyAgentTask,
 } from "@/lib/agents.functions";
 import {
   AGENT_LABEL,
   APPROVAL_LABEL,
+  AUTHORITY_CHAIN,
   PRIORITY_LABEL,
   STATUS_LABEL,
   TASK_TYPE_LABEL,
@@ -51,30 +55,27 @@ export const Route = createFileRoute("/_authenticated/admin/agents")({
   component: AgentHqPage,
 });
 
-const ORCHESTRATOR = {
-  name: "Orchestrator",
-  role: "Huvudagent / chef",
+const MANAGER = {
+  key: "noryva_manager" as AgentName,
+  role: "Huvudagent / COO",
   description:
-    "Tar emot händelser, tolkar mål och skapar rätt uppgift till rätt specialist. Deterministisk, utan AI-anrop och utan externa actions.",
+    "Tar emot mål och händelser, prioriterar och delegerar internt. Läser endast aggregerad, avidentifierad drifttelemetri. Skapar interna uppgifter – aldrig något som når kunder eller produktion.",
 };
 
-const SPECIALISTS: { key: AgentName; description: string; active: boolean }[] = [
+const ACTIVE_ROLES: { key: AgentName; description: string }[] = [
   {
-    key: "sales",
+    key: "product_tech",
     description:
-      "Kvalificering och internt utkast från befintlig leaddata. Använder OpenAI-resonemang i testläge, med deterministisk reserv om något fallerar.",
-    active: true,
+      "Granskar systemets drift, föreslår förbättringar och en färdig implementationsplan. Får analysera och testa i kontrollerat läge, men aldrig publicera, ändra produktion, Make, mail eller kunddata.",
   },
-  {
-    key: "systems_qa",
-    description:
-      "Verifierar resultat mot regler, kontrollerar leveransstatus och gör intern systemgranskning (CTO) på aggregerad drifttelemetri. Föreslår endast – ändrar aldrig kod eller data.",
-    active: true,
-  },
-  { key: "customer_success", description: "Uppföljning och påminnelser. Ej aktiverad.", active: false },
-  { key: "growth", description: "Experiment och optimeringsförslag. Ej aktiverad.", active: false },
-  { key: "admin_finance", description: "Kostnadsöversikt och rapportering. Ej aktiverad.", active: false },
 ];
+
+const DORMANT_ROLES: { key: AgentName; description: string }[] = [
+  { key: "growth", description: "Growth & Sales – planerad, ej aktiverad i v1." },
+  { key: "customer_success", description: "Customer Success – planerad, ej aktiverad i v1." },
+  { key: "systems_qa", description: "QA/Risk – planerad, ej aktiverad i v1." },
+];
+
 
 type LlmMetaRow = {
   used?: boolean;
@@ -102,7 +103,8 @@ type TaskResultRow = {
   summary?: string;
   healthScore?: number;
   findings?: ImprovementFindingRow[];
-  recommendations?: ImprovementRecommendationRow[];
+  recommendations?: Array<ImprovementRecommendationRow | string>;
+  priorities?: string[];
   implementationPrompt?: string;
   nextStep?: string;
   internalNotes?: string[];
@@ -121,8 +123,17 @@ type TaskRow = {
   verification_status: string;
   verification_reasons: unknown;
   requires_approval: boolean;
+  provider_type?: string;
+  provider_run_id?: string;
+  run_status?: string;
+  usage?: { inputTokens?: number; outputTokens?: number; runs?: number } | null;
+  run_budget?: number;
+  runs_used?: number;
   result: TaskResultRow;
 };
+
+const V2_TASK_TYPES = ["manager_directive", "product_tech_review"];
+
 
 type EventRow = { id: string; event_type: string; actor: string; created_at: string };
 
@@ -139,12 +150,24 @@ function ResultDetails({ result }: { result: TaskResultRow }) {
   const llm = result.llm;
   return (
     <div className="mt-2 space-y-2 text-sm">
-      {result.kind === "cto_improvement_review" ? (
+      {result.kind === "cto_improvement_review" ||
+      result.kind === "manager_directive" ||
+      result.kind === "product_tech_review" ? (
         <div className="space-y-2">
-          <p>
-            <span className="text-muted-foreground">Hälsopoäng:</span> {result.healthScore ?? "–"}/100
-          </p>
+          {typeof result.healthScore === "number" ? (
+            <p>
+              <span className="text-muted-foreground">Hälsopoäng:</span> {result.healthScore}/100
+            </p>
+          ) : null}
           {result.summary ? <p>{result.summary}</p> : null}
+          {Array.isArray(result.priorities) && result.priorities.length > 0 ? (
+            <ul className="list-disc space-y-0.5 pl-5 text-muted-foreground">
+              {result.priorities.map((p, i) => (
+                <li key={`${p}-${i}`}>{p}</li>
+              ))}
+            </ul>
+          ) : null}
+
           {Array.isArray(result.findings) && result.findings.length > 0 ? (
             <ul className="list-disc space-y-0.5 pl-5 text-muted-foreground">
               {result.findings.map((f, i) => (
@@ -157,18 +180,31 @@ function ResultDetails({ result }: { result: TaskResultRow }) {
           ) : null}
           {Array.isArray(result.recommendations) && result.recommendations.length > 0 ? (
             <ul className="space-y-2">
-              {result.recommendations.map((r, i) => (
-                <li key={`${r.title}-${i}`} className="rounded-lg border border-border p-3">
-                  <p className="font-medium">
-                    {r.title} <span className="text-xs text-muted-foreground">({r.priority})</span>
-                  </p>
-                  <p className="text-xs text-muted-foreground">Underlag: {r.evidence}</p>
-                  <p className="text-xs text-muted-foreground">Risk: {r.risk}</p>
-                  <p className="text-xs">Förslag: {r.suggestedAction}</p>
-                </li>
-              ))}
+              {result.recommendations.map((raw, i) => {
+                const r = typeof raw === "string" ? { title: raw } : raw;
+                return (
+                  <li key={`${r.title}-${i}`} className="rounded-lg border border-border p-3">
+                    <p className="font-medium">
+                      {r.title}{" "}
+                      {"priority" in r && r.priority ? (
+                        <span className="text-xs text-muted-foreground">({r.priority})</span>
+                      ) : null}
+                    </p>
+                    {"evidence" in r && r.evidence ? (
+                      <p className="text-xs text-muted-foreground">Underlag: {r.evidence}</p>
+                    ) : null}
+                    {"risk" in r && r.risk ? (
+                      <p className="text-xs text-muted-foreground">Risk: {r.risk}</p>
+                    ) : null}
+                    {"suggestedAction" in r && r.suggestedAction ? (
+                      <p className="text-xs">Förslag: {r.suggestedAction}</p>
+                    ) : null}
+                  </li>
+                );
+              })}
             </ul>
           ) : null}
+
           {result.implementationPrompt ? (
             <div>
               <p className="text-muted-foreground">Färdig instruktion att godkänna:</p>
@@ -216,8 +252,12 @@ function AgentHqPage() {
   const verify = useServerFn(verifyAgentTask);
   const decide = useServerFn(decideAgentTask);
   const improvement = useServerFn(createImprovementReview);
+  const createTask = useServerFn(createV2Task);
+  const runHarness = useServerFn(runV2Task);
+  const fetchHarness = useServerFn(getAgentHarnessStatus);
   const queryClient = useQueryClient();
   const [leadId, setLeadId] = useState("");
+  const [goal, setGoal] = useState("");
   const [message, setMessage] = useState("");
   const [filter, setFilter] = useState<FilterKey>("all");
 
@@ -227,6 +267,10 @@ function AgentHqPage() {
     // Endast läsning. Uppdateringen skapar aldrig uppgifter eller AI-anrop.
     refetchInterval: 10_000,
   });
+
+  // Läses en gång: statusen ändras bara när en hemlighet ändras server-side.
+  const harness = useQuery({ queryKey: ["agent-harness"], queryFn: () => fetchHarness() });
+
 
   const mutation = useMutation({
     mutationFn: async (action: () => Promise<{ ok?: boolean } & Record<string, unknown>>) => action(),
@@ -247,10 +291,23 @@ function AgentHqPage() {
         <section className="rounded-xl border border-amber-500/40 bg-amber-500/5 p-4 text-sm">
           <p className="font-medium">Körläge: {data?.mode ?? "TEST/REVIEW"}</p>
           <p className="text-muted-foreground">
-            Sales-agenten får använda OpenAI-resonemang i testläge för intern analys och utkast, med
-            deterministisk reserv om anropet fallerar. Systems & QA är enbart läsning och
-            verifiering. Inga mail, SMS, bokningar eller Make-actions sker – godkännande ändrar
-            endast intern status.
+            Lovable är kontrollpanel, Noryvas backend är kontroll- och auditlager och OpenAI Agents
+            API är agent-harnessen. Inga mail, SMS, bokningar eller Make-actions sker – godkännande
+            ändrar endast intern status.
+          </p>
+          <p className="mt-2">
+            <span className="text-muted-foreground">Harness:</span>{" "}
+            {harness.isLoading
+              ? "hämtar …"
+              : harness.data?.configured
+                ? "OpenAI Agents API – ansluten"
+                : `OpenAI Agents API – ej konfigurerad${
+                    harness.data?.reason ? ` (${harness.data.reason})` : ""
+                  }`}
+          </p>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Befogenhet: {AUTHORITY_CHAIN.join(" → ")}. UTFÖRA är spärrat i den här versionen för
+            allt som kan påverka produktion eller kunder.
           </p>
         </section>
 
@@ -258,26 +315,75 @@ function AgentHqPage() {
           <h2 className="mb-3 text-lg font-semibold">Roller</h2>
           <div className="rounded-xl border-2 border-primary/50 bg-card p-5">
             <div className="flex flex-wrap items-center gap-3">
-              <span className="text-base font-semibold">{ORCHESTRATOR.name}</span>
-              <Badge>{ORCHESTRATOR.role}</Badge>
+              <span className="text-base font-semibold">{AGENT_LABEL[MANAGER.key]}</span>
+              <Badge>{MANAGER.role}</Badge>
             </div>
-            <p className="mt-2 text-sm text-muted-foreground">{ORCHESTRATOR.description}</p>
+            <p className="mt-2 text-sm text-muted-foreground">{MANAGER.description}</p>
           </div>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            {SPECIALISTS.map((s) => (
+            {ACTIVE_ROLES.map((s) => (
               <div key={s.key} className="rounded-xl border border-border bg-card p-4">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium">{AGENT_LABEL[s.key]}</span>
-                  <Badge variant={s.active ? "default" : "secondary"}>
-                    {s.active ? "Aktiv i testläge" : "Vilande"}
-                  </Badge>
+                  <Badge>Aktiv i v1</Badge>
+                </div>
+                <p className="mt-1.5 text-sm text-muted-foreground">{s.description}</p>
+              </div>
+            ))}
+            {DORMANT_ROLES.map((s) => (
+              <div key={s.key} className="rounded-xl border border-border bg-card p-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium">{AGENT_LABEL[s.key]}</span>
+                  <Badge variant="secondary">Planerad / vilande</Badge>
                 </div>
                 <p className="mt-1.5 text-sm text-muted-foreground">{s.description}</p>
               </div>
             ))}
           </div>
         </section>
+
+        <section className="rounded-xl border border-border bg-card p-4">
+          <h2 className="mb-2 text-lg font-semibold">Starta agentarbete</h2>
+          <p className="mb-3 text-sm text-muted-foreground">
+            Manager startas explicit och kör högst en gång per uppgift. Product & Tech körs bara om
+            Manager faktiskt delegerar, eller om du startar den själv. Utan konfigurerad harness
+            startas ingen körning alls.
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              value={goal}
+              onChange={(e) => setGoal(e.target.value)}
+              placeholder="Mål (valfritt)"
+              className="min-w-[22rem] rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            />
+            <button
+              type="button"
+              disabled={mutation.isPending}
+              onClick={() =>
+                mutation.mutate(() =>
+                  createTask({ data: { role: "noryva_manager", ...(goal ? { goal } : {}) } }),
+                )
+              }
+              className="rounded-full border border-border px-3 py-2 text-sm disabled:opacity-50"
+            >
+              Ny Manager-uppgift
+            </button>
+            <button
+              type="button"
+              disabled={mutation.isPending}
+              onClick={() =>
+                mutation.mutate(() =>
+                  createTask({ data: { role: "product_tech", ...(goal ? { goal } : {}) } }),
+                )
+              }
+              className="rounded-full border border-border px-3 py-2 text-sm disabled:opacity-50"
+            >
+              Ny Product &amp; Tech-uppgift
+            </button>
+          </div>
+        </section>
+
 
         <section className="rounded-xl border border-border bg-card p-4">
           <h2 className="mb-2 text-lg font-semibold">Skapa testhändelse</h2>
@@ -357,6 +463,7 @@ function AgentHqPage() {
                   <TableHead>Status</TableHead>
                   <TableHead>Godkännande</TableHead>
                   <TableHead>Verifiering</TableHead>
+                  <TableHead>Körning</TableHead>
                   <TableHead>Åtgärd</TableHead>
                 </TableRow>
               </TableHeader>
@@ -374,11 +481,30 @@ function AgentHqPage() {
                     <TableCell>
                       {VERIFICATION_LABEL[t.verification_status as keyof typeof VERIFICATION_LABEL]}
                     </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {t.provider_type && t.provider_type !== "none" ? (
+                        <>
+                          <span className="font-mono">
+                            {t.provider_run_id ? t.provider_run_id.slice(0, 12) : "–"}
+                          </span>{" "}
+                          · {t.run_status ?? "not_started"} · {t.runs_used ?? 0}/{t.run_budget ?? 0}{" "}
+                          · {t.usage?.inputTokens ?? 0}/{t.usage?.outputTokens ?? 0} tokens
+                        </>
+                      ) : (
+                        "–"
+                      )}
+                    </TableCell>
                     <TableCell className="whitespace-nowrap">
                       <button
                         type="button"
                         disabled={t.status !== "queued" || mutation.isPending}
-                        onClick={() => mutation.mutate(() => run({ data: { taskId: t.id } }))}
+                        onClick={() =>
+                          mutation.mutate(() =>
+                            V2_TASK_TYPES.includes(t.task_type)
+                              ? runHarness({ data: { taskId: t.id } })
+                              : run({ data: { taskId: t.id } }),
+                          )
+                        }
                         className="mr-2 rounded-full border border-border px-3 py-1 text-xs disabled:opacity-40"
                       >
                         Kör
@@ -391,12 +517,13 @@ function AgentHqPage() {
                       >
                         Verifiera
                       </button>
+
                     </TableCell>
                   </TableRow>
                 ))}
                 {visibleTasks.length === 0 && !isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-sm text-muted-foreground">
+                    <TableCell colSpan={9} className="text-sm text-muted-foreground">
                       Inga uppgifter i det här urvalet.
                     </TableCell>
                   </TableRow>

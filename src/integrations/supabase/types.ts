@@ -106,12 +106,19 @@ export type Database = {
           instructions: string
           lead_id: string | null
           priority: string
+          provider_agent_id: string
+          provider_run_id: string
+          provider_type: string
           requires_approval: boolean
           result: Json
+          run_budget: number
+          run_status: string
+          runs_used: number
           source_event: string
           status: string
           task_type: string
           updated_at: string
+          usage: Json
           verification_reasons: Json
           verification_status: string
         }
@@ -126,12 +133,19 @@ export type Database = {
           instructions?: string
           lead_id?: string | null
           priority?: string
+          provider_agent_id?: string
+          provider_run_id?: string
+          provider_type?: string
           requires_approval?: boolean
           result?: Json
+          run_budget?: number
+          run_status?: string
+          runs_used?: number
           source_event?: string
           status?: string
           task_type: string
           updated_at?: string
+          usage?: Json
           verification_reasons?: Json
           verification_status?: string
         }
@@ -146,12 +160,19 @@ export type Database = {
           instructions?: string
           lead_id?: string | null
           priority?: string
+          provider_agent_id?: string
+          provider_run_id?: string
+          provider_type?: string
           requires_approval?: boolean
           result?: Json
+          run_budget?: number
+          run_status?: string
+          runs_used?: number
           source_event?: string
           status?: string
           task_type?: string
           updated_at?: string
+          usage?: Json
           verification_reasons?: Json
           verification_status?: string
         }

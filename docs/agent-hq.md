@@ -165,3 +165,66 @@ Intern agent som granskar Noryva-systemet självt, inte ett lead.
   färdigt `implementationPrompt` som en människa kan godkänna senare.
 - Agenten ändrar aldrig kod, Make, mail eller annan data än sin egen uppgift.
   `externalEffect: false`, allt stannar i `awaiting_review`.
+
+## Agent HQ v2 – Manager + Product & Tech (OpenAI Agents API)
+
+Arkitektur:
+
+```text
+Lovable / Agent HQ   = kontrollpanel (roller, kö, kostnad, audit, godkännande)
+Supabase             = kontroll- och auditlager (agent_tasks, agent_task_events,
+                       godkännanden, budget, provider-metadata)
+OpenAI Agents API    = agent-harness (sessioner, orkestrering, kontext)
+Make                 = ingen agenthjärna, orört
+```
+
+Aktiva roller i v1:
+
+- **Noryva Manager (COO)** – tar mål/händelser, prioriterar och delegerar
+  internt. Läser endast aggregerad, PII-fri drifttelemetri.
+- **Product & Tech** – granskar systemet och föreslår förbättringar plus ett
+  färdigt `implementationPrompt`. Får aldrig publicera, ändra produktion, Make,
+  mail eller kunddata.
+
+Vilande/planerade: Growth & Sales, Customer Success, QA/Risk.
+Admin & Finance finns kvar som bakåtkompatibelt värde i databasen men visas inte.
+
+Befogenhetskedja: `LÄSA -> ANALYSERA -> FÖRESLÅ -> TESTA -> BE OM GODKÄNNANDE ->
+UTFÖRA`. UTFÖRA är spärrat (`AUTHORITY_EXECUTE_ENABLED = false`).
+
+Adapter: `src/lib/agents/openai-agents.server.ts` – enda platsen som pratar med
+providern. `POST https://api.openai.com/v1/agents/sessions` med headern
+`OpenAI-Beta: agents=v1`, `environment: { type: "none" }`, ingen streaming,
+inga verktyg, ingen retry. Saknas `NORYVA_AGENTS_API_ENABLED=true` eller
+`OPENAI_API_KEY` görs INGET anrop och Agent HQ visar "Ej konfigurerad".
+
+Kontrollager: `src/lib/agents/v2.server.ts` – idempotent uppgiftsskapande,
+budgetspärr (`run_budget`/`runs_used`, ett run per uppgift), atomisk claim
+`queued -> in_progress`, PII-fri audit och verifiering. Specialist-run skapas
+endast vid faktisk delegering från Manager.
+
+Legacy: `src/lib/agents/run.server.ts` + `reasoning.server.ts` (Responses API)
+är kvar för de äldre uppgiftstyperna och väljs aldrig för v1-rollerna – de
+kastar fel om någon försöker.
+
+### Miljövariabler
+
+| Variabel | Krävs | Beskrivning |
+| --- | --- | --- |
+| `OPENAI_API_KEY` | ja | Finns redan. Behöver `api.agents.read/write` + `api.responses.write`. |
+| `NORYVA_AGENTS_API_ENABLED` | ja | `true` slår på harnessen. Utan den är allt fail closed. |
+| `NORYVA_OPENAI_MANAGER_AGENT_ID` | nej | Återanvändbar agent för Manager. |
+| `NORYVA_OPENAI_PRODUCT_TECH_AGENT_ID` | nej | Återanvändbar agent för Product & Tech. |
+| `NORYVA_OPENAI_AGENT_MODEL` | nej | Standard `gpt-5.4-mini`. |
+
+### MIGRATION / ROLLBACK
+
+Migrationen är additiv: nya nullbara/defaultade kolumner `provider_type`,
+`provider_agent_id`, `provider_run_id`, `run_status`, `usage`, `run_budget`,
+`runs_used` på `agent_tasks`, samt utökade CHECK-villkor för `assigned_agent`
+och `task_type`. Inga rader eller kolumner tas bort.
+
+Rollback: sätt `NORYVA_AGENTS_API_ENABLED` till `false` – då stoppas alla
+provider-run direkt och gamla flöden fortsätter oförändrade. Vid full
+återgång kan de nya kolumnerna lämnas kvar (de påverkar inte äldre kod) eller
+tas bort i en separat migration tillsammans med de utökade CHECK-villkoren.
