@@ -523,7 +523,7 @@ function AgentHqPage() {
                 ))}
                 {visibleTasks.length === 0 && !isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-sm text-muted-foreground">
+                    <TableCell colSpan={9} className="text-sm text-muted-foreground">
                       Inga uppgifter i det här urvalet.
                     </TableCell>
                   </TableRow>
