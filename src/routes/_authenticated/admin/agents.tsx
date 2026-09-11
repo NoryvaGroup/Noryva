@@ -103,7 +103,8 @@ type TaskResultRow = {
   summary?: string;
   healthScore?: number;
   findings?: ImprovementFindingRow[];
-  recommendations?: ImprovementRecommendationRow[];
+  recommendations?: Array<ImprovementRecommendationRow | string>;
+  priorities?: string[];
   implementationPrompt?: string;
   nextStep?: string;
   internalNotes?: string[];
@@ -122,8 +123,17 @@ type TaskRow = {
   verification_status: string;
   verification_reasons: unknown;
   requires_approval: boolean;
+  provider_type?: string;
+  provider_run_id?: string;
+  run_status?: string;
+  usage?: { inputTokens?: number; outputTokens?: number; runs?: number } | null;
+  run_budget?: number;
+  runs_used?: number;
   result: TaskResultRow;
 };
+
+const V2_TASK_TYPES = ["manager_directive", "product_tech_review"];
+
 
 type EventRow = { id: string; event_type: string; actor: string; created_at: string };
 
