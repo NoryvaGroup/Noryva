@@ -168,18 +168,31 @@ function ResultDetails({ result }: { result: TaskResultRow }) {
           ) : null}
           {Array.isArray(result.recommendations) && result.recommendations.length > 0 ? (
             <ul className="space-y-2">
-              {result.recommendations.map((r, i) => (
-                <li key={`${r.title}-${i}`} className="rounded-lg border border-border p-3">
-                  <p className="font-medium">
-                    {r.title} <span className="text-xs text-muted-foreground">({r.priority})</span>
-                  </p>
-                  <p className="text-xs text-muted-foreground">Underlag: {r.evidence}</p>
-                  <p className="text-xs text-muted-foreground">Risk: {r.risk}</p>
-                  <p className="text-xs">Förslag: {r.suggestedAction}</p>
-                </li>
-              ))}
+              {result.recommendations.map((raw, i) => {
+                const r = typeof raw === "string" ? { title: raw } : raw;
+                return (
+                  <li key={`${r.title}-${i}`} className="rounded-lg border border-border p-3">
+                    <p className="font-medium">
+                      {r.title}{" "}
+                      {"priority" in r && r.priority ? (
+                        <span className="text-xs text-muted-foreground">({r.priority})</span>
+                      ) : null}
+                    </p>
+                    {"evidence" in r && r.evidence ? (
+                      <p className="text-xs text-muted-foreground">Underlag: {r.evidence}</p>
+                    ) : null}
+                    {"risk" in r && r.risk ? (
+                      <p className="text-xs text-muted-foreground">Risk: {r.risk}</p>
+                    ) : null}
+                    {"suggestedAction" in r && r.suggestedAction ? (
+                      <p className="text-xs">Förslag: {r.suggestedAction}</p>
+                    ) : null}
+                  </li>
+                );
+              })}
             </ul>
           ) : null}
+
           {result.implementationPrompt ? (
             <div>
               <p className="text-muted-foreground">Färdig instruktion att godkänna:</p>
