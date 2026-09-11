@@ -18,6 +18,9 @@ export const AGENTS = [
   "admin_finance",
   "noryva_manager",
   "product_tech",
+  "growth_sales",
+  "qa_risk",
+  "operations_finance",
 ] as const;
 export type AgentName = (typeof AGENTS)[number];
 
@@ -30,17 +33,101 @@ export const AGENT_LABEL: Record<AgentName, string> = {
   admin_finance: "Admin & Finance",
   noryva_manager: "Noryva Manager",
   product_tech: "Product & Tech",
+  growth_sales: "Growth & Sales",
+  qa_risk: "QA / Risk",
+  operations_finance: "Operations & Finance",
 };
 
 /** Aktiva roller i v1. Endast dessa får starta ett agent-run. */
 export const ACTIVE_AGENTS_V1 = ["noryva_manager", "product_tech"] as const;
 export type ActiveAgentV1 = (typeof ACTIVE_AGENTS_V1)[number];
 
-/** Roller som finns i modellen men är vilande (kan inte köras). */
-export const DORMANT_AGENTS_V1 = ["sales", "customer_success", "systems_qa"] as const;
+/**
+ * Målbildens fyra specialistroller. De är fullt konfigurerade men PLANERADE:
+ * de kan inte köras och kan inte skapa provider-run förrän de aktiveras
+ * explicit och har ett eget OpenAI agent-id.
+ */
+export const PLANNED_AGENTS_V1 = [
+  "growth_sales",
+  "customer_success",
+  "qa_risk",
+  "operations_finance",
+] as const;
+export type PlannedAgentV1 = (typeof PLANNED_AGENTS_V1)[number];
+
+/** Bakåtkompatibelt alias till tidigare namn. */
+export const DORMANT_AGENTS_V1 = PLANNED_AGENTS_V1;
+
+export type PlannedAgentConfig = {
+  key: PlannedAgentV1;
+  taskType: TaskType;
+  /** Env-nyckel som ska fyllas med rollens OpenAI reusable agent-id. */
+  agentIdEnvKey: string;
+  description: string;
+  /** Spegel av rollens policy till OpenAI-agenten när den aktiveras. */
+  instructions: string;
+  /** Framtida verifieringssteg för andra agenters resultat. */
+  canVerifyOtherAgents: boolean;
+  activated: false;
+};
+
+const NO_EXTERNAL =
+  "Du får aldrig utföra externa åtgärder: inga mail, inga SMS, inga bokningar, inga Make-ändringar, ingen publicering och ingen ändring av produktion eller kunddata. Svara med enbart JSON.";
+
+export const PLANNED_AGENT_CONFIG: Record<PlannedAgentV1, PlannedAgentConfig> = {
+  growth_sales: {
+    key: "growth_sales",
+    taskType: "growth_sales_review",
+    agentIdEnvKey: "NORYVA_OPENAI_GROWTH_SALES_AGENT_ID",
+    description:
+      "Prospektering, outreach-utkast, funnel och konvertering, marknadsföring, segmentering och säljanalys. Får endast analysera, föreslå och skriva utkast – aldrig autonom outbound.",
+    instructions: `Du är Noryvas Growth & Sales-agent. Du analyserar funnel, segment och konvertering och skriver interna utkast till outreach som en människa granskar. ${NO_EXTERNAL}`,
+    canVerifyOtherAgents: false,
+    activated: false,
+  },
+  customer_success: {
+    key: "customer_success",
+    taskType: "customer_success_review",
+    agentIdEnvKey: "NORYVA_OPENAI_CUSTOMER_SUCCESS_AGENT_ID",
+    description:
+      "Kundhälsa, resultat, användning, förbättringar, churn-risk och förslag på uppföljning. Arbetar som standard endast på aggregerad, PII-minimerad data och tar aldrig kundkontakt själv.",
+    instructions: `Du är Noryvas Customer Success-agent. Du arbetar endast med aggregerad, avidentifierad data om kundhälsa, användning och churn-risk och föreslår uppföljning internt. ${NO_EXTERNAL}`,
+    canVerifyOtherAgents: false,
+    activated: false,
+  },
+  qa_risk: {
+    key: "qa_risk",
+    taskType: "qa_risk_review",
+    agentIdEnvKey: "NORYVA_OPENAI_QA_RISK_AGENT_ID",
+    description:
+      "Granskar edge cases, regressionsrisk, säkerhet, integritet, kostnadsrisk, fel kund/fel lead, loopar, idempotens och godkännanden. Ska i framtiden kunna verifiera andra agenters resultat, men aldrig ge produktionseffekt.",
+    instructions: `Du är Noryvas QA/Risk-agent. Du granskar andra agenters resultat och systemets risker: edge cases, regressioner, säkerhet, integritet, kostnad, idempotens och godkännandekedjor. Du levererar endast ett granskningsutlåtande. ${NO_EXTERNAL}`,
+    canVerifyOtherAgents: true,
+    activated: false,
+  },
+  operations_finance: {
+    key: "operations_finance",
+    taskType: "operations_finance_review",
+    agentIdEnvKey: "NORYVA_OPENAI_OPERATIONS_FINANCE_AGENT_ID",
+    description:
+      "Intern kostnads- och usageanalys, driftöversikt, administrativa förbättringsförslag, KPI/rapportering och budgetvarningar. Ersätter gamla Admin & Finance som synlig målroll. Ingen bokföring, inga betalningar, ingen extern action.",
+    instructions: `Du är Noryvas Operations & Finance-agent. Du analyserar intern kostnad, usage, drift och KPI:er och varnar när budgetmål riskerar att överskridas. Du hanterar aldrig bokföring eller betalningar. ${NO_EXTERNAL}`,
+    canVerifyOtherAgents: false,
+    activated: false,
+  },
+};
 
 export function isActiveAgentV1(agent: string): agent is ActiveAgentV1 {
   return (ACTIVE_AGENTS_V1 as readonly string[]).includes(agent);
+}
+
+export function isPlannedAgentV1(agent: string): agent is PlannedAgentV1 {
+  return (PLANNED_AGENTS_V1 as readonly string[]).includes(agent);
+}
+
+/** Sant endast för roller som får starta ett provider-run i den här versionen. */
+export function isRunnableAgent(agent: string): boolean {
+  return isActiveAgentV1(agent);
 }
 
 /**
@@ -64,7 +151,11 @@ export type TaskType =
   | "qa_review"
   | "cto_improvement_review"
   | "manager_directive"
-  | "product_tech_review";
+  | "product_tech_review"
+  | "growth_sales_review"
+  | "customer_success_review"
+  | "qa_risk_review"
+  | "operations_finance_review";
 export type TaskPriority = "low" | "normal" | "high";
 export type TaskStatus = "queued" | "in_progress" | "awaiting_review" | "done" | "failed" | "cancelled";
 export type VerificationStatus = "not_started" | "passed" | "failed";
@@ -78,7 +169,12 @@ export const TASK_TYPE_LABEL: Record<TaskType, string> = {
   cto_improvement_review: "Intern systemgranskning",
   manager_directive: "Prioritering och delegering",
   product_tech_review: "Produkt- och teknikgranskning",
+  growth_sales_review: "Tillväxt- och säljanalys",
+  customer_success_review: "Kundhälsogranskning",
+  qa_risk_review: "Risk- och kvalitetsgranskning",
+  operations_finance_review: "Drift- och kostnadsöversikt",
 };
+
 
 
 export const PRIORITY_LABEL: Record<TaskPriority, string> = {

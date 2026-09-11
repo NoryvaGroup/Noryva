@@ -234,3 +234,42 @@ Rollback: sätt `NORYVA_AGENTS_API_ENABLED` till `false` – då stoppas alla
 provider-run direkt och gamla flöden fortsätter oförändrade. Vid full
 återgång kan de nya kolumnerna lämnas kvar (de påverkar inte äldre kod) eller
 tas bort i en separat migration tillsammans med de utökade CHECK-villkoren.
+
+## Målarkitektur: 1 Manager + 5 specialistroller
+
+| Roll | Nyckel | Status | Uppgiftstyp | Agent-id (env) |
+| --- | --- | --- | --- | --- |
+| Noryva Manager (COO) | `noryva_manager` | Aktiv i v1 | `manager_directive` | `NORYVA_OPENAI_MANAGER_AGENT_ID` |
+| Product & Tech | `product_tech` | Aktiv i v1 | `product_tech_review` | `NORYVA_OPENAI_PRODUCT_TECH_AGENT_ID` |
+| Growth & Sales | `growth_sales` | Planerad / vilande | `growth_sales_review` | `NORYVA_OPENAI_GROWTH_SALES_AGENT_ID` |
+| Customer Success | `customer_success` | Planerad / vilande | `customer_success_review` | `NORYVA_OPENAI_CUSTOMER_SUCCESS_AGENT_ID` |
+| QA / Risk | `qa_risk` | Planerad / vilande | `qa_risk_review` | `NORYVA_OPENAI_QA_RISK_AGENT_ID` |
+| Operations & Finance | `operations_finance` | Planerad / vilande | `operations_finance_review` | `NORYVA_OPENAI_OPERATIONS_FINANCE_AGENT_ID` |
+
+Operations & Finance ersätter gamla `admin_finance` som synlig målroll. Det gamla
+värdet finns kvar i databasens CHECK-villkor enbart för bakåtkompatibilitet med
+befintliga rader och visas inte i Agent HQ.
+
+### Spärrar för planerade roller
+
+- `PLANNED_AGENT_CONFIG` i `src/lib/agents/tasks.ts` håller policy/instruktionsmall,
+  uppgiftstyp och env-nyckel per roll. `activated` är hårdkodat `false`.
+- `isRunnableHarnessRole()` i adaptern stoppar alla planerade roller innan någon
+  nätverkstrafik sker, även om ett agent-id finns i miljön.
+- `createV2TaskCore()` avvisar planerade roller med 403 och rör inte databasen.
+- QA/Risk är förberedd som framtida verifieringssteg (`canVerifyOtherAgents: true`)
+  men kan inte köras i den här versionen.
+
+### Kvar innan aktivering
+
+1. Skapa en OpenAI reusable agent per roll i projektet för `kontakt@noryva.se`.
+2. Sätt motsvarande `NORYVA_OPENAI_*_AGENT_ID` server-side (inga värden är satta idag).
+3. Flytta rollen från `PLANNED_AGENTS_V1` till `ACTIVE_AGENTS_V1` och utöka
+   `HarnessRole` samt `V2_TASK_TYPE`/`V2_INSTRUCTIONS`.
+4. Kör testsviten: spärr-testerna ska då medvetet uppdateras för den rollen.
+
+### Budgetmål
+
+Globalt månadsmål för agentkostnad: **≤ 500 SEK**, med rekommenderad initial
+soft cap på **300 SEK**. Målet är en driftregel och följs upp manuellt – ingen
+valuta- eller betalningsintegration finns i koden.

@@ -27,6 +27,8 @@ import {
   AGENT_LABEL,
   APPROVAL_LABEL,
   AUTHORITY_CHAIN,
+  PLANNED_AGENTS_V1,
+  PLANNED_AGENT_CONFIG,
   PRIORITY_LABEL,
   STATUS_LABEL,
   TASK_TYPE_LABEL,
@@ -70,11 +72,10 @@ const ACTIVE_ROLES: { key: AgentName; description: string }[] = [
   },
 ];
 
-const DORMANT_ROLES: { key: AgentName; description: string }[] = [
-  { key: "growth", description: "Growth & Sales – planerad, ej aktiverad i v1." },
-  { key: "customer_success", description: "Customer Success – planerad, ej aktiverad i v1." },
-  { key: "systems_qa", description: "QA/Risk – planerad, ej aktiverad i v1." },
-];
+const DORMANT_ROLES: { key: AgentName; description: string }[] = PLANNED_AGENTS_V1.map((key) => ({
+  key: key as AgentName,
+  description: PLANNED_AGENT_CONFIG[key].description,
+}));
 
 
 type LlmMetaRow = {

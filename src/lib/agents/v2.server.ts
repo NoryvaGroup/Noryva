@@ -17,6 +17,7 @@ import { z } from "zod";
 import { collectSystemTelemetry } from "./improvement.server";
 import {
   evaluateRunBudget,
+  isRunnableHarnessRole,
   readHarnessStatus,
   runHarnessSession,
   type HarnessDeps,
@@ -72,6 +73,12 @@ export async function createV2TaskCore(
   input: CreateV2Input,
   now = new Date(),
 ): Promise<V2Outcome> {
+  if (!isRunnableHarnessRole(input.role)) {
+    return {
+      status: 403,
+      body: { error: "Rollen är planerad och kan inte köras ännu.", externalEffect: false },
+    };
+  }
   if (input.executionMode !== "test" && input.executionMode !== "review") {
     return { status: 403, body: { error: "Endast test- eller granskningsläge tillåts." } };
   }

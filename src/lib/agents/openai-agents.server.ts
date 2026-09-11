@@ -26,7 +26,44 @@ export const AGENTS_BETA_HEADER = "agents=v1";
 export const AGENTS_DEFAULT_MODEL = "gpt-5.4-mini";
 export const AGENTS_DEFAULT_TIMEOUT_MS = 60_000;
 
+/** Roller som får köras mot harnessen i v1. */
 export type HarnessRole = "noryva_manager" | "product_tech";
+
+/**
+ * Config-slots för målbildens fyra planerade roller. Env-nycklarna är
+ * förberedda men får inga värden här – rollerna aktiveras separat.
+ */
+export const PLANNED_AGENT_ENV_KEYS = {
+  growth_sales: "NORYVA_OPENAI_GROWTH_SALES_AGENT_ID",
+  customer_success: "NORYVA_OPENAI_CUSTOMER_SUCCESS_AGENT_ID",
+  qa_risk: "NORYVA_OPENAI_QA_RISK_AGENT_ID",
+  operations_finance: "NORYVA_OPENAI_OPERATIONS_FINANCE_AGENT_ID",
+} as const;
+export type PlannedHarnessRole = keyof typeof PLANNED_AGENT_ENV_KEYS;
+
+export type PlannedAgentSlot = {
+  role: PlannedHarnessRole;
+  envKey: string;
+  /** Sant först när ett agent-id finns i miljön. Aktiverar ändå ingenting. */
+  hasAgentId: boolean;
+  /** Hårdspärr: planerade roller kan aldrig köras i den här versionen. */
+  runnable: false;
+};
+
+/** Läser slot-status för planerade roller. Returnerar aldrig själva id:t. */
+export function readPlannedAgentSlots(deps: HarnessDeps = {}): PlannedAgentSlot[] {
+  const env = readEnv(deps);
+  return (Object.keys(PLANNED_AGENT_ENV_KEYS) as PlannedHarnessRole[]).map((role) => ({
+    role,
+    envKey: PLANNED_AGENT_ENV_KEYS[role],
+    hasAgentId: str(env, PLANNED_AGENT_ENV_KEYS[role]).length > 0,
+    runnable: false as const,
+  }));
+}
+
+export function isRunnableHarnessRole(role: string): role is HarnessRole {
+  return role === "noryva_manager" || role === "product_tech";
+}
 
 export type HarnessDeps = {
   env?: RuntimeEnv;
@@ -161,6 +198,11 @@ export async function runHarnessSession(
   input: HarnessRunInput,
   deps: HarnessDeps = {},
 ): Promise<HarnessRunResult> {
+  // Hårdspärr: endast aktiva v1-roller kan nå providern. Planerade roller
+  // stoppas här innan någon nätverkstrafik sker.
+  if (!isRunnableHarnessRole(input.role)) {
+    return blocked("Rollen är planerad och kan inte köras ännu.");
+  }
   const status = readHarnessStatus(deps);
   const agentId = status.agentIds[input.role];
   if (!status.configured) return blocked(status.reason, agentId);

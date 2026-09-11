@@ -4,7 +4,8 @@ import { handleGrowthApi } from "@/lib/growth/api.server";
 
 const SECRET = "shadow-review-secret";
 const CUSTOMER_ID = "22222222-2222-4222-8222-222222222222";
-const NOW = new Date("2026-09-10T19:30:00.000Z");
+// Relativ tid: fixturen får aldrig hamna utanför skanningsfönstret.
+const NOW = new Date(Date.now() - 60 * 60 * 1000);
 type Row = Record<string, any>;
 
 function lead(index: number, overrides: Row = {}): Row {
