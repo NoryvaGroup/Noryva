@@ -150,12 +150,24 @@ function ResultDetails({ result }: { result: TaskResultRow }) {
   const llm = result.llm;
   return (
     <div className="mt-2 space-y-2 text-sm">
-      {result.kind === "cto_improvement_review" ? (
+      {result.kind === "cto_improvement_review" ||
+      result.kind === "manager_directive" ||
+      result.kind === "product_tech_review" ? (
         <div className="space-y-2">
-          <p>
-            <span className="text-muted-foreground">Hälsopoäng:</span> {result.healthScore ?? "–"}/100
-          </p>
+          {typeof result.healthScore === "number" ? (
+            <p>
+              <span className="text-muted-foreground">Hälsopoäng:</span> {result.healthScore}/100
+            </p>
+          ) : null}
           {result.summary ? <p>{result.summary}</p> : null}
+          {Array.isArray(result.priorities) && result.priorities.length > 0 ? (
+            <ul className="list-disc space-y-0.5 pl-5 text-muted-foreground">
+              {result.priorities.map((p, i) => (
+                <li key={`${p}-${i}`}>{p}</li>
+              ))}
+            </ul>
+          ) : null}
+
           {Array.isArray(result.findings) && result.findings.length > 0 ? (
             <ul className="list-disc space-y-0.5 pl-5 text-muted-foreground">
               {result.findings.map((f, i) => (
