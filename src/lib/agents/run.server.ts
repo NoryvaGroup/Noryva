@@ -1,9 +1,13 @@
 /**
- * Agent HQ – gemensam körnings-/verifieringskärna (TEST).
+ * Agent HQ – LEGACY körnings-/verifieringskärna (TEST).
  *
- * Både adminvyn och det HMAC-skyddade TEST-endpointet använder samma logik här,
- * så workerbeteendet finns på exakt ett ställe. Ingen LLM, inga mail, inga
- * bokningar, inga Make-anrop – allt är deterministiskt och internt.
+ * Detta är det gamla Responses-baserade lagret för de äldre uppgiftstyperna
+ * (Sales-utkast, leveranskontroll, CTO-granskning). Det är INTE den primära
+ * agentmotorn i v2 och väljs aldrig automatiskt för de aktiva v1-rollerna
+ * Noryva Manager och Product & Tech – de körs av harnessen i
+ * `openai-agents.server.ts` via `v2.server.ts`.
+ *
+ * Inga mail, inga bokningar, inga Make-anrop – allt är internt.
  */
 import { defaultProfile, rowToProfile } from "@/lib/ai-sales/profile";
 import { enrichSalesResult, type ReasoningDeps } from "./reasoning.server";
@@ -13,7 +17,7 @@ import { collectSystemTelemetry, IMPROVEMENT_TASK_TYPE } from "./improvement.ser
 export type AgentRunContext = { supabase: any; reasoning?: ReasoningDeps };
 
 export const AGENT_TASK_COLUMNS =
-  "id, customer_id, lead_id, assigned_agent, task_type, priority, status, instructions, result, verification_status, verification_reasons, requires_approval, approval_status, source_event, idempotency_key, execution_mode, created_at, updated_at";
+  "id, customer_id, lead_id, assigned_agent, task_type, priority, status, instructions, result, verification_status, verification_reasons, requires_approval, approval_status, source_event, idempotency_key, execution_mode, provider_type, provider_agent_id, provider_run_id, run_status, usage, run_budget, runs_used, created_at, updated_at";
 
 /**
  * Kör tilldelad worker och returnerar ett internt resultat. Sales bygger endast
@@ -23,6 +27,11 @@ export async function buildTaskResult(
   ctx: AgentRunContext,
   task: Record<string, any>,
 ): Promise<Record<string, unknown>> {
+  // v2-rollerna körs ALDRIG av det gamla lagret, ens som reserv.
+  if (task["task_type"] === "manager_directive" || task["task_type"] === "product_tech_review") {
+    throw new Error("Uppgiften körs av OpenAI Agents API-harnessen, inte av legacy-lagret.");
+  }
+
   // Intern systemgranskning (CTO-agenten): endast aggregerad drifttelemetri,
   // aldrig lead- eller kunddata. Ett (1) modellanrop, konservativ reserv.
   if (task["task_type"] === IMPROVEMENT_TASK_TYPE) {
