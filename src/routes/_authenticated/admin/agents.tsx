@@ -463,6 +463,7 @@ function AgentHqPage() {
                   <TableHead>Status</TableHead>
                   <TableHead>Godkännande</TableHead>
                   <TableHead>Verifiering</TableHead>
+                  <TableHead>Körning</TableHead>
                   <TableHead>Åtgärd</TableHead>
                 </TableRow>
               </TableHeader>
@@ -480,11 +481,30 @@ function AgentHqPage() {
                     <TableCell>
                       {VERIFICATION_LABEL[t.verification_status as keyof typeof VERIFICATION_LABEL]}
                     </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {t.provider_type && t.provider_type !== "none" ? (
+                        <>
+                          <span className="font-mono">
+                            {t.provider_run_id ? t.provider_run_id.slice(0, 12) : "–"}
+                          </span>{" "}
+                          · {t.run_status ?? "not_started"} · {t.runs_used ?? 0}/{t.run_budget ?? 0}{" "}
+                          · {t.usage?.inputTokens ?? 0}/{t.usage?.outputTokens ?? 0} tokens
+                        </>
+                      ) : (
+                        "–"
+                      )}
+                    </TableCell>
                     <TableCell className="whitespace-nowrap">
                       <button
                         type="button"
                         disabled={t.status !== "queued" || mutation.isPending}
-                        onClick={() => mutation.mutate(() => run({ data: { taskId: t.id } }))}
+                        onClick={() =>
+                          mutation.mutate(() =>
+                            V2_TASK_TYPES.includes(t.task_type)
+                              ? runHarness({ data: { taskId: t.id } })
+                              : run({ data: { taskId: t.id } }),
+                          )
+                        }
                         className="mr-2 rounded-full border border-border px-3 py-1 text-xs disabled:opacity-40"
                       >
                         Kör
@@ -497,6 +517,7 @@ function AgentHqPage() {
                       >
                         Verifiera
                       </button>
+
                     </TableCell>
                   </TableRow>
                 ))}
