@@ -198,6 +198,11 @@ export async function runHarnessSession(
   input: HarnessRunInput,
   deps: HarnessDeps = {},
 ): Promise<HarnessRunResult> {
+  // Hårdspärr: endast aktiva v1-roller kan nå providern. Planerade roller
+  // stoppas här innan någon nätverkstrafik sker.
+  if (!isRunnableHarnessRole(input.role)) {
+    return blocked("Rollen är planerad och kan inte köras ännu.");
+  }
   const status = readHarnessStatus(deps);
   const agentId = status.agentIds[input.role];
   if (!status.configured) return blocked(status.reason, agentId);
