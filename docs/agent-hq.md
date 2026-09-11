@@ -1,8 +1,10 @@
 # Noryva Agent HQ
 
-Status: **TEST/REVIEW.** Orchestrator, Sales och Systems & QA har nu persistent
-backend, men allt är internt: inga AI-anrop, inga mail, inga bokningar och inga
-Make-actions. Godkännande ändrar endast intern status.
+Status: **TEST/REVIEW.** Noryva Manager och Product & Tech är de två aktiva
+v1-rollerna. OpenAI Agents API är förberett som fail-closed harness; utan
+uttrycklig serverkonfiguration startas inget provider-anrop. Inga mail,
+bokningar, Make-actions eller produktionseffekter kan utföras. Godkännande
+ändrar endast intern status.
 
 ## Arkitektur
 
@@ -211,11 +213,15 @@ kastar fel om någon försöker.
 
 | Variabel | Krävs | Beskrivning |
 | --- | --- | --- |
-| `OPENAI_API_KEY` | ja | Finns redan. Behöver `api.agents.read/write` + `api.responses.write`. |
+| `OPENAI_API_KEY` | ja | Ska komma från OpenAI-kontot/projektet för `kontakt@noryva.se`. Behöver `api.agents.read/write` + `api.responses.write`. |
 | `NORYVA_AGENTS_API_ENABLED` | ja | `true` slår på harnessen. Utan den är allt fail closed. |
 | `NORYVA_OPENAI_MANAGER_AGENT_ID` | nej | Återanvändbar agent för Manager. |
 | `NORYVA_OPENAI_PRODUCT_TECH_AGENT_ID` | nej | Återanvändbar agent för Product & Tech. |
 | `NORYVA_OPENAI_AGENT_MODEL` | nej | Standard `gpt-5.4-mini`. |
+
+Agent-ID:n ska senare skapas eller hämtas i samma OpenAI-konto/projekt som hör
+till `kontakt@noryva.se`. Inga andra OpenAI-konton får skapas eller kopplas för
+den här harnessen.
 
 ### MIGRATION / ROLLBACK
 

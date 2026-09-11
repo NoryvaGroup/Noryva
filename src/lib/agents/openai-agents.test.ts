@@ -31,6 +31,22 @@ describe("harness-konfiguration", () => {
     expect(JSON.stringify(status)).not.toContain("sk-test");
   });
 
+  it("läser konfiguration från Worker-requestens env-binding", () => {
+    const request = new Request("https://noryva.se/admin/agents") as Request & {
+      env?: Record<string, string>;
+    };
+    request.env = {
+      NORYVA_AGENTS_API_ENABLED: "true",
+      OPENAI_API_KEY: "sk-worker-test",
+      NORYVA_OPENAI_MANAGER_AGENT_ID: "agent_manager",
+    };
+
+    const status = readHarnessStatus({ request });
+    expect(status.configured).toBe(true);
+    expect(status.agentIds.noryva_manager).toBe("agent_manager");
+    expect(JSON.stringify(status)).not.toContain("sk-worker-test");
+  });
+
   it("gör inget nätverksanrop när konfiguration saknas", async () => {
     const fetchImpl = vi.fn();
     const run = await runHarnessSession(
