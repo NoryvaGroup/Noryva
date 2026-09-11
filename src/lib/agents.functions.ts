@@ -6,6 +6,7 @@
  * API-harnessen via `v2.server.ts`. Saknas konfiguration görs ingenting alls.
  */
 import { createServerFn } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { buildTaskResult } from "@/lib/agents/run.server";
@@ -95,7 +96,7 @@ export const getAgentHarnessStatus = createServerFn({ method: "GET" })
     const ctx = context as AdminContext;
     await assertAdmin(ctx);
     const { readHarnessStatus } = await import("@/lib/agents/openai-agents.server");
-    return readHarnessStatus({});
+    return readHarnessStatus({ request: getRequest() });
   });
 
 const v2Input = z.object({
@@ -128,7 +129,10 @@ export const runV2Task = createServerFn({ method: "POST" })
     const ctx = context as AdminContext;
     await assertAdmin(ctx);
     const { runV2TaskCore } = await import("@/lib/agents/v2.server");
-    const result = await runV2TaskCore(ctx, { taskId: data.taskId });
+    const result = await runV2TaskCore(
+      { ...ctx, harness: { request: getRequest() } },
+      { taskId: data.taskId },
+    );
     if (result.status !== 200) throw new Error(String(result.body["error"] ?? "Körningen stoppades."));
     return { ok: true as const, ...result.body, externalEffect: false as const };
   });
