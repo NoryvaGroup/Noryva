@@ -34,6 +34,7 @@ import { Route as AuthenticatedAdminGrowthRouteImport } from './routes/_authenti
 import { Route as AuthenticatedAdminKonversationerRouteImport } from './routes/_authenticated/admin/konversationer'
 import { Route as AuthenticatedAdminProfilerRouteImport } from './routes/_authenticated/admin/profiler'
 import { Route as TestOffertSlugRouteImport } from './routes/test.offert.$slug'
+import { Route as ApiPublicAgentsAutonomousTickRouteImport } from './routes/api/public/agents/autonomous-tick'
 import { Route as ApiPublicAgentsDispatchTestRouteImport } from './routes/api/public/agents/dispatch-test'
 import { Route as ApiPublicAgentsImprovementReviewTestRouteImport } from './routes/api/public/agents/improvement-review-test'
 import { Route as ApiPublicAgentsProcessShadowBatchTestRouteImport } from './routes/api/public/agents/process-shadow-batch-test'
@@ -190,6 +191,12 @@ const TestOffertSlugRoute = TestOffertSlugRouteImport.update({
   path: '/test/offert/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicAgentsAutonomousTickRoute =
+  ApiPublicAgentsAutonomousTickRouteImport.update({
+    id: '/api/public/agents/autonomous-tick',
+    path: '/api/public/agents/autonomous-tick',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicAgentsDispatchTestRoute =
   ApiPublicAgentsDispatchTestRouteImport.update({
     id: '/api/public/agents/dispatch-test',
@@ -360,6 +367,7 @@ export interface FileRoutesByFullPath {
   '/admin/profiler': typeof AuthenticatedAdminProfilerRoute
   '/test/offert/$slug': typeof TestOffertSlugRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
+  '/api/public/agents/autonomous-tick': typeof ApiPublicAgentsAutonomousTickRoute
   '/api/public/agents/dispatch-test': typeof ApiPublicAgentsDispatchTestRoute
   '/api/public/agents/improvement-review-test': typeof ApiPublicAgentsImprovementReviewTestRoute
   '/api/public/agents/process-shadow-batch-test': typeof ApiPublicAgentsProcessShadowBatchTestRoute
@@ -410,6 +418,7 @@ export interface FileRoutesByTo {
   '/admin/profiler': typeof AuthenticatedAdminProfilerRoute
   '/test/offert/$slug': typeof TestOffertSlugRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
+  '/api/public/agents/autonomous-tick': typeof ApiPublicAgentsAutonomousTickRoute
   '/api/public/agents/dispatch-test': typeof ApiPublicAgentsDispatchTestRoute
   '/api/public/agents/improvement-review-test': typeof ApiPublicAgentsImprovementReviewTestRoute
   '/api/public/agents/process-shadow-batch-test': typeof ApiPublicAgentsProcessShadowBatchTestRoute
@@ -462,6 +471,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/profiler': typeof AuthenticatedAdminProfilerRoute
   '/test/offert/$slug': typeof TestOffertSlugRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
+  '/api/public/agents/autonomous-tick': typeof ApiPublicAgentsAutonomousTickRoute
   '/api/public/agents/dispatch-test': typeof ApiPublicAgentsDispatchTestRoute
   '/api/public/agents/improvement-review-test': typeof ApiPublicAgentsImprovementReviewTestRoute
   '/api/public/agents/process-shadow-batch-test': typeof ApiPublicAgentsProcessShadowBatchTestRoute
@@ -514,6 +524,7 @@ export interface FileRouteTypes {
     | '/admin/profiler'
     | '/test/offert/$slug'
     | '/admin/'
+    | '/api/public/agents/autonomous-tick'
     | '/api/public/agents/dispatch-test'
     | '/api/public/agents/improvement-review-test'
     | '/api/public/agents/process-shadow-batch-test'
@@ -564,6 +575,7 @@ export interface FileRouteTypes {
     | '/admin/profiler'
     | '/test/offert/$slug'
     | '/admin'
+    | '/api/public/agents/autonomous-tick'
     | '/api/public/agents/dispatch-test'
     | '/api/public/agents/improvement-review-test'
     | '/api/public/agents/process-shadow-batch-test'
@@ -615,6 +627,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/profiler'
     | '/test/offert/$slug'
     | '/_authenticated/admin/'
+    | '/api/public/agents/autonomous-tick'
     | '/api/public/agents/dispatch-test'
     | '/api/public/agents/improvement-review-test'
     | '/api/public/agents/process-shadow-batch-test'
@@ -659,6 +672,7 @@ export interface RootRouteChildren {
   OffertSlugRoute: typeof OffertSlugRoute
   TestTakoffertRoute: typeof TestTakoffertRoute
   TestOffertSlugRoute: typeof TestOffertSlugRoute
+  ApiPublicAgentsAutonomousTickRoute: typeof ApiPublicAgentsAutonomousTickRoute
   ApiPublicAgentsDispatchTestRoute: typeof ApiPublicAgentsDispatchTestRoute
   ApiPublicAgentsImprovementReviewTestRoute: typeof ApiPublicAgentsImprovementReviewTestRoute
   ApiPublicAgentsProcessShadowBatchTestRoute: typeof ApiPublicAgentsProcessShadowBatchTestRoute
@@ -860,6 +874,13 @@ declare module '@tanstack/react-router' {
       path: '/test/offert/$slug'
       fullPath: '/test/offert/$slug'
       preLoaderRoute: typeof TestOffertSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/agents/autonomous-tick': {
+      id: '/api/public/agents/autonomous-tick'
+      path: '/api/public/agents/autonomous-tick'
+      fullPath: '/api/public/agents/autonomous-tick'
+      preLoaderRoute: typeof ApiPublicAgentsAutonomousTickRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/agents/dispatch-test': {
@@ -1077,6 +1098,7 @@ const rootRouteChildren: RootRouteChildren = {
   OffertSlugRoute: OffertSlugRoute,
   TestTakoffertRoute: TestTakoffertRoute,
   TestOffertSlugRoute: TestOffertSlugRoute,
+  ApiPublicAgentsAutonomousTickRoute: ApiPublicAgentsAutonomousTickRoute,
   ApiPublicAgentsDispatchTestRoute: ApiPublicAgentsDispatchTestRoute,
   ApiPublicAgentsImprovementReviewTestRoute:
     ApiPublicAgentsImprovementReviewTestRoute,

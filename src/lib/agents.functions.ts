@@ -145,6 +145,20 @@ export const runV2Task = createServerFn({ method: "POST" })
     return { ok: true as const, ...result.body, externalEffect: false as const };
   });
 
+/** Budgetstatus för Agent HQ. Endast aggregerade belopp – inga hemligheter. */
+export const getAgentBudgetStatus = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const ctx = context as AdminContext;
+    await assertAdmin(ctx);
+    const { readBudgetConfig, budgetStatusLabel } = await import("@/lib/agents/budget");
+    const { readBudgetSnapshot } = await import("@/lib/agents/budget.server");
+    const { runtimeEnvFromRequest } = await import("@/lib/growth/runtime-env");
+    const config = readBudgetConfig(runtimeEnvFromRequest(getRequest()));
+    const snapshot = await readBudgetSnapshot(ctx);
+    return { config, snapshot, state: budgetStatusLabel(snapshot, config) };
+  });
+
 /* ---------------------------------------------- orchestrator (legacy) */
 
 

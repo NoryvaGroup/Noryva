@@ -56,6 +56,48 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_run_ledger: {
+        Row: {
+          created_at: string
+          estimated_cost_sek: number
+          id: string
+          input_tokens: number
+          model: string
+          output_tokens: number
+          role: string
+          run_kind: string
+          status: string
+          task_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          estimated_cost_sek?: number
+          id?: string
+          input_tokens?: number
+          model?: string
+          output_tokens?: number
+          role: string
+          run_kind: string
+          status?: string
+          task_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          estimated_cost_sek?: number
+          id?: string
+          input_tokens?: number
+          model?: string
+          output_tokens?: number
+          role?: string
+          run_kind?: string
+          status?: string
+          task_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       agent_task_events: {
         Row: {
           actor: string
@@ -1722,6 +1764,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      agent_budget_snapshot: { Args: never; Returns: Json }
       approve_nurture_review: {
         Args: {
           p_fingerprint: string
@@ -1811,6 +1854,20 @@ export type Database = {
           p_reason?: string
           p_review_id: string
           p_transport_message_id?: string
+        }
+        Returns: Json
+      }
+      reserve_agent_run: {
+        Args: {
+          p_hard_cap_sek: number
+          p_max_autonomous_runs_day: number
+          p_max_autonomous_runs_month: number
+          p_model?: string
+          p_reserved_cost_sek: number
+          p_role: string
+          p_run_kind: string
+          p_soft_cap_sek: number
+          p_task_id: string
         }
         Returns: Json
       }
