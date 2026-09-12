@@ -38,43 +38,68 @@ export const AGENT_LABEL: Record<AgentName, string> = {
   operations_finance: "Operations & Finance",
 };
 
-/** Aktiva roller i v1. Endast dessa får starta ett agent-run. */
-export const ACTIVE_AGENTS_V1 = ["noryva_manager", "product_tech"] as const;
-export type ActiveAgentV1 = (typeof ACTIVE_AGENTS_V1)[number];
-
 /**
- * Målbildens fyra specialistroller. De är fullt konfigurerade men PLANERADE:
- * de kan inte köras och kan inte skapa provider-run förrän de aktiveras
- * explicit och har ett eget OpenAI agent-id.
+ * Aktiva interna roller: 1 Manager + 5 specialister. Alla sex är tekniskt
+ * körbara, men provider-körning är fortsatt fail closed tills den globala
+ * harness-konfigurationen är på.
  */
-export const PLANNED_AGENTS_V1 = [
+export const ACTIVE_AGENTS_V1 = [
+  "noryva_manager",
+  "product_tech",
   "growth_sales",
   "customer_success",
   "qa_risk",
   "operations_finance",
 ] as const;
-export type PlannedAgentV1 = (typeof PLANNED_AGENTS_V1)[number];
+export type ActiveAgentV1 = (typeof ACTIVE_AGENTS_V1)[number];
 
-/** Bakåtkompatibelt alias till tidigare namn. */
-export const DORMANT_AGENTS_V1 = PLANNED_AGENTS_V1;
+/** Specialistroller under Manager. */
+export const SPECIALIST_AGENTS_V1 = [
+  "product_tech",
+  "growth_sales",
+  "customer_success",
+  "qa_risk",
+  "operations_finance",
+] as const;
+export type SpecialistAgentV1 = (typeof SPECIALIST_AGENTS_V1)[number];
 
-export type PlannedAgentConfig = {
-  key: PlannedAgentV1;
+export type AgentRoleConfig = {
+  key: ActiveAgentV1;
   taskType: TaskType;
-  /** Env-nyckel som ska fyllas med rollens OpenAI reusable agent-id. */
+  /** Env-nyckel som kan överstyra rollens OpenAI reusable agent-id. */
   agentIdEnvKey: string;
   description: string;
-  /** Spegel av rollens policy till OpenAI-agenten när den aktiveras. */
+  /** Server-side policy: safety guard och reserv, inte ersättning för agentens egen config. */
   instructions: string;
-  /** Framtida verifieringssteg för andra agenters resultat. */
+  /** QA/Risk får verifiera andra agenters resultat. */
   canVerifyOtherAgents: boolean;
-  activated: false;
+  activated: true;
 };
 
 const NO_EXTERNAL =
   "Du får aldrig utföra externa åtgärder: inga mail, inga SMS, inga bokningar, inga Make-ändringar, ingen publicering och ingen ändring av produktion eller kunddata. Svara med enbart JSON.";
 
-export const PLANNED_AGENT_CONFIG: Record<PlannedAgentV1, PlannedAgentConfig> = {
+export const AGENT_ROLE_CONFIG: Record<ActiveAgentV1, AgentRoleConfig> = {
+  noryva_manager: {
+    key: "noryva_manager",
+    taskType: "manager_directive",
+    agentIdEnvKey: "NORYVA_OPENAI_MANAGER_AGENT_ID",
+    description:
+      "Huvudagent/COO. Tar emot mål och händelser, prioriterar och delegerar internt utifrån aggregerad, avidentifierad drifttelemetri. Delegering skapar endast en specialistuppgift – den körs aldrig automatiskt.",
+    instructions: `Du är Noryva Manager (COO). Du prioriterar och delegerar internt utifrån aggregerad drifttelemetri. ${NO_EXTERNAL}`,
+    canVerifyOtherAgents: false,
+    activated: true,
+  },
+  product_tech: {
+    key: "product_tech",
+    taskType: "product_tech_review",
+    agentIdEnvKey: "NORYVA_OPENAI_PRODUCT_TECH_AGENT_ID",
+    description:
+      "Granskar systemets drift, föreslår förbättringar och en färdig implementationsplan. Får aldrig publicera, ändra produktion, Make, mail eller kunddata.",
+    instructions: `Du är Noryvas Product & Tech-agent. Du analyserar systemets drift och föreslår förbättringar och en färdig implementationsplan som en människa kan godkänna. ${NO_EXTERNAL}`,
+    canVerifyOtherAgents: false,
+    activated: true,
+  },
   growth_sales: {
     key: "growth_sales",
     taskType: "growth_sales_review",
@@ -83,27 +108,27 @@ export const PLANNED_AGENT_CONFIG: Record<PlannedAgentV1, PlannedAgentConfig> = 
       "Prospektering, outreach-utkast, funnel och konvertering, marknadsföring, segmentering och säljanalys. Får endast analysera, föreslå och skriva utkast – aldrig autonom outbound.",
     instructions: `Du är Noryvas Growth & Sales-agent. Du analyserar funnel, segment och konvertering och skriver interna utkast till outreach som en människa granskar. ${NO_EXTERNAL}`,
     canVerifyOtherAgents: false,
-    activated: false,
+    activated: true,
   },
   customer_success: {
     key: "customer_success",
     taskType: "customer_success_review",
     agentIdEnvKey: "NORYVA_OPENAI_CUSTOMER_SUCCESS_AGENT_ID",
     description:
-      "Kundhälsa, resultat, användning, förbättringar, churn-risk och förslag på uppföljning. Arbetar som standard endast på aggregerad, PII-minimerad data och tar aldrig kundkontakt själv.",
+      "Kundhälsa, resultat, användning, förbättringar, churn-risk och förslag på uppföljning. Arbetar endast på aggregerad, PII-minimerad data och tar aldrig kundkontakt själv.",
     instructions: `Du är Noryvas Customer Success-agent. Du arbetar endast med aggregerad, avidentifierad data om kundhälsa, användning och churn-risk och föreslår uppföljning internt. ${NO_EXTERNAL}`,
     canVerifyOtherAgents: false,
-    activated: false,
+    activated: true,
   },
   qa_risk: {
     key: "qa_risk",
     taskType: "qa_risk_review",
     agentIdEnvKey: "NORYVA_OPENAI_QA_RISK_AGENT_ID",
     description:
-      "Granskar edge cases, regressionsrisk, säkerhet, integritet, kostnadsrisk, fel kund/fel lead, loopar, idempotens och godkännanden. Ska i framtiden kunna verifiera andra agenters resultat, men aldrig ge produktionseffekt.",
+      "Granskar edge cases, regressionsrisk, säkerhet, integritet, kostnadsrisk, fel kund/fel lead, loopar, idempotens och godkännanden. Kan verifiera andra agenters resultat, men får aldrig godkänna sin egen produktionseffekt eller ersätta mänskligt godkännande.",
     instructions: `Du är Noryvas QA/Risk-agent. Du granskar andra agenters resultat och systemets risker: edge cases, regressioner, säkerhet, integritet, kostnad, idempotens och godkännandekedjor. Du levererar endast ett granskningsutlåtande. ${NO_EXTERNAL}`,
     canVerifyOtherAgents: true,
-    activated: false,
+    activated: true,
   },
   operations_finance: {
     key: "operations_finance",
@@ -113,22 +138,33 @@ export const PLANNED_AGENT_CONFIG: Record<PlannedAgentV1, PlannedAgentConfig> = 
       "Intern kostnads- och usageanalys, driftöversikt, administrativa förbättringsförslag, KPI/rapportering och budgetvarningar. Ersätter gamla Admin & Finance som synlig målroll. Ingen bokföring, inga betalningar, ingen extern action.",
     instructions: `Du är Noryvas Operations & Finance-agent. Du analyserar intern kostnad, usage, drift och KPI:er och varnar när budgetmål riskerar att överskridas. Du hanterar aldrig bokföring eller betalningar. ${NO_EXTERNAL}`,
     canVerifyOtherAgents: false,
-    activated: false,
+    activated: true,
   },
+};
+
+/** Policytext per roll (safety guard, inte ersättning för reusable agent-config). */
+export const AGENT_POLICY: Record<ActiveAgentV1, string> = {
+  noryva_manager: AGENT_ROLE_CONFIG.noryva_manager.instructions,
+  product_tech: AGENT_ROLE_CONFIG.product_tech.instructions,
+  growth_sales: AGENT_ROLE_CONFIG.growth_sales.instructions,
+  customer_success: AGENT_ROLE_CONFIG.customer_success.instructions,
+  qa_risk: AGENT_ROLE_CONFIG.qa_risk.instructions,
+  operations_finance: AGENT_ROLE_CONFIG.operations_finance.instructions,
 };
 
 export function isActiveAgentV1(agent: string): agent is ActiveAgentV1 {
   return (ACTIVE_AGENTS_V1 as readonly string[]).includes(agent);
 }
 
-export function isPlannedAgentV1(agent: string): agent is PlannedAgentV1 {
-  return (PLANNED_AGENTS_V1 as readonly string[]).includes(agent);
+export function isSpecialistAgentV1(agent: string): agent is SpecialistAgentV1 {
+  return (SPECIALIST_AGENTS_V1 as readonly string[]).includes(agent);
 }
 
 /** Sant endast för roller som får starta ett provider-run i den här versionen. */
 export function isRunnableAgent(agent: string): boolean {
   return isActiveAgentV1(agent);
 }
+
 
 /**
  * Befogenhetskedjan. UTFÖRA är spärrat i den här versionen för allt som kan
@@ -469,6 +505,25 @@ export function verifyTaskResult(input: QaWorkerInput): QaVerdict {
       reasons.push("Implementationsprompt saknas.");
     }
     if (r.externalEffect !== false) reasons.push("Resultatet får inte ha extern effekt.");
+    if (!input.requiresApproval) reasons.push("Granskningen måste kräva godkännande.");
+  }
+
+  const SPECIALIST_LIST: Partial<Record<TaskType, string>> = {
+    growth_sales_review: "recommendations",
+    customer_success_review: "recommendations",
+    qa_risk_review: "risks",
+    operations_finance_review: "recommendations",
+  };
+  const listKey = SPECIALIST_LIST[input.taskType];
+  if (listKey) {
+    const r = result as Record<string, unknown>;
+    if (typeof r["summary"] !== "string" || String(r["summary"]).trim().length < 10) {
+      reasons.push("Sammanfattningen saknas.");
+    }
+    if (!Array.isArray(r[listKey]) || (r[listKey] as unknown[]).length === 0) {
+      reasons.push("Minst en punkt krävs i resultatet.");
+    }
+    if (r["externalEffect"] !== false) reasons.push("Resultatet får inte ha extern effekt.");
     if (!input.requiresApproval) reasons.push("Granskningen måste kräva godkännande.");
   }
 

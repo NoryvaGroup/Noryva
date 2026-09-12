@@ -100,7 +100,15 @@ export const getAgentHarnessStatus = createServerFn({ method: "GET" })
   });
 
 const v2Input = z.object({
-  role: z.enum(["noryva_manager", "product_tech"]),
+  role: z.enum([
+    "noryva_manager",
+    "product_tech",
+    "growth_sales",
+    "customer_success",
+    "qa_risk",
+    "operations_finance",
+  ]),
+
   goal: z.string().trim().max(400).optional(),
 });
 
