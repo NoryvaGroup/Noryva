@@ -48,25 +48,34 @@ export async function autonomousTickCore(
   const config = readBudgetConfig(ctx.harness?.env ?? runtimeEnvFromRequest(ctx.harness?.request));
   const snapshot = await readBudgetSnapshot(ctx);
 
-  const gate = evaluateBudgetGate({
+  const noop = (gate: { state: string; reason: string }): AutonomousOutcome => ({
+    status: 200,
+    body: {
+      ok: true,
+      action: "noop",
+      budgetState: gate.state,
+      reason: gate.reason,
+      snapshot,
+      externalEffect: false,
+    },
+  });
+
+  // Överordnade kostnadstak gäller alltid, oavsett roll.
+  const costGate = evaluateBudgetGate({
     kind: "autonomous",
-    role: "noryva_manager",
-    snapshot,
+    role: "product_tech",
+    snapshot: { ...snapshot, autonomousRunsTodayByRole: {}, autonomousRunsMonth: 0 },
     config,
   });
-  if (!gate.allowed) {
-    return {
-      status: 200,
-      body: {
-        ok: true,
-        action: "noop",
-        budgetState: gate.state,
-        reason: gate.reason,
-        snapshot,
-        externalEffect: false,
-      },
-    };
-  }
+  if (!costGate.allowed) return noop(costGate);
+
+  const monthGate = evaluateBudgetGate({
+    kind: "autonomous",
+    role: "noryva_manager",
+    snapshot: { ...snapshot, spentMonthSek: 0, autonomousRunsTodayByRole: {} },
+    config,
+  });
+  if (!monthGate.allowed) return noop(monthGate);
 
   // 1) Delegerad specialistuppgift körs i ett separat tick.
   const { data: pending } = await ctx.supabase
