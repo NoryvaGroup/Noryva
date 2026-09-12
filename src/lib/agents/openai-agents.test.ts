@@ -195,3 +195,45 @@ describe("budget och delegering", () => {
     }
   });
 });
+
+describe("asynkron turn hämtas read-only", () => {
+  it("läser assistant-svar och usage via items utan extra provider-run", async () => {
+    const calls: string[] = [];
+    const fetchImpl = vi.fn(async (url: string) => {
+      calls.push(url);
+      if (url === AGENTS_SESSIONS_URL) {
+        return { ok: true, json: async () => ({ id: "sess_x" }) } as unknown as Response;
+      }
+      if (url.includes("/items")) {
+        return {
+          ok: true,
+          json: async () => ({
+            data: [
+              {
+                type: "message",
+                role: "assistant",
+                status: "completed",
+                content: [{ type: "output_text", text: '{"ok":true}' }],
+              },
+            ],
+          }),
+        } as unknown as Response;
+      }
+      return {
+        ok: true,
+        json: async () => ({ usage: { input_tokens: 10, output_tokens: 5 } }),
+      } as unknown as Response;
+    });
+
+    const result = await runHarnessSession(
+      { role: "noryva_manager", instructions: "", input: "mål" },
+      { env: ENABLED_ENV, fetchImpl: fetchImpl as unknown as typeof fetch },
+    );
+
+    expect(calls.filter((u) => u === AGENTS_SESSIONS_URL).length).toBe(1);
+    expect(result.outputText).toBe('{"ok":true}');
+    expect(result.usage).toEqual({ inputTokens: 10, outputTokens: 5, runs: 1 });
+    expect(result.runStatus).toBe("completed");
+    expect(result.externalEffect).toBe(false);
+  });
+});
