@@ -196,80 +196,92 @@ UTFÖRA`. UTFÖRA är spärrat (`AUTHORITY_EXECUTE_ENABLED = false`).
 
 Adapter: `src/lib/agents/openai-agents.server.ts` – enda platsen som pratar med
 providern. `POST https://api.openai.com/v1/agents/sessions` med headern
-`OpenAI-Beta: agents=v1`, `environment: { type: "none" }`, ingen streaming,
-inga verktyg, ingen retry. Saknas `NORYVA_AGENTS_API_ENABLED=true` eller
-`OPENAI_API_KEY` görs INGET anrop och Agent HQ visar "Ej konfigurerad".
+`OpenAI-Beta: agents=v1`. Återanvändbara agenter skickas som top-level
+`agent_id` och miljön som:
+
+```json
+{ "type": "openai_hosted", "environment_template_id": "envtmpl_..." }
+```
+
+Ingen streaming, inga verktyg, ingen retry. Saknas `NORYVA_AGENTS_API_ENABLED=true`,
+`OPENAI_API_KEY` eller environment template görs INGET anrop och Agent HQ visar
+"Ej konfigurerad". När `agent_id` används skriver Noryva varken över agentens
+modell eller dess permanenta instruktioner – uppgiftens mål och PII-fri telemetri
+läggs i session-input, och server-side policytext används bara som safety guard.
 
 Kontrollager: `src/lib/agents/v2.server.ts` – idempotent uppgiftsskapande,
 budgetspärr (`run_budget`/`runs_used`, ett run per uppgift), atomisk claim
-`queued -> in_progress`, PII-fri audit och verifiering. Specialist-run skapas
-endast vid faktisk delegering från Manager.
+`queued -> in_progress`, PII-fri audit och verifiering. Managers delegering
+SKAPAR endast en specialistuppgift; den körs aldrig i samma kedja utan kräver en
+egen explicit körning.
 
 Legacy: `src/lib/agents/run.server.ts` + `reasoning.server.ts` (Responses API)
-är kvar för de äldre uppgiftstyperna och väljs aldrig för v1-rollerna – de
-kastar fel om någon försöker.
+är kvar för de äldre uppgiftstyperna och väljs aldrig för v2-rollerna.
 
 ### Miljövariabler
 
 | Variabel | Krävs | Beskrivning |
 | --- | --- | --- |
-| `OPENAI_API_KEY` | ja | Ska komma från OpenAI-kontot/projektet för `kontakt@noryva.se`. Behöver `api.agents.read/write` + `api.responses.write`. |
+| `OPENAI_API_KEY` | ja | Enda hemligheten. Ska komma från OpenAI-projektet `proj_rkaXcjn0pJ2Xba3MxY27nFrK` (`kontakt@noryva.se`). |
 | `NORYVA_AGENTS_API_ENABLED` | ja | `true` slår på harnessen. Utan den är allt fail closed. |
-| `NORYVA_OPENAI_MANAGER_AGENT_ID` | nej | Återanvändbar agent för Manager. |
-| `NORYVA_OPENAI_PRODUCT_TECH_AGENT_ID` | nej | Återanvändbar agent för Product & Tech. |
-| `NORYVA_OPENAI_AGENT_MODEL` | nej | Standard `gpt-5.4-mini`. |
+| `NORYVA_OPENAI_ENVIRONMENT_TEMPLATE_ID` | nej | Override. Default `envtmpl_28145d6c83734e1d9f2f88b52b3f009e87223290abd94f9785`. |
+| `NORYVA_OPENAI_PROJECT_ID` | nej | Override. Default `proj_rkaXcjn0pJ2Xba3MxY27nFrK`. |
+| `NORYVA_OPENAI_*_AGENT_ID` | nej | Override per roll, se tabellen nedan. |
+| `NORYVA_OPENAI_AGENT_MODEL` | nej | Reservmodell endast när agent-id saknas. Standard `gpt-5.4-mini`. |
 
-Agent-ID:n ska senare skapas eller hämtas i samma OpenAI-konto/projekt som hör
-till `kontakt@noryva.se`. Inga andra OpenAI-konton får skapas eller kopplas för
-den här harnessen.
+Agent-id, projekt-id och environment template är inte hemligheter och ligger som
+server-side defaults i koden. Inga environment secrets läggs i templaten från
+Noryva-koden.
 
 ### MIGRATION / ROLLBACK
 
 Migrationen är additiv: nya nullbara/defaultade kolumner `provider_type`,
 `provider_agent_id`, `provider_run_id`, `run_status`, `usage`, `run_budget`,
 `runs_used` på `agent_tasks`, samt utökade CHECK-villkor för `assigned_agent`
-och `task_type`. Inga rader eller kolumner tas bort.
+och `task_type` (alla sex roller och deras uppgiftstyper stöds redan). Inga rader
+eller kolumner tas bort.
 
 Rollback: sätt `NORYVA_AGENTS_API_ENABLED` till `false` – då stoppas alla
-provider-run direkt och gamla flöden fortsätter oförändrade. Vid full
-återgång kan de nya kolumnerna lämnas kvar (de påverkar inte äldre kod) eller
-tas bort i en separat migration tillsammans med de utökade CHECK-villkoren.
+provider-run direkt och gamla flöden fortsätter oförändrade.
 
-## Målarkitektur: 1 Manager + 5 specialistroller
+## Målarkitektur: 1 Manager + 5 aktiva specialistroller
 
-| Roll | Nyckel | Status | Uppgiftstyp | Agent-id (env) |
+| Roll | Nyckel | Uppgiftstyp | OpenAI agent-id (default) | Env-override |
 | --- | --- | --- | --- | --- |
-| Noryva Manager (COO) | `noryva_manager` | Aktiv i v1 | `manager_directive` | `NORYVA_OPENAI_MANAGER_AGENT_ID` |
-| Product & Tech | `product_tech` | Aktiv i v1 | `product_tech_review` | `NORYVA_OPENAI_PRODUCT_TECH_AGENT_ID` |
-| Growth & Sales | `growth_sales` | Planerad / vilande | `growth_sales_review` | `NORYVA_OPENAI_GROWTH_SALES_AGENT_ID` |
-| Customer Success | `customer_success` | Planerad / vilande | `customer_success_review` | `NORYVA_OPENAI_CUSTOMER_SUCCESS_AGENT_ID` |
-| QA / Risk | `qa_risk` | Planerad / vilande | `qa_risk_review` | `NORYVA_OPENAI_QA_RISK_AGENT_ID` |
-| Operations & Finance | `operations_finance` | Planerad / vilande | `operations_finance_review` | `NORYVA_OPENAI_OPERATIONS_FINANCE_AGENT_ID` |
+| Noryva Manager (COO) | `noryva_manager` | `manager_directive` | `agent_95cc9942a05847fb9cce479340eed36adf10e2ea0029431ab4` | `NORYVA_OPENAI_MANAGER_AGENT_ID` |
+| Product & Tech | `product_tech` | `product_tech_review` | `agent_87c79d1adf914afe85ad8d4d6d00273a4944facc95014bed89` | `NORYVA_OPENAI_PRODUCT_TECH_AGENT_ID` |
+| Growth & Sales | `growth_sales` | `growth_sales_review` | `agent_29b1bef0218f478bb13c760e899255d8cae8bae0f1c8410bab` | `NORYVA_OPENAI_GROWTH_SALES_AGENT_ID` |
+| Customer Success | `customer_success` | `customer_success_review` | `agent_616c6f367cb648bbbf647d8563316703aab81539fdad4f20a1` | `NORYVA_OPENAI_CUSTOMER_SUCCESS_AGENT_ID` |
+| QA / Risk | `qa_risk` | `qa_risk_review` | `agent_43a8b74da1ba478cb29c749cbde48d197728ad6b7fd64ea28d` | `NORYVA_OPENAI_QA_RISK_AGENT_ID` |
+| Operations & Finance | `operations_finance` | `operations_finance_review` | `agent_f1557f32b62e45e19d6dc47fa54eaedc17ab1e8ffcb549018e` | `NORYVA_OPENAI_OPERATIONS_FINANCE_AGENT_ID` |
+
+Modellval sker i OpenAI-agenternas egen konfiguration: Manager, Growth & Sales,
+Customer Success och Operations & Finance på GPT-5.4 mini / Medium; Product & Tech
+och QA/Risk på GPT-5.4 / High.
 
 Operations & Finance ersätter gamla `admin_finance` som synlig målroll. Det gamla
-värdet finns kvar i databasens CHECK-villkor enbart för bakåtkompatibilitet med
-befintliga rader och visas inte i Agent HQ.
+värdet finns kvar i databasens CHECK-villkor enbart för bakåtkompatibilitet.
 
-### Spärrar för planerade roller
+### Kvarvarande spärrar
 
-- `PLANNED_AGENT_CONFIG` i `src/lib/agents/tasks.ts` håller policy/instruktionsmall,
-  uppgiftstyp och env-nyckel per roll. `activated` är hårdkodat `false`.
-- `isRunnableHarnessRole()` i adaptern stoppar alla planerade roller innan någon
-  nätverkstrafik sker, även om ett agent-id finns i miljön.
-- `createV2TaskCore()` avvisar planerade roller med 403 och rör inte databasen.
-- QA/Risk är förberedd som framtida verifieringssteg (`canVerifyOtherAgents: true`)
-  men kan inte köras i den här versionen.
+- `AUTHORITY_EXECUTE_ENABLED = false` och `AGENT_EXTERNAL_ACTIONS_ENABLED = false`.
+  Godkännande ändrar endast intern status och utlöser aldrig extern åtgärd.
+- Endast `test`/`review` som körläge; alla resultat kräver mänskligt godkännande.
+- QA/Risk kan verifiera andra agenters resultat men får varken godkänna sin egen
+  effekt eller ersätta mänsklig granskning.
+- Manager-delegering skapar uppgift, kör den inte.
 
-### Kvar innan aktivering
+### Kvar innan första riktiga API-testet
 
-1. Skapa en OpenAI reusable agent per roll i projektet för `kontakt@noryva.se`.
-2. Sätt motsvarande `NORYVA_OPENAI_*_AGENT_ID` server-side (inga värden är satta idag).
-3. Flytta rollen från `PLANNED_AGENTS_V1` till `ACTIVE_AGENTS_V1` och utöka
-   `HarnessRole` samt `V2_TASK_TYPE`/`V2_INSTRUCTIONS`.
-4. Kör testsviten: spärr-testerna ska då medvetet uppdateras för den rollen.
+1. Lägg `OPENAI_API_KEY` från projektet ovan server-side (Projektinställningar → Secrets).
+2. Sätt `NORYVA_AGENTS_API_ENABLED=true`.
+
+Inget annat manuellt steg återstår – agent-id och environment template är redan
+konfigurerade i koden.
 
 ### Budgetmål
 
 Globalt månadsmål för agentkostnad: **≤ 500 SEK**, med rekommenderad initial
 soft cap på **300 SEK**. Målet är en driftregel och följs upp manuellt – ingen
 valuta- eller betalningsintegration finns i koden.
+
