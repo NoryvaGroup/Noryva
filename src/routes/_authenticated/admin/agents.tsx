@@ -24,7 +24,7 @@ import {
   runV2Task,
   verifyAgentTask,
 } from "@/lib/agents.functions";
-import { BUDGET_STATE_LABEL } from "@/lib/agents/budget";
+import { BUDGET_ROLES, BUDGET_STATE_LABEL, type BudgetRole } from "@/lib/agents/budget";
 import {
   AGENT_LABEL,
   AGENT_ROLE_CONFIG,
