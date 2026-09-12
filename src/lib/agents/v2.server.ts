@@ -195,12 +195,13 @@ export async function createV2TaskCore(
 
 /* -------------------------------------------------------------- körning */
 
-const summary = z.string().trim().min(10).max(1200);
-const bullets = z.array(z.string().trim().min(3).max(400)).min(1).max(6);
+const summary = z.string().trim().min(10).max(4000);
+// Agenterna svarar ofta med utförliga punkter; taket är generöst men ändå hårt.
+const bullets = z.array(z.string().trim().min(3).max(2000)).min(1).max(8);
 
 const managerSchema = z.object({
   summary,
-  priorities: z.array(z.string().trim().min(3).max(300)).min(1).max(6),
+  priorities: z.array(z.string().trim().min(3).max(1000)).min(1).max(8),
   delegate: z
     .object({
       to: z.enum([...V2_SPECIALISTS, "none"]),
@@ -212,13 +213,13 @@ const managerSchema = z.object({
 const productTechSchema = z.object({
   summary,
   recommendations: bullets,
-  implementationPrompt: z.string().trim().min(30).max(4000),
+  implementationPrompt: z.string().trim().min(30).max(8000),
 });
 
 const growthSalesSchema = z.object({
   summary,
   recommendations: bullets,
-  draftOutreach: z.string().trim().max(4000).default(""),
+  draftOutreach: z.string().trim().max(8000).default(""),
 });
 
 const customerSuccessSchema = z.object({

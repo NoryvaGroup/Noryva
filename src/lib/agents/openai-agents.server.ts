@@ -355,14 +355,23 @@ export async function runHarnessSession(
           );
           if (assistant) {
             collectText((assistant as Record<string, unknown>)["content"], parts);
-            const sessionRes = await doFetch(`${AGENTS_SESSIONS_URL}/${sessionId}`, {
-              method: "GET",
-              headers,
-              signal: controller.signal,
-            });
-            if (sessionRes.ok) {
-              const sessionBody = (await sessionRes.json()) as Record<string, unknown>;
-              usageRaw = (sessionBody["usage"] ?? usageRaw ?? {}) as Record<string, unknown>;
+            // Usage bokförs strax efter att turen avslutats. Read-only GET,
+            // ingen extra provider-run: några få försök innan vi ger upp.
+            for (let attempt = 0; attempt < 3; attempt += 1) {
+              const sessionRes = await doFetch(`${AGENTS_SESSIONS_URL}/${sessionId}`, {
+                method: "GET",
+                headers,
+                signal: controller.signal,
+              });
+              if (sessionRes.ok) {
+                const sessionBody = (await sessionRes.json()) as Record<string, unknown>;
+                const found = sessionBody["usage"] as Record<string, unknown> | null | undefined;
+                if (found && Number(found["input_tokens"] ?? 0) > 0) {
+                  usageRaw = found;
+                  break;
+                }
+              }
+              await new Promise((resolve) => setTimeout(resolve, 1500));
             }
             break;
           }
