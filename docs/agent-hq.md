@@ -1,6 +1,6 @@
 # Noryva Agent HQ
 
-Status: **TEST/REVIEW.** Noryva Manager och Product & Tech är de två aktiva
+Status: **TEST/REVIEW.** Alla sex interna roller (Noryva Manager + fem specialister) är tekniskt aktiva, men provider-körning är fail closed tills global konfiguration är på.
 v1-rollerna. OpenAI Agents API är förberett som fail-closed harness; utan
 uttrycklig serverkonfiguration startas inget provider-anrop. Inga mail,
 bokningar, Make-actions eller produktionseffekter kan utföras. Godkännande
