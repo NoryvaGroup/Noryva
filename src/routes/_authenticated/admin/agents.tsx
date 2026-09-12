@@ -321,16 +321,7 @@ function AgentHqPage() {
               <div key={s.key} className="rounded-xl border border-border bg-card p-4">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium">{AGENT_LABEL[s.key]}</span>
-                  <Badge>Aktiv i v1</Badge>
-                </div>
-                <p className="mt-1.5 text-sm text-muted-foreground">{s.description}</p>
-              </div>
-            ))}
-            {DORMANT_ROLES.map((s) => (
-              <div key={s.key} className="rounded-xl border border-border bg-card p-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium">{AGENT_LABEL[s.key]}</span>
-                  <Badge variant="secondary">Planerad / vilande</Badge>
+                  <Badge>Aktiv intern roll</Badge>
                 </div>
                 <p className="mt-1.5 text-sm text-muted-foreground">{s.description}</p>
               </div>
@@ -341,9 +332,9 @@ function AgentHqPage() {
         <section className="rounded-xl border border-border bg-card p-4">
           <h2 className="mb-2 text-lg font-semibold">Starta agentarbete</h2>
           <p className="mb-3 text-sm text-muted-foreground">
-            Manager startas explicit och kör högst en gång per uppgift. Product & Tech körs bara om
-            Manager faktiskt delegerar, eller om du startar den själv. Utan konfigurerad harness
-            startas ingen körning alls.
+            Alla sex roller kan få en egen uppgift. Manager kör högst en gång per uppgift och kan
+            delegera internt – en delegering skapar bara en uppgift, den startas aldrig automatiskt.
+            Utan giltig global konfiguration görs ingen körning alls.
           </p>
           <div className="flex flex-wrap items-center gap-2">
             <input
@@ -364,20 +355,22 @@ function AgentHqPage() {
             >
               Ny Manager-uppgift
             </button>
-            <button
-              type="button"
-              disabled={mutation.isPending}
-              onClick={() =>
-                mutation.mutate(() =>
-                  createTask({ data: { role: "product_tech", ...(goal ? { goal } : {}) } }),
-                )
-              }
-              className="rounded-full border border-border px-3 py-2 text-sm disabled:opacity-50"
-            >
-              Ny Product &amp; Tech-uppgift
-            </button>
+            {SPECIALIST_AGENTS_V1.map((role) => (
+              <button
+                key={role}
+                type="button"
+                disabled={mutation.isPending}
+                onClick={() =>
+                  mutation.mutate(() => createTask({ data: { role, ...(goal ? { goal } : {}) } }))
+                }
+                className="rounded-full border border-border px-3 py-2 text-sm disabled:opacity-50"
+              >
+                Ny {AGENT_LABEL[role]}-uppgift
+              </button>
+            ))}
           </div>
         </section>
+
 
 
         <section className="rounded-xl border border-border bg-card p-4">
