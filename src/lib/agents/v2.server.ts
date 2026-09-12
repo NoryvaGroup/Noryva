@@ -23,33 +23,70 @@ import {
   type HarnessDeps,
   type HarnessRole,
 } from "./openai-agents.server";
-import { verifyTaskResult, type TaskStatus } from "./tasks";
+import { AGENT_POLICY, verifyTaskResult, type TaskStatus, type TaskType } from "./tasks";
 
 export type V2Context = { supabase: any; harness?: HarnessDeps };
 
-export const V2_TASK_TYPE: Record<HarnessRole, "manager_directive" | "product_tech_review"> = {
+export const V2_TASK_TYPE: Record<HarnessRole, TaskType> = {
   noryva_manager: "manager_directive",
   product_tech: "product_tech_review",
+  growth_sales: "growth_sales_review",
+  customer_success: "customer_success_review",
+  qa_risk: "qa_risk_review",
+  operations_finance: "operations_finance_review",
 };
 
 export const V2_SOURCE_EVENT: Record<HarnessRole, string> = {
   noryva_manager: "manager_goal",
   product_tech: "product_tech_goal",
+  growth_sales: "growth_sales_goal",
+  customer_success: "customer_success_goal",
+  qa_risk: "qa_risk_goal",
+  operations_finance: "operations_finance_goal",
 };
+
+/** Specialistroller som Manager får delegera till. */
+export const V2_SPECIALISTS = [
+  "product_tech",
+  "growth_sales",
+  "customer_success",
+  "qa_risk",
+  "operations_finance",
+] as const;
 
 /** Hårt tak: ett provider-run per uppgift i v1. */
 export const V2_RUN_BUDGET = 1;
 
-const MANAGER_INSTRUCTIONS =
-  "Du är Noryva Manager (COO). Du prioriterar och delegerar internt utifrån aggregerad drifttelemetri. Du får aldrig föreslå eller utföra externa åtgärder: inga mail, inga bokningar, inga Make-ändringar, ingen publicering. Svara med enbart JSON.";
-
-const PRODUCT_TECH_INSTRUCTIONS =
-  "Du är Noryvas Product & Tech-agent. Du analyserar systemets drift och föreslår förbättringar och en färdig implementationsplan som en människa kan godkänna. Du får aldrig publicera, ändra produktion, Make, mail eller kunddata. Svara med enbart JSON.";
-
+/**
+ * Server-side policytext. Reusable-agenterna i OpenAI bär sina permanenta
+ * instruktioner; den här texten används som safety guard och som reserv när ett
+ * agent-id saknas – aldrig som en divergerande ersättning.
+ */
 export const V2_INSTRUCTIONS: Record<HarnessRole, string> = {
-  noryva_manager: MANAGER_INSTRUCTIONS,
-  product_tech: PRODUCT_TECH_INSTRUCTIONS,
+  noryva_manager: AGENT_POLICY.noryva_manager,
+  product_tech: AGENT_POLICY.product_tech,
+  growth_sales: AGENT_POLICY.growth_sales,
+  customer_success: AGENT_POLICY.customer_success,
+  qa_risk: AGENT_POLICY.qa_risk,
+  operations_finance: AGENT_POLICY.operations_finance,
 };
+
+/** Rollspecifikt JSON-kontrakt som läggs i session-input (inte som systemprompt). */
+export const V2_OUTPUT_CONTRACT: Record<HarnessRole, string> = {
+  noryva_manager:
+    'Svara som JSON: {"summary":"...","priorities":["..."],"delegate":{"to":"product_tech|growth_sales|customer_success|qa_risk|operations_finance|none","goal":"..."}}',
+  product_tech:
+    'Svara som JSON: {"summary":"...","recommendations":["..."],"implementationPrompt":"..."}',
+  growth_sales:
+    'Svara som JSON: {"summary":"...","recommendations":["..."],"draftOutreach":"..."}',
+  customer_success:
+    'Svara som JSON: {"summary":"...","recommendations":["..."],"churnRisk":"low|medium|high"}',
+  qa_risk:
+    'Svara som JSON: {"summary":"...","risks":["..."],"verdict":"pass|concerns|fail"}',
+  operations_finance:
+    'Svara som JSON: {"summary":"...","recommendations":["..."],"budgetStatus":"ok|watch|over"}',
+};
+
 
 /* --------------------------------------------------------- skapa uppgift */
 
