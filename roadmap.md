@@ -41,4 +41,4 @@
 - [x] Agent HQ v2: kostnadstak (soft 300 / hard 500 SEK) med atomisk SQL-reservation, ledger och adminstatus
 - [x] Agent HQ v2: konservativt autonomt läge (1 körning/tick, 1 Manager-kickoff/dygn, max 2/dygn och 60/månad, allt REVIEW)
 - [x] Agent HQ v2: verifierad E2E Manager → delegerad specialistuppgift → separat specialistkörning, inga externa effekter
-- [ ] Schemalägg /api/public/agents/autonomous-tick (en gång per timme) efter publicering
+- [x] Schemalagd via pg_cron-jobbet noryva-agent-hq-tick (7 * * * *, pg_net + Vault-auth)

@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_cron_auth: {
+        Row: {
+          created_at: string
+          id: string
+          label: string
+          secret_sha256: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label: string
+          secret_sha256: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string
+          secret_sha256?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       agent_definitions: {
         Row: {
           can_external_action: boolean

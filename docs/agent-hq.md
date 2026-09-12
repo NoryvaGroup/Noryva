@@ -316,12 +316,21 @@ providern bokförs den konservativa schablonkostnaden, aldrig noll.
 Allt sker i `review`-läge, kräver mänskligt godkännande och har
 `externalEffect=false`. QA/Risk körs endast när en uppgift faktiskt köats.
 
-### Scheduler (manuellt steg)
+### Scheduler (aktiv)
 
-Endpointen `POST /api/public/agents/autonomous-tick` är cron-autentiserad
-(`LOVABLE_CRON_SECRET`). Den är **inte** schemalagd. Efter publicering kan den
-schemaläggas en gång per timme; tick:en är fail closed och idempotent, så extra
-anrop blir no-ops när dygnets kickoff redan skett eller taken är nådda.
+`POST /api/public/agents/autonomous-tick` schemaläggs av pg_cron-jobbet
+`noryva-agent-hq-tick` (jobid 1, schema `7 * * * *`) via pg_net mot
+`https://www.noryva.se/...` (www används direkt: pg_net följer inte 307).
+
+Auth: en egen slumpad hemlighet genererades i databasen och ligger i Vault
+(`noryva_agent_cron_secret`). Endast SHA-256-avtrycket lagras i
+`public.agent_cron_auth` (service_role, RLS på, inga policies). Servern jämför
+avtrycket i `src/lib/agents/cron-auth.server.ts`; värdet finns aldrig i kod,
+loggar eller svar. `LOVABLE_CRON_SECRET` accepteras fortfarande som alternativ.
+Fail closed: utan giltig token 401.
+
+Tick:en är idempotent – extra anrop blir no-ops när dygnets kickoff redan skett,
+inget arbete finns eller budget-/run-taken är nådda.
 
 ### Verifierat E2E (manuellt, riktiga anrop)
 

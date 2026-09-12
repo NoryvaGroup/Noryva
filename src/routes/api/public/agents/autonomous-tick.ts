@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { authenticateCronRequest } from "@/integrations/supabase/cron-auth";
+import { authenticateAgentCronRequest } from "@/lib/agents/cron-auth.server";
 
 /**
  * Schemalagd intern tick för Agent HQ (autonomt läge).
@@ -19,7 +19,7 @@ export const Route = createFileRoute("/api/public/agents/autonomous-tick")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const denied = await authenticateCronRequest(request);
+        const denied = await authenticateAgentCronRequest(request);
         if (denied) return denied;
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
