@@ -14,7 +14,7 @@
  * - Allt resultat stannar i awaiting_review och kräver mänskligt godkännande.
  * - Endast Managern får delegera, och delegering skapar bara en uppgift.
  */
-import { readBudgetConfig, evaluateBudgetGate } from "./budget";
+import { readBudgetConfig, evaluateBudgetGate, autonomousRunsTodayForRole } from "./budget";
 import { readBudgetSnapshot } from "./budget.server";
 import { runtimeEnvFromRequest } from "@/lib/growth/runtime-env";
 import {
