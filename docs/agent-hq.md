@@ -294,8 +294,13 @@ Budgeten är Noryvas egen interna guardrail, inte OpenAI:s projektbudget.
 
 - `src/lib/agents/budget.ts` – ren logik: modellpris per roll, USD→SEK (11.5),
   säkerhetsmarginal 1.25, schablon 12 000 in / 2 000 ut tokens, soft cap 300 SEK,
-  hard cap 500 SEK (kan aldrig konfigureras högre), max 2 autonoma körningar/dygn
-  och 60/månad.
+  hard cap 500 SEK (kan aldrig konfigureras högre), max 2 autonoma körningar
+  **per agent/roll och dygn** och 360/månad globalt (6 roller × 2 × 30). Det
+  globala månadstaket är endast ett skyddsnät – kostnadstaken 300/500 SEK är den
+  primära totalspärren och stoppar normalt långt tidigare.
+- Dygnstaket räknas per roll både i SQL (`reserve_agent_run` filtrerar på `role`)
+  och i `evaluateBudgetGate`. Status `run_capped` visas bara när samtliga roller
+  är capade för dygnet, eller när månadstaket nåtts.
 - `src/lib/agents/budget.server.ts` – reservation och bokföring mot Supabase.
 - SQL: tabellen `agent_run_ledger`, funktionen `reserve_agent_run(...)` med
   advisory lock (parallella workers serialiseras, taken kan inte passeras
