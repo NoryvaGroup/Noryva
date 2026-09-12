@@ -66,18 +66,10 @@ const MANAGER = {
     "Tar emot mål och händelser, prioriterar och delegerar internt. Läser endast aggregerad, avidentifierad drifttelemetri. Skapar interna uppgifter – aldrig något som når kunder eller produktion.",
 };
 
-const ACTIVE_ROLES: { key: AgentName; description: string }[] = [
-  {
-    key: "product_tech",
-    description:
-      "Granskar systemets drift, föreslår förbättringar och en färdig implementationsplan. Får analysera och testa i kontrollerat läge, men aldrig publicera, ändra produktion, Make, mail eller kunddata.",
-  },
-];
+const ACTIVE_ROLES: { key: ActiveAgentV1; description: string }[] = SPECIALIST_AGENTS_V1.map(
+  (key) => ({ key, description: AGENT_ROLE_CONFIG[key].description }),
+);
 
-const DORMANT_ROLES: { key: AgentName; description: string }[] = PLANNED_AGENTS_V1.map((key) => ({
-  key: key as AgentName,
-  description: PLANNED_AGENT_CONFIG[key].description,
-}));
 
 
 type LlmMetaRow = {
