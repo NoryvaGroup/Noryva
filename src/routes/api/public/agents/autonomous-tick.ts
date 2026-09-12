@@ -19,7 +19,7 @@ export const Route = createFileRoute("/api/public/agents/autonomous-tick")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const denied = await authenticateCronRequest(request);
+        const denied = await authenticateAgentCronRequest(request);
         if (denied) return denied;
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
