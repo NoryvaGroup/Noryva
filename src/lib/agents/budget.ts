@@ -45,7 +45,9 @@ export type RunKind = "manual" | "autonomous";
 export type BudgetConfig = {
   softCapSek: number;
   hardCapSek: number;
+  /** Dygnstak för autonoma körningar PER AGENT/ROLL (inte globalt). */
   maxAutonomousRunsPerDay: number;
+  /** Globalt månadstak, satt så att det inte blockerar 2 runs/dygn/roll. */
   maxAutonomousRunsPerMonth: number;
   /** Konservativ, konfigurerbar växelkurs. Ingen live-FX-integration. */
   usdToSek: number;
@@ -60,7 +62,9 @@ export const DEFAULT_BUDGET_CONFIG: BudgetConfig = {
   softCapSek: 300,
   hardCapSek: 500,
   maxAutonomousRunsPerDay: 2,
-  maxAutonomousRunsPerMonth: 60,
+  // 6 roller x 2 runs/dygn x 30 dygn = 360. Kostnadstaken 300/500 SEK är den
+  // primära totalspärren; månadstaket är bara ett extra skyddsnät.
+  maxAutonomousRunsPerMonth: 360,
   usdToSek: 11.5,
   safetyMargin: 1.25,
   assumedInputTokens: 12_000,
