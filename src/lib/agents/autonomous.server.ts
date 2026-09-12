@@ -113,7 +113,15 @@ export async function autonomousTickCore(
     };
   }
 
-  // 2) Manager-kickoff, högst en gång per dygn.
+  // 2) Manager-kickoff, högst en gång per dygn och inom Managerns egen run-cap.
+  const managerGate = evaluateBudgetGate({
+    kind: "autonomous",
+    role: "noryva_manager",
+    snapshot: { ...snapshot, spentMonthSek: 0, autonomousRunsMonth: 0 },
+    config,
+  });
+  if (!managerGate.allowed) return noop(managerGate);
+
   const occurrence = `auto:${dayKey(now)}`;
   const created = await createV2TaskCore(
     ctx,
