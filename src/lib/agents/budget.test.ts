@@ -10,10 +10,13 @@ import {
   reservationCostSek,
 } from "./budget";
 
-const snapshot = (over: Partial<Parameters<typeof evaluateBudgetGate>[0]["snapshot"]> = {}) => ({
+type Snap = Parameters<typeof evaluateBudgetGate>[0]["snapshot"];
+
+const snapshot = (over: Partial<Snap> = {}): Snap => ({
   spentMonthSek: 0,
   spentTodaySek: 0,
   autonomousRunsToday: 0,
+  autonomousRunsTodayByRole: {},
   autonomousRunsMonth: 0,
   ...over,
 });
