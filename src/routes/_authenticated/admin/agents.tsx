@@ -127,7 +127,15 @@ type TaskRow = {
   result: TaskResultRow;
 };
 
-const V2_TASK_TYPES = ["manager_directive", "product_tech_review"];
+const V2_TASK_TYPES: string[] = [
+  "manager_directive",
+  "product_tech_review",
+  "growth_sales_review",
+  "customer_success_review",
+  "qa_risk_review",
+  "operations_finance_review",
+];
+
 
 
 type EventRow = { id: string; event_type: string; actor: string; created_at: string };
