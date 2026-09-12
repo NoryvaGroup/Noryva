@@ -93,7 +93,7 @@ describe("autonomt läge", () => {
   });
 
   it("no-op vid hårt tak", async () => {
-    const supabase = makeSupabase({ agent_tasks: [] }, snapshotRpc({ spentMonthSek: 499 }));
+    const supabase = makeSupabase({ agent_tasks: [] }, snapshotRpc({ spentMonthSek: 501 }));
     const out = await autonomousTickCore({ supabase, harness: { env: failClosedEnv } });
     expect(out.body["action"]).toBe("noop");
     expect(out.body["budgetState"]).toBe("hard_blocked");
