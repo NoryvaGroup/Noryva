@@ -86,9 +86,16 @@ export async function autonomousTickCore(
     .in("source_event", SPECIALIST_SOURCE_EVENTS)
     .in("execution_mode", ["test", "review"])
     .order("created_at", { ascending: true })
-    .limit(1);
+    .limit(10);
 
-  const specialist = Array.isArray(pending) ? pending[0] : null;
+  // Per roll: en specialist som redan kört 2 gånger idag hoppas över, men
+  // blockerar inte övriga agenter.
+  const specialist = (Array.isArray(pending) ? pending : []).find(
+    (row: any) =>
+      row?.id &&
+      autonomousRunsTodayForRole(snapshot, String(row.assigned_agent ?? "")) <
+        config.maxAutonomousRunsPerDay,
+  );
   if (specialist?.id) {
     const run = await runV2TaskCore(ctx, { taskId: String(specialist.id), runKind: "autonomous" });
     return {
