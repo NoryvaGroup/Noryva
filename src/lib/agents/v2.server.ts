@@ -367,10 +367,9 @@ export async function runV2TaskCore(ctx: V2Context, input: { taskId: string }): 
       input: [
         "Aggregerad drifttelemetri (ingen kunddata):",
         JSON.stringify(telemetry),
-        role === "noryva_manager"
-          ? 'Svara som JSON: {"summary":"...","priorities":["..."],"delegate":{"to":"product_tech|none","goal":"..."}}'
-          : 'Svara som JSON: {"summary":"...","recommendations":["..."],"implementationPrompt":"..."}',
+        V2_OUTPUT_CONTRACT[role],
       ].join("\n"),
+
     },
     ctx.harness ?? {},
   );
