@@ -351,8 +351,8 @@ function AgentHqPage() {
             <p className="sm:col-span-3">
               <span className="text-muted-foreground">Idag per agent:</span>{" "}
               {BUDGET_ROLES.map(
-                (role) =>
-                  `${AGENT_LABEL[role] ?? role} ${
+                (role: BudgetRole) =>
+                  `${(AGENT_LABEL as Record<string, string>)[role] ?? role} ${
                     budget.data?.snapshot.autonomousRunsTodayByRole?.[role] ?? 0
                   }/${budget.data?.config.maxAutonomousRunsPerDay ?? 2}`,
               ).join(" · ")}
