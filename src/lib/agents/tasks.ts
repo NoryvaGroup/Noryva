@@ -508,6 +508,25 @@ export function verifyTaskResult(input: QaWorkerInput): QaVerdict {
     if (!input.requiresApproval) reasons.push("Granskningen måste kräva godkännande.");
   }
 
+  const SPECIALIST_LIST: Partial<Record<TaskType, string>> = {
+    growth_sales_review: "recommendations",
+    customer_success_review: "recommendations",
+    qa_risk_review: "risks",
+    operations_finance_review: "recommendations",
+  };
+  const listKey = SPECIALIST_LIST[input.taskType];
+  if (listKey) {
+    const r = result as Record<string, unknown>;
+    if (typeof r["summary"] !== "string" || String(r["summary"]).trim().length < 10) {
+      reasons.push("Sammanfattningen saknas.");
+    }
+    if (!Array.isArray(r[listKey]) || (r[listKey] as unknown[]).length === 0) {
+      reasons.push("Minst en punkt krävs i resultatet.");
+    }
+    if (r["externalEffect"] !== false) reasons.push("Resultatet får inte ha extern effekt.");
+    if (!input.requiresApproval) reasons.push("Granskningen måste kräva godkännande.");
+  }
+
 
   if (input.taskType === "delivery_check" && hasResult) {
     const status = (result as { deliveryStatus?: unknown }).deliveryStatus;
