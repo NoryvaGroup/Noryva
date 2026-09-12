@@ -63,12 +63,13 @@ function makeSupabase(
   };
 }
 
-const snapshotRpc = (over: Record<string, number> = {}) => ({
+const snapshotRpc = (over: Record<string, unknown> = {}) => ({
   agent_budget_snapshot: () => ({
     ok: true,
     spentMonthSek: 0,
     spentTodaySek: 0,
     autonomousRunsToday: 0,
+    autonomousRunsTodayByRole: {},
     autonomousRunsMonth: 0,
     ...over,
   }),
