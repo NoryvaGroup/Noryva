@@ -14,7 +14,7 @@
  * - Allt resultat stannar i awaiting_review och kräver mänskligt godkännande.
  * - Endast Managern får delegera, och delegering skapar bara en uppgift.
  */
-import { readBudgetConfig, evaluateBudgetGate } from "./budget";
+import { readBudgetConfig, evaluateBudgetGate, autonomousRunsTodayForRole } from "./budget";
 import { readBudgetSnapshot } from "./budget.server";
 import { runtimeEnvFromRequest } from "@/lib/growth/runtime-env";
 import {
@@ -48,25 +48,34 @@ export async function autonomousTickCore(
   const config = readBudgetConfig(ctx.harness?.env ?? runtimeEnvFromRequest(ctx.harness?.request));
   const snapshot = await readBudgetSnapshot(ctx);
 
-  const gate = evaluateBudgetGate({
+  const noop = (gate: { state: string; reason: string }): AutonomousOutcome => ({
+    status: 200,
+    body: {
+      ok: true,
+      action: "noop",
+      budgetState: gate.state,
+      reason: gate.reason,
+      snapshot,
+      externalEffect: false,
+    },
+  });
+
+  // Överordnade kostnadstak gäller alltid, oavsett roll.
+  const costGate = evaluateBudgetGate({
     kind: "autonomous",
-    role: "noryva_manager",
-    snapshot,
+    role: "product_tech",
+    snapshot: { ...snapshot, autonomousRunsTodayByRole: {}, autonomousRunsMonth: 0 },
     config,
   });
-  if (!gate.allowed) {
-    return {
-      status: 200,
-      body: {
-        ok: true,
-        action: "noop",
-        budgetState: gate.state,
-        reason: gate.reason,
-        snapshot,
-        externalEffect: false,
-      },
-    };
-  }
+  if (!costGate.allowed) return noop(costGate);
+
+  const monthGate = evaluateBudgetGate({
+    kind: "autonomous",
+    role: "noryva_manager",
+    snapshot: { ...snapshot, spentMonthSek: 0, autonomousRunsTodayByRole: {} },
+    config,
+  });
+  if (!monthGate.allowed) return noop(monthGate);
 
   // 1) Delegerad specialistuppgift körs i ett separat tick.
   const { data: pending } = await ctx.supabase
@@ -77,9 +86,16 @@ export async function autonomousTickCore(
     .in("source_event", SPECIALIST_SOURCE_EVENTS)
     .in("execution_mode", ["test", "review"])
     .order("created_at", { ascending: true })
-    .limit(1);
+    .limit(10);
 
-  const specialist = Array.isArray(pending) ? pending[0] : null;
+  // Per roll: en specialist som redan kört 2 gånger idag hoppas över, men
+  // blockerar inte övriga agenter.
+  const specialist = (Array.isArray(pending) ? pending : []).find(
+    (row: any) =>
+      row?.id &&
+      autonomousRunsTodayForRole(snapshot, String(row.assigned_agent ?? "")) <
+        config.maxAutonomousRunsPerDay,
+  );
   if (specialist?.id) {
     const run = await runV2TaskCore(ctx, { taskId: String(specialist.id), runKind: "autonomous" });
     return {
@@ -97,7 +113,15 @@ export async function autonomousTickCore(
     };
   }
 
-  // 2) Manager-kickoff, högst en gång per dygn.
+  // 2) Manager-kickoff, högst en gång per dygn och inom Managerns egen run-cap.
+  const managerGate = evaluateBudgetGate({
+    kind: "autonomous",
+    role: "noryva_manager",
+    snapshot: { ...snapshot, spentMonthSek: 0, autonomousRunsMonth: 0 },
+    config,
+  });
+  if (!managerGate.allowed) return noop(managerGate);
+
   const occurrence = `auto:${dayKey(now)}`;
   const created = await createV2TaskCore(
     ctx,

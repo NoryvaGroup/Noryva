@@ -45,7 +45,9 @@ export type RunKind = "manual" | "autonomous";
 export type BudgetConfig = {
   softCapSek: number;
   hardCapSek: number;
+  /** Dygnstak för autonoma körningar PER AGENT/ROLL (inte globalt). */
   maxAutonomousRunsPerDay: number;
+  /** Globalt månadstak, satt så att det inte blockerar 2 runs/dygn/roll. */
   maxAutonomousRunsPerMonth: number;
   /** Konservativ, konfigurerbar växelkurs. Ingen live-FX-integration. */
   usdToSek: number;
@@ -60,7 +62,9 @@ export const DEFAULT_BUDGET_CONFIG: BudgetConfig = {
   softCapSek: 300,
   hardCapSek: 500,
   maxAutonomousRunsPerDay: 2,
-  maxAutonomousRunsPerMonth: 60,
+  // 6 roller x 2 runs/dygn x 30 dygn = 360. Kostnadstaken 300/500 SEK är den
+  // primära totalspärren; månadstaket är bara ett extra skyddsnät.
+  maxAutonomousRunsPerMonth: 360,
   usdToSek: 11.5,
   safetyMargin: 1.25,
   assumedInputTokens: 12_000,
@@ -126,7 +130,10 @@ export function reservationCostSek(role: string, config: BudgetConfig): number {
 export type BudgetSnapshot = {
   spentMonthSek: number;
   spentTodaySek: number;
+  /** Totalt antal autonoma körningar idag (alla roller) – endast visning. */
   autonomousRunsToday: number;
+  /** Dagens autonoma körningar per roll – styr dygnstaket. */
+  autonomousRunsTodayByRole: Record<string, number>;
   autonomousRunsMonth: number;
 };
 
@@ -134,8 +141,14 @@ export const EMPTY_SNAPSHOT: BudgetSnapshot = {
   spentMonthSek: 0,
   spentTodaySek: 0,
   autonomousRunsToday: 0,
+  autonomousRunsTodayByRole: {},
   autonomousRunsMonth: 0,
 };
+
+/** Dagens autonoma körningar för en specifik roll. */
+export function autonomousRunsTodayForRole(snapshot: BudgetSnapshot, role: string): number {
+  return Math.max(Number(snapshot.autonomousRunsTodayByRole?.[role] ?? 0) || 0, 0);
+}
 
 export type BudgetState = "ok" | "soft_paused" | "hard_blocked" | "run_capped";
 
@@ -169,11 +182,12 @@ export function evaluateBudgetGate(input: {
         reason: "Månadens mjuka kostnadstak är nått. Autonoma körningar pausas.",
       };
     }
-    if (input.snapshot.autonomousRunsToday >= cfg.maxAutonomousRunsPerDay) {
+    // Dygnstaket gäller PER ROLL: två agenter som kört en gång var blockerar inte varandra.
+    if (autonomousRunsTodayForRole(input.snapshot, input.role) >= cfg.maxAutonomousRunsPerDay) {
       return {
         allowed: false,
         state: "run_capped",
-        reason: "Dygnets tak för autonoma körningar är nått.",
+        reason: "Dygnets tak för autonoma körningar är nått för den här agenten.",
       };
     }
     if (input.snapshot.autonomousRunsMonth >= cfg.maxAutonomousRunsPerMonth) {
@@ -187,14 +201,19 @@ export function evaluateBudgetGate(input: {
   return { allowed: true, state: "ok", reason: "" };
 }
 
-/** Övergripande status som visas i Agent HQ. */
+/**
+ * Övergripande status som visas i Agent HQ.
+ * RUN CAP NÅTT visas endast när månadstaket är nått eller när SAMTLIGA roller
+ * har nått sina 2 autonoma körningar för dygnet – aldrig för att två olika
+ * agenter tillsammans kört två gånger.
+ */
 export function budgetStatusLabel(snapshot: BudgetSnapshot, config: BudgetConfig): BudgetState {
   if (snapshot.spentMonthSek >= config.hardCapSek) return "hard_blocked";
   if (snapshot.spentMonthSek >= config.softCapSek) return "soft_paused";
-  if (
-    snapshot.autonomousRunsToday >= config.maxAutonomousRunsPerDay ||
-    snapshot.autonomousRunsMonth >= config.maxAutonomousRunsPerMonth
-  ) {
+  const allRolesCapped = BUDGET_ROLES.every(
+    (role) => autonomousRunsTodayForRole(snapshot, role) >= config.maxAutonomousRunsPerDay,
+  );
+  if (allRolesCapped || snapshot.autonomousRunsMonth >= config.maxAutonomousRunsPerMonth) {
     return "run_capped";
   }
   return "ok";

@@ -24,7 +24,7 @@ import {
   runV2Task,
   verifyAgentTask,
 } from "@/lib/agents.functions";
-import { BUDGET_STATE_LABEL } from "@/lib/agents/budget";
+import { BUDGET_ROLES, BUDGET_STATE_LABEL, type BudgetRole } from "@/lib/agents/budget";
 import {
   AGENT_LABEL,
   AGENT_ROLE_CONFIG,
@@ -340,13 +340,22 @@ function AgentHqPage() {
             </p>
             <p>
               <span className="text-muted-foreground">Autonoma körningar idag:</span>{" "}
-              {budget.data?.snapshot.autonomousRunsToday ?? 0} /{" "}
-              {budget.data?.config.maxAutonomousRunsPerDay ?? 2}
+              {budget.data?.snapshot.autonomousRunsToday ?? 0} (tak{" "}
+              {budget.data?.config.maxAutonomousRunsPerDay ?? 2} per agent/dygn)
             </p>
             <p>
               <span className="text-muted-foreground">Autonoma körningar denna månad:</span>{" "}
               {budget.data?.snapshot.autonomousRunsMonth ?? 0} /{" "}
-              {budget.data?.config.maxAutonomousRunsPerMonth ?? 60}
+              {budget.data?.config.maxAutonomousRunsPerMonth ?? 360}
+            </p>
+            <p className="sm:col-span-3">
+              <span className="text-muted-foreground">Idag per agent:</span>{" "}
+              {BUDGET_ROLES.map(
+                (role: BudgetRole) =>
+                  `${(AGENT_LABEL as Record<string, string>)[role] ?? role} ${
+                    budget.data?.snapshot.autonomousRunsTodayByRole?.[role] ?? 0
+                  }/${budget.data?.config.maxAutonomousRunsPerDay ?? 2}`,
+              ).join(" · ")}
             </p>
             <p className="text-xs text-muted-foreground">
               Intern, konservativ uppskattning (inkl. säkerhetsmarginal) – inte OpenAI:s egen

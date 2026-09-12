@@ -10,10 +10,13 @@ import {
   reservationCostSek,
 } from "./budget";
 
-const snapshot = (over: Partial<Parameters<typeof evaluateBudgetGate>[0]["snapshot"]> = {}) => ({
+type Snap = Parameters<typeof evaluateBudgetGate>[0]["snapshot"];
+
+const snapshot = (over: Partial<Snap> = {}): Snap => ({
   spentMonthSek: 0,
   spentTodaySek: 0,
   autonomousRunsToday: 0,
+  autonomousRunsTodayByRole: {},
   autonomousRunsMonth: 0,
   ...over,
 });
@@ -63,26 +66,42 @@ describe("agent budget", () => {
     ).toMatchObject({ allowed: false, state: "hard_blocked" });
   });
 
-  it("dygns- och månadstak för autonoma körningar gäller", () => {
+  it("dygnstaket gäller per roll, inte globalt", () => {
+    const capped = snapshot({
+      autonomousRunsToday: 2,
+      autonomousRunsTodayByRole: { noryva_manager: 2 },
+    });
     expect(
-      evaluateBudgetGate({
-        kind: "autonomous",
-        role: "noryva_manager",
-        snapshot: snapshot({ autonomousRunsToday: 2 }),
-      }),
+      evaluateBudgetGate({ kind: "autonomous", role: "noryva_manager", snapshot: capped }),
     ).toMatchObject({ allowed: false, state: "run_capped" });
+    // En annan roll blockeras INTE av Managerns körningar.
+    expect(
+      evaluateBudgetGate({ kind: "autonomous", role: "growth_sales", snapshot: capped }),
+    ).toMatchObject({ allowed: true, state: "ok" });
+    // Två olika roller med en körning var blockerar ingen.
+    const mixed = snapshot({
+      autonomousRunsToday: 2,
+      autonomousRunsTodayByRole: { noryva_manager: 1, qa_risk: 1 },
+    });
+    expect(
+      evaluateBudgetGate({ kind: "autonomous", role: "noryva_manager", snapshot: mixed }),
+    ).toMatchObject({ allowed: true });
+    expect(budgetStatusLabel(mixed, DEFAULT_BUDGET_CONFIG)).toBe("ok");
+  });
+
+  it("månadstaket och manuella körningar", () => {
     expect(
       evaluateBudgetGate({
         kind: "autonomous",
         role: "noryva_manager",
-        snapshot: snapshot({ autonomousRunsMonth: 60 }),
+        snapshot: snapshot({ autonomousRunsMonth: 360 }),
       }),
     ).toMatchObject({ allowed: false, state: "run_capped" });
     expect(
       evaluateBudgetGate({
         kind: "manual",
         role: "noryva_manager",
-        snapshot: snapshot({ autonomousRunsToday: 99 }),
+        snapshot: snapshot({ autonomousRunsTodayByRole: { noryva_manager: 99 } }),
       }),
     ).toMatchObject({ allowed: true });
   });
