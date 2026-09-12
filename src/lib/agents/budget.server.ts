@@ -115,6 +115,11 @@ export async function readBudgetSnapshot(ctx: BudgetCtx): Promise<BudgetSnapshot
       spentMonthSek: Number(row["spentMonthSek"] ?? 0) || 0,
       spentTodaySek: Number(row["spentTodaySek"] ?? 0) || 0,
       autonomousRunsToday: Number(row["autonomousRunsToday"] ?? 0) || 0,
+      autonomousRunsTodayByRole: Object.fromEntries(
+        Object.entries((row["autonomousRunsTodayByRole"] ?? {}) as Record<string, unknown>).map(
+          ([role, count]) => [role, Number(count ?? 0) || 0],
+        ),
+      ),
       autonomousRunsMonth: Number(row["autonomousRunsMonth"] ?? 0) || 0,
     };
   } catch {

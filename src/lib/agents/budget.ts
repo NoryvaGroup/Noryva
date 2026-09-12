@@ -201,14 +201,19 @@ export function evaluateBudgetGate(input: {
   return { allowed: true, state: "ok", reason: "" };
 }
 
-/** Övergripande status som visas i Agent HQ. */
+/**
+ * Övergripande status som visas i Agent HQ.
+ * RUN CAP NÅTT visas endast när månadstaket är nått eller när SAMTLIGA roller
+ * har nått sina 2 autonoma körningar för dygnet – aldrig för att två olika
+ * agenter tillsammans kört två gånger.
+ */
 export function budgetStatusLabel(snapshot: BudgetSnapshot, config: BudgetConfig): BudgetState {
   if (snapshot.spentMonthSek >= config.hardCapSek) return "hard_blocked";
   if (snapshot.spentMonthSek >= config.softCapSek) return "soft_paused";
-  if (
-    snapshot.autonomousRunsToday >= config.maxAutonomousRunsPerDay ||
-    snapshot.autonomousRunsMonth >= config.maxAutonomousRunsPerMonth
-  ) {
+  const allRolesCapped = BUDGET_ROLES.every(
+    (role) => autonomousRunsTodayForRole(snapshot, role) >= config.maxAutonomousRunsPerDay,
+  );
+  if (allRolesCapped || snapshot.autonomousRunsMonth >= config.maxAutonomousRunsPerMonth) {
     return "run_capped";
   }
   return "ok";
