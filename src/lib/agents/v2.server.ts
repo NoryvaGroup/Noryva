@@ -192,19 +192,58 @@ export async function createV2TaskCore(
 
 /* -------------------------------------------------------------- körning */
 
+const summary = z.string().trim().min(10).max(1200);
+const bullets = z.array(z.string().trim().min(3).max(400)).min(1).max(6);
+
 const managerSchema = z.object({
-  summary: z.string().trim().min(10).max(1200),
+  summary,
   priorities: z.array(z.string().trim().min(3).max(300)).min(1).max(6),
   delegate: z
-    .object({ to: z.enum(["product_tech", "none"]), goal: z.string().trim().max(400).default("") })
+    .object({
+      to: z.enum([...V2_SPECIALISTS, "none"]),
+      goal: z.string().trim().max(400).default(""),
+    })
     .optional(),
 });
 
 const productTechSchema = z.object({
-  summary: z.string().trim().min(10).max(1200),
-  recommendations: z.array(z.string().trim().min(3).max(400)).min(1).max(6),
+  summary,
+  recommendations: bullets,
   implementationPrompt: z.string().trim().min(30).max(4000),
 });
+
+const growthSalesSchema = z.object({
+  summary,
+  recommendations: bullets,
+  draftOutreach: z.string().trim().max(4000).default(""),
+});
+
+const customerSuccessSchema = z.object({
+  summary,
+  recommendations: bullets,
+  churnRisk: z.enum(["low", "medium", "high"]).default("low"),
+});
+
+const qaRiskSchema = z.object({
+  summary,
+  risks: bullets,
+  verdict: z.enum(["pass", "concerns", "fail"]).default("concerns"),
+});
+
+const operationsFinanceSchema = z.object({
+  summary,
+  recommendations: bullets,
+  budgetStatus: z.enum(["ok", "watch", "over"]).default("ok"),
+});
+
+const V2_SCHEMA: Record<HarnessRole, z.ZodTypeAny> = {
+  noryva_manager: managerSchema,
+  product_tech: productTechSchema,
+  growth_sales: growthSalesSchema,
+  customer_success: customerSuccessSchema,
+  qa_risk: qaRiskSchema,
+  operations_finance: operationsFinanceSchema,
+};
 
 /** Plockar ut JSON ur agentens textoutput. Ingen gissning – felar hellre. */
 export function parseHarnessOutput(
@@ -220,11 +259,11 @@ export function parseHarnessOutput(
   } catch {
     return { ok: false, error: "Svaret kunde inte tolkas som JSON." };
   }
-  const parsed =
-    role === "noryva_manager" ? managerSchema.safeParse(raw) : productTechSchema.safeParse(raw);
+  const parsed = V2_SCHEMA[role].safeParse(raw);
   if (!parsed.success) return { ok: false, error: "Svaret matchade inte förväntat format." };
   return { ok: true, value: parsed.data as Record<string, unknown> };
 }
+
 
 async function audit(
   ctx: V2Context,
