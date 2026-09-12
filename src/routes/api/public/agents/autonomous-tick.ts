@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { authenticateCronRequest } from "@/integrations/supabase/cron-auth";
+import { authenticateAgentCronRequest } from "@/lib/agents/cron-auth.server";
 
 /**
  * Schemalagd intern tick för Agent HQ (autonomt läge).
