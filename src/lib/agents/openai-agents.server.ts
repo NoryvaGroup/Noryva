@@ -321,25 +321,72 @@ export async function runHarnessSession(
     }
 
     const body = (await response.json()) as Record<string, unknown>;
+    const sessionId = String(body["id"] ?? body["session_id"] ?? "");
+
+    // Turns körs asynkront. Sessionen returneras direkt, så svaret och usage
+    // läses efteråt via read-only GET (ingen extra provider-run, ingen retry
+    // av själva körningen).
+    let usageRaw = (body["usage"] ?? {}) as Record<string, unknown>;
     const parts: string[] = [];
-    collectText(body["output"] ?? body["items"] ?? body["output_text"] ?? "", parts);
-    const usageRaw = (body["usage"] ?? {}) as Record<string, unknown>;
+    collectText(body["output"] ?? body["output_text"] ?? "", parts);
+
+    if (sessionId && !parts.length) {
+      const headers = {
+        Authorization: `Bearer ${key}`,
+        "OpenAI-Beta": AGENTS_BETA_HEADER,
+        "OpenAI-Project": status.projectId,
+      };
+      const deadline = Date.now() + (deps.timeoutMs ?? AGENTS_DEFAULT_TIMEOUT_MS);
+      while (Date.now() < deadline) {
+        const itemsRes = await doFetch(
+          `${AGENTS_SESSIONS_URL}/${sessionId}/items?limit=20`,
+          { method: "GET", headers, signal: controller.signal },
+        );
+        if (itemsRes.ok) {
+          const itemsBody = (await itemsRes.json()) as Record<string, unknown>;
+          const data = Array.isArray(itemsBody["data"]) ? itemsBody["data"] : [];
+          const assistant = data.find(
+            (item) =>
+              item &&
+              typeof item === "object" &&
+              (item as Record<string, unknown>)["type"] === "message" &&
+              (item as Record<string, unknown>)["role"] === "assistant" &&
+              (item as Record<string, unknown>)["status"] === "completed",
+          );
+          if (assistant) {
+            collectText((assistant as Record<string, unknown>)["content"], parts);
+            const sessionRes = await doFetch(`${AGENTS_SESSIONS_URL}/${sessionId}`, {
+              method: "GET",
+              headers,
+              signal: controller.signal,
+            });
+            if (sessionRes.ok) {
+              const sessionBody = (await sessionRes.json()) as Record<string, unknown>;
+              usageRaw = (sessionBody["usage"] ?? usageRaw ?? {}) as Record<string, unknown>;
+            }
+            break;
+          }
+        }
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+      }
+    }
 
     return {
       ok: true,
       providerType: AGENTS_PROVIDER,
       providerAgentId: agentId || String(body["agent_id"] ?? ""),
-      providerRunId: String(body["id"] ?? body["session_id"] ?? ""),
+      providerRunId: sessionId,
       runStatus: "completed",
       usage: {
-        inputTokens: Number(usageRaw["input_tokens"] ?? 0) || 0,
-        outputTokens: Number(usageRaw["output_tokens"] ?? 0) || 0,
+        inputTokens: Number(usageRaw?.["input_tokens"] ?? 0) || 0,
+        outputTokens: Number(usageRaw?.["output_tokens"] ?? 0) || 0,
         runs: 1,
       },
       outputText: parts.join("\n").trim(),
       error: "",
       externalEffect: false,
     };
+
   } catch (error) {
     const reason = error instanceof Error && error.name === "AbortError"
       ? "Körningen avbröts på grund av tidsgräns."
