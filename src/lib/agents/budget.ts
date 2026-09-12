@@ -8,8 +8,21 @@
  * Priserna är CENTRAL server-side config. När OpenAI ändrar priser uppdateras
  * `MODEL_PRICING_USD_PER_MILLION` här, eller tillfälligt via env-overrides.
  */
-import { HARNESS_ROLES, type HarnessRole } from "./openai-agents.server";
 import type { RuntimeEnv } from "@/lib/growth/runtime-env";
+
+/**
+ * Rollnycklarna speglas här medvetet i stället för att importeras från
+ * server-adaptern: budgetlogiken används även i Agent HQ:s klient-UI.
+ */
+export const BUDGET_ROLES = [
+  "noryva_manager",
+  "product_tech",
+  "growth_sales",
+  "customer_success",
+  "qa_risk",
+  "operations_finance",
+] as const;
+export type BudgetRole = (typeof BUDGET_ROLES)[number];
 
 /** USD per 1M tokens. Uppdateras när OpenAI ändrar prislistan. */
 export const MODEL_PRICING_USD_PER_MILLION: Record<string, { input: number; output: number }> = {
@@ -18,7 +31,7 @@ export const MODEL_PRICING_USD_PER_MILLION: Record<string, { input: number; outp
 };
 
 /** Modell per återanvändbar agent (konfigurerad i OpenAI, speglad här för kostnad). */
-export const ROLE_MODEL: Record<HarnessRole, string> = {
+export const ROLE_MODEL: Record<BudgetRole, string> = {
   noryva_manager: "gpt-5.4-mini",
   product_tech: "gpt-5.4",
   growth_sales: "gpt-5.4-mini",
@@ -196,7 +209,7 @@ export const BUDGET_STATE_LABEL: Record<BudgetState, string> = {
 
 /** Alla roller har en känd modell – skydd mot framtida rollutökning utan pris. */
 export function assertPricingCoverage(): void {
-  for (const role of HARNESS_ROLES) {
+  for (const role of BUDGET_ROLES) {
     if (!MODEL_PRICING_USD_PER_MILLION[ROLE_MODEL[role]]) {
       throw new Error(`Saknar prissättning för rollen ${role}.`);
     }
