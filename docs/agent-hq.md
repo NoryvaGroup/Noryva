@@ -285,3 +285,49 @@ Globalt månadsmål för agentkostnad: **≤ 500 SEK**, med rekommenderad initia
 soft cap på **300 SEK**. Målet är en driftregel och följs upp manuellt – ingen
 valuta- eller betalningsintegration finns i koden.
 
+
+## Kostnadstak och autonomt läge (v2)
+
+### Budgetlager
+
+Budgeten är Noryvas egen interna guardrail, inte OpenAI:s projektbudget.
+
+- `src/lib/agents/budget.ts` – ren logik: modellpris per roll, USD→SEK (11.5),
+  säkerhetsmarginal 1.25, schablon 12 000 in / 2 000 ut tokens, soft cap 300 SEK,
+  hard cap 500 SEK (kan aldrig konfigureras högre), max 2 autonoma körningar/dygn
+  och 60/månad.
+- `src/lib/agents/budget.server.ts` – reservation och bokföring mot Supabase.
+- SQL: tabellen `agent_run_ledger`, funktionen `reserve_agent_run(...)` med
+  advisory lock (parallella workers serialiseras, taken kan inte passeras
+  samtidigt) och `agent_budget_snapshot()` för adminvyns status.
+
+Regler: hard cap stoppar **alla** körningar. Soft cap pausar **endast** autonoma
+körningar; manuella körningar tillåts tills hard cap nås. Saknas usage från
+providern bokförs den konservativa schablonkostnaden, aldrig noll.
+
+### Autonomt läge
+
+`src/lib/agents/autonomous.server.ts` kör högst **en** provider-körning per tick:
+
+1. Finns en köad specialistuppgift körs den – och kedjar aldrig vidare.
+2. Annars skapas och körs högst **en** Manager-kickoff per dygn (idempotent via
+   datummärkt `idempotency_key`).
+
+Allt sker i `review`-läge, kräver mänskligt godkännande och har
+`externalEffect=false`. QA/Risk körs endast när en uppgift faktiskt köats.
+
+### Scheduler (manuellt steg)
+
+Endpointen `POST /api/public/agents/autonomous-tick` är cron-autentiserad
+(`LOVABLE_CRON_SECRET`). Den är **inte** schemalagd. Efter publicering kan den
+schemaläggas en gång per timme; tick:en är fail closed och idempotent, så extra
+anrop blir no-ops när dygnets kickoff redan skett eller taken är nådda.
+
+### Verifierat E2E (manuellt, riktiga anrop)
+
+- Manager-körning: completed, structured output, delegerade **endast** en
+  QA/Risk-uppgift (`queued`, `not_started`) – ingen kedjad körning.
+- Specialistkörning i separat anrop: completed, verification `passed`,
+  `awaiting_review`, `externalEffect=false`.
+- `agent_run_ledger` bokförde båda körningarna; snapshot visade 0,60 SEK för
+  månaden och 0 autonoma körningar.
