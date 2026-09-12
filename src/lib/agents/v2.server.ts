@@ -437,20 +437,28 @@ export async function runV2TaskCore(ctx: V2Context, input: { taskId: string }): 
   // Specialist-run skapas ENDAST om Manager faktiskt delegerar.
   let delegatedTaskId = "";
   const delegate = (parsed.value as { delegate?: { to?: string; goal?: string } }).delegate;
-  if (role === "noryva_manager" && delegate?.to === "product_tech") {
+  const target = delegate?.to ?? "none";
+  if (
+    role === "noryva_manager" &&
+    (V2_SPECIALISTS as readonly string[]).includes(target)
+  ) {
+    const specialist = target as (typeof V2_SPECIALISTS)[number];
+    // Delegering SKAPAR endast uppgiften. Ingen körning startas i samma kedja.
     const delegated = await createV2TaskCore(ctx, {
-      role: "product_tech",
+      role: specialist,
       executionMode: task["execution_mode"] as "test" | "review",
-      ...(delegate.goal ? { goal: delegate.goal } : {}),
+      ...(delegate?.goal ? { goal: delegate.goal } : {}),
       occurrence: `delegated:${task["id"]}`,
     });
     delegatedTaskId = String(delegated.body["taskId"] ?? "");
     await audit(ctx, task["id"], "task_delegated", "agent", {
-      to: "product_tech",
+      to: specialist,
       taskId: delegatedTaskId,
+      started: false,
       externalEffect: false,
     });
   }
+
 
   return {
     status: 200,
