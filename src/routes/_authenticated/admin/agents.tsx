@@ -17,12 +17,14 @@ import {
   createV2Task,
   decideAgentTask,
   dispatchAgentEvent,
+  getAgentBudgetStatus,
   getAgentHarnessStatus,
   listAgentTasks,
   runAgentTask,
   runV2Task,
   verifyAgentTask,
 } from "@/lib/agents.functions";
+import { BUDGET_STATE_LABEL } from "@/lib/agents/budget";
 import {
   AGENT_LABEL,
   AGENT_ROLE_CONFIG,
@@ -258,6 +260,7 @@ function AgentHqPage() {
   const createTask = useServerFn(createV2Task);
   const runHarness = useServerFn(runV2Task);
   const fetchHarness = useServerFn(getAgentHarnessStatus);
+  const fetchBudget = useServerFn(getAgentBudgetStatus);
   const queryClient = useQueryClient();
   const [leadId, setLeadId] = useState("");
   const [goal, setGoal] = useState("");
@@ -273,6 +276,7 @@ function AgentHqPage() {
 
   // Läses en gång: statusen ändras bara när en hemlighet ändras server-side.
   const harness = useQuery({ queryKey: ["agent-harness"], queryFn: () => fetchHarness() });
+  const budget = useQuery({ queryKey: ["agent-budget"], queryFn: () => fetchBudget() });
 
 
   const mutation = useMutation({
@@ -312,6 +316,43 @@ function AgentHqPage() {
             Befogenhet: {AUTHORITY_CHAIN.join(" → ")}. UTFÖRA är spärrat i den här versionen för
             allt som kan påverka produktion eller kunder.
           </p>
+        </section>
+
+        <section className="rounded-xl border border-border bg-card p-4 text-sm">
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 className="text-lg font-semibold">Kostnadstak</h2>
+            <Badge variant={budget.data?.state === "ok" ? "secondary" : "destructive"}>
+              {budget.isLoading ? "hämtar …" : BUDGET_STATE_LABEL[budget.data?.state ?? "ok"]}
+            </Badge>
+          </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+            <p>
+              <span className="text-muted-foreground">Uppskattad kostnad denna månad:</span>{" "}
+              {(budget.data?.snapshot.spentMonthSek ?? 0).toFixed(2)} kr
+            </p>
+            <p>
+              <span className="text-muted-foreground">Mjukt tak:</span>{" "}
+              {budget.data?.config.softCapSek ?? 300} kr
+            </p>
+            <p>
+              <span className="text-muted-foreground">Hårt tak:</span>{" "}
+              {budget.data?.config.hardCapSek ?? 500} kr
+            </p>
+            <p>
+              <span className="text-muted-foreground">Autonoma körningar idag:</span>{" "}
+              {budget.data?.snapshot.autonomousRunsToday ?? 0} /{" "}
+              {budget.data?.config.maxAutonomousRunsPerDay ?? 2}
+            </p>
+            <p>
+              <span className="text-muted-foreground">Autonoma körningar denna månad:</span>{" "}
+              {budget.data?.snapshot.autonomousRunsMonth ?? 0} /{" "}
+              {budget.data?.config.maxAutonomousRunsPerMonth ?? 60}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Intern, konservativ uppskattning (inkl. säkerhetsmarginal) – inte OpenAI:s egen
+              fakturering.
+            </p>
+          </div>
         </section>
 
         <section>

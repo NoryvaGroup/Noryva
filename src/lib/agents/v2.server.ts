@@ -24,6 +24,9 @@ import {
   type HarnessRole,
 } from "./openai-agents.server";
 import { AGENT_POLICY, verifyTaskResult, type TaskStatus, type TaskType } from "./tasks";
+import { readBudgetConfig, type RunKind } from "./budget";
+import { recordAgentRunUsage, reserveAgentRun } from "./budget.server";
+import { runtimeEnvFromRequest } from "@/lib/growth/runtime-env";
 
 export type V2Context = { supabase: any; harness?: HarnessDeps };
 
@@ -192,12 +195,13 @@ export async function createV2TaskCore(
 
 /* -------------------------------------------------------------- körning */
 
-const summary = z.string().trim().min(10).max(1200);
-const bullets = z.array(z.string().trim().min(3).max(400)).min(1).max(6);
+const summary = z.string().trim().min(10).max(4000);
+// Agenterna svarar ofta med utförliga punkter; taket är generöst men ändå hårt.
+const bullets = z.array(z.string().trim().min(3).max(2000)).min(1).max(8);
 
 const managerSchema = z.object({
   summary,
-  priorities: z.array(z.string().trim().min(3).max(300)).min(1).max(6),
+  priorities: z.array(z.string().trim().min(3).max(1000)).min(1).max(8),
   delegate: z
     .object({
       to: z.enum([...V2_SPECIALISTS, "none"]),
@@ -209,13 +213,13 @@ const managerSchema = z.object({
 const productTechSchema = z.object({
   summary,
   recommendations: bullets,
-  implementationPrompt: z.string().trim().min(30).max(4000),
+  implementationPrompt: z.string().trim().min(30).max(8000),
 });
 
 const growthSalesSchema = z.object({
   summary,
   recommendations: bullets,
-  draftOutreach: z.string().trim().max(4000).default(""),
+  draftOutreach: z.string().trim().max(8000).default(""),
 });
 
 const customerSuccessSchema = z.object({
@@ -288,7 +292,11 @@ const V2_COLUMNS =
  * Kör EN uppgift genom harnessen. Idempotent: bara `queued` startas, budgeten
  * kontrolleras före anropet och ingen extern effekt kan uppstå.
  */
-export async function runV2TaskCore(ctx: V2Context, input: { taskId: string }): Promise<V2Outcome> {
+export async function runV2TaskCore(
+  ctx: V2Context,
+  input: { taskId: string; runKind?: RunKind },
+): Promise<V2Outcome> {
+  const runKind: RunKind = input.runKind === "autonomous" ? "autonomous" : "manual";
   const { data: task, error } = await ctx.supabase
     .from("agent_tasks")
     .select(V2_COLUMNS)
@@ -298,8 +306,8 @@ export async function runV2TaskCore(ctx: V2Context, input: { taskId: string }): 
   if (!task) return { status: 404, body: { error: "Uppgiften hittades inte." } };
 
   const role = task["assigned_agent"] as HarnessRole;
-  if (role !== "noryva_manager" && role !== "product_tech") {
-    return { status: 403, body: { error: "Endast aktiva v1-roller kan köras här." } };
+  if (!isRunnableHarnessRole(role)) {
+    return { status: 403, body: { error: "Endast aktiva interna roller kan köras här." } };
   }
   if (task["execution_mode"] !== "test" && task["execution_mode"] !== "review") {
     return { status: 403, body: { error: "Endast test- eller granskningsläge tillåts." } };
@@ -338,6 +346,36 @@ export async function runV2TaskCore(ctx: V2Context, input: { taskId: string }): 
     };
   }
 
+  // Atomisk budgetreservation. Parallella workers serialiseras i SQL, så varken
+  // soft cap, hard cap eller run cap kan passeras samtidigt.
+  const budgetConfig = readBudgetConfig(
+    ctx.harness?.env ?? runtimeEnvFromRequest(ctx.harness?.request),
+  );
+  const reservation = await reserveAgentRun(ctx, {
+    role,
+    taskId: String(task["id"]),
+    kind: runKind,
+    config: budgetConfig,
+  });
+  if (!reservation.ok) {
+    await ctx.supabase.from("agent_tasks").update({ run_status: "blocked" }).eq("id", task["id"]);
+    await audit(ctx, task["id"], "run_budget_blocked", "system", {
+      runKind,
+      state: reservation.state,
+      reason: reservation.reason,
+      externalEffect: false,
+    });
+    return {
+      status: 409,
+      body: {
+        error: reservation.reason,
+        budgetState: reservation.state,
+        runStatus: "blocked",
+        externalEffect: false,
+      },
+    };
+  }
+
   // Atomisk start: bara den som vinner queued -> in_progress kör.
   const { data: claimed } = await ctx.supabase
     .from("agent_tasks")
@@ -350,6 +388,13 @@ export async function runV2TaskCore(ctx: V2Context, input: { taskId: string }): 
     .eq("status", "queued")
     .select("id");
   if (!claimed || claimed.length === 0) {
+    // Reservationen släpps som 'failed' så den inte belastar taket i onödan.
+    await recordAgentRunUsage(ctx, {
+      runId: reservation.runId,
+      role,
+      status: "failed",
+      config: budgetConfig,
+    });
     return { status: 409, body: { error: "Uppgiften körs redan." } };
   }
   await audit(ctx, task["id"], "task_started", "agent", {
@@ -388,6 +433,14 @@ export async function runV2TaskCore(ctx: V2Context, input: { taskId: string }): 
         usage: run.usage,
       })
       .eq("id", task["id"]);
+    await recordAgentRunUsage(ctx, {
+      runId: reservation.runId,
+      role,
+      status: "failed",
+      inputTokens: run.usage.inputTokens,
+      outputTokens: run.usage.outputTokens,
+      config: budgetConfig,
+    });
     await audit(ctx, task["id"], "run_failed", "agent", { reason, externalEffect: false });
     return { status: 502, body: { error: reason, runStatus: run.runStatus, externalEffect: false } };
   }
@@ -411,11 +464,21 @@ export async function runV2TaskCore(ctx: V2Context, input: { taskId: string }): 
       usage: run.usage,
     })
     .eq("id", task["id"]);
+  const costSek = await recordAgentRunUsage(ctx, {
+    runId: reservation.runId,
+    role,
+    status: "completed",
+    inputTokens: run.usage.inputTokens,
+    outputTokens: run.usage.outputTokens,
+    config: budgetConfig,
+  });
   await audit(ctx, task["id"], "result_saved", "agent", {
     resultKind: result["kind"],
     providerRunId: run.providerRunId,
     inputTokens: run.usage.inputTokens,
     outputTokens: run.usage.outputTokens,
+    runKind,
+    estimatedCostSek: costSek,
     externalEffect: false,
   });
 
@@ -469,6 +532,8 @@ export async function runV2TaskCore(ctx: V2Context, input: { taskId: string }): 
       runStatus: "completed",
       providerRunId: run.providerRunId,
       usage: run.usage,
+      runKind,
+      estimatedCostSek: costSek,
       verification: verdict.status,
       approvalStatus: "pending",
       delegatedTaskId,

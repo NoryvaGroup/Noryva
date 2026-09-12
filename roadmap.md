@@ -38,3 +38,7 @@
 - [x] Agent Core: CTO / Systems Improvement Agent v1 (intern systemgranskning i TEST/REVIEW, analys + implementationPrompt, inga externa effekter)
 - [x] Agent HQ v2: Manager + Product & Tech mot OpenAI Agents API-harness, fail closed, budgetspärr, human approval, inga externa actions
 - [ ] Sätt NORYVA_AGENTS_API_ENABLED=true (och ev. agent-ID) när harnessen ska aktiveras
+- [x] Agent HQ v2: kostnadstak (soft 300 / hard 500 SEK) med atomisk SQL-reservation, ledger och adminstatus
+- [x] Agent HQ v2: konservativt autonomt läge (1 körning/tick, 1 Manager-kickoff/dygn, max 2/dygn och 60/månad, allt REVIEW)
+- [x] Agent HQ v2: verifierad E2E Manager → delegerad specialistuppgift → separat specialistkörning, inga externa effekter
+- [ ] Schemalägg /api/public/agents/autonomous-tick (en gång per timme) efter publicering
