@@ -25,16 +25,18 @@ import {
 } from "@/lib/agents.functions";
 import {
   AGENT_LABEL,
+  AGENT_ROLE_CONFIG,
   APPROVAL_LABEL,
   AUTHORITY_CHAIN,
-  PLANNED_AGENTS_V1,
-  PLANNED_AGENT_CONFIG,
   PRIORITY_LABEL,
+  SPECIALIST_AGENTS_V1,
   STATUS_LABEL,
   TASK_TYPE_LABEL,
   VERIFICATION_LABEL,
+  type ActiveAgentV1,
   type AgentName,
 } from "@/lib/agents/tasks";
+
 
 export const Route = createFileRoute("/_authenticated/admin/agents")({
   head: () => ({
