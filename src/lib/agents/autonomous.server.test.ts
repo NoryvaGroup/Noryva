@@ -100,11 +100,54 @@ describe("autonomt läge", () => {
     expect(out.body["budgetState"]).toBe("hard_blocked");
   });
 
-  it("no-op när dygnstaket för autonoma körningar är nått", async () => {
-    const supabase = makeSupabase({ agent_tasks: [] }, snapshotRpc({ autonomousRunsToday: 2 }));
+  it("no-op när Managerns egna dygnstak är nått", async () => {
+    const supabase = makeSupabase(
+      { agent_tasks: [] },
+      snapshotRpc({ autonomousRunsToday: 2, autonomousRunsTodayByRole: { noryva_manager: 2 } }),
+    );
     const out = await autonomousTickCore({ supabase, harness: { env: failClosedEnv } });
     expect(out.body["action"]).toBe("noop");
     expect(out.body["budgetState"]).toBe("run_capped");
+  });
+
+  it("en annan agents körningar blockerar inte Manager-kickoffen", async () => {
+    const state: Record<string, Row[]> = { agent_tasks: [], agent_task_events: [] };
+    const supabase = makeSupabase(
+      state,
+      snapshotRpc({
+        autonomousRunsToday: 2,
+        autonomousRunsTodayByRole: { qa_risk: 1, growth_sales: 1 },
+      }),
+    );
+    const out = await autonomousTickCore({ supabase, harness: { env: failClosedEnv } });
+    expect(out.body["action"]).toBe("manager_kickoff");
+  });
+
+  it("hoppar över en specialist som nått sitt dygnstak", async () => {
+    const state: Record<string, Row[]> = {
+      agent_tasks: [
+        {
+          id: "22222222-2222-4222-8222-222222222222",
+          assigned_agent: "growth_sales",
+          task_type: "growth_sales_review",
+          status: "queued",
+          execution_mode: "review",
+          provider_type: "openai_agents",
+          source_event: "growth_sales_goal",
+          run_budget: 1,
+          runs_used: 0,
+          instructions: "test",
+        },
+      ],
+      agent_task_events: [],
+    };
+    const supabase = makeSupabase(
+      state,
+      snapshotRpc({ autonomousRunsToday: 2, autonomousRunsTodayByRole: { growth_sales: 2 } }),
+    );
+    const out = await autonomousTickCore({ supabase, harness: { env: failClosedEnv } });
+    // Specialisten är capad, men Managern får fortfarande sin kickoff.
+    expect(out.body["action"]).toBe("manager_kickoff");
   });
 
   it("skapar Manager-kickoff och kör den, utan extern effekt", async () => {
