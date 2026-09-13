@@ -207,7 +207,7 @@ export const listPilotReadiness = createServerFn({ method: "GET" })
               pending: nurtureRows.filter((n: any) => n.status === "pending" || n.status === "planned").length,
               approved: nurtureRows.filter((n: any) => n.status === "approved").length,
               stuck: nurtureRows.filter(
-                (n: any) => !n.sent_at && n.status === "claimed" && olderThan(n.claimed_at, STUCK_MINUTES),
+                (n: any) => !n.sent_at && n.status === "claimed" && olderThan(n.claimed_at, THRESHOLDS.nurtureClaimedStuckMinutes),
               ).length,
               failed: nurtureRows.filter((n: any) => n.status === "failed" || n.status === "unknown").length,
             }
@@ -217,7 +217,7 @@ export const listPilotReadiness = createServerFn({ method: "GET" })
               pending: reminderRows.filter((r: any) => r.status === "pending").length,
               failed: reminderRows.filter((r: any) => r.status === "failed" || r.status === "unknown").length,
               stuck: reminderRows.filter(
-                (r: any) => !r.sent_at && r.status === "claimed" && olderThan(r.claimed_at, STUCK_MINUTES),
+                (r: any) => !r.sent_at && r.status === "claimed" && olderThan(r.claimed_at, THRESHOLDS.reminderClaimedStuckMinutes),
               ).length,
               latestStatus: String(reminderRows[0]?.status ?? ""),
             }
@@ -225,7 +225,7 @@ export const listPilotReadiness = createServerFn({ method: "GET" })
         replies: inboundRows
           ? {
               unprocessed: inboundRows.filter(
-                (e: any) => e.status !== "done" && e.status !== "completed" && olderThan(e.created_at, STUCK_MINUTES),
+                (e: any) => e.status !== "done" && e.status !== "completed" && olderThan(e.created_at, THRESHOLDS.inboundUnprocessedMinutes),
               ).length,
             }
           : null,
