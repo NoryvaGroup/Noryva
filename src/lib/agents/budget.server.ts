@@ -126,11 +126,11 @@ export async function recordAgentRunUsage(
     estimated_cost_sek: cost,
   };
   try {
-    const res: any = await ctx.supabase.from("agent_run_ledger").update(patch).eq("id", input.runId);
-    if (res?.error) {
-      const admin = await adminClient();
-      if (admin) await admin.from("agent_run_ledger").update(patch).eq("id", input.runId);
-    }
+    // Ledgern är skrivskyddad för vanliga roller; admin-klienten används först.
+    const admin = await adminClient();
+    const client = admin ?? ctx.supabase;
+    const res: any = await client.from("agent_run_ledger").update(patch).eq("id", input.runId);
+    if (res?.error && admin) await ctx.supabase.from("agent_run_ledger").update(patch).eq("id", input.runId);
   } catch {
     /* bokföringen får aldrig kasta vidare i körvägen */
   }
