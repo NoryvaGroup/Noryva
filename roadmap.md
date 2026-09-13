@@ -45,4 +45,4 @@
 - [x] Pilot readiness: operativ GO/NO-GO, handoff, thresholds och driftvarningar i admin
 - [x] Agent HQ: lätt organisationsöversikt med ägare, Manager, specialister och planerad roll
 ## Active
-- [ ] Build Agent Boardroom meeting engine and admin UI
+- [x] Build Agent Boardroom meeting engine and admin UI

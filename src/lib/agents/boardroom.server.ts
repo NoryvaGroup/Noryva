@@ -285,7 +285,14 @@ export async function advanceMeetingCore(ctx: BoardroomContext, meetingId: strin
     started_at: rawMeeting.started_at ?? new Date().toISOString(),
   };
   if (turn.messageType === "kickoff") {
-    update["selected_roles"] = parsed["selectedRoles"];
+    const selectedRoles = Array.isArray(parsed["selectedRoles"])
+      ? parsed["selectedRoles"].slice(0, meeting.max_specialists)
+      : [];
+    if (selectedRoles.length < 2) {
+      await releaseClaim(ctx, meetingId, String(token), { status: "failed", error: "Manager valde för få specialistroller." });
+      throw new Error("Manager valde för få specialistroller.");
+    }
+    update["selected_roles"] = selectedRoles;
     update["needs_cross_review"] = parsed["needsCrossReview"];
   }
   if (turn.messageType === "synthesis") {
