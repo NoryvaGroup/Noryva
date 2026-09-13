@@ -210,7 +210,7 @@ export function meetingPrompt(meeting: MeetingLike, turn: TurnPlan, messages: Me
     "Internt Noryva Boardroom. REVIEW-only. Inga externa åtgärder, delegationer eller nya möten.",
     `Typ: ${meeting.meeting_type}. Agenda: ${meeting.agenda}`,
   ];
-  if (turn.messageType === "kickoff") return [...base, `Välj 2–${meeting.max_specialists} relevanta specialistroller. Kalla inte alla utan skäl.`, 'Svara JSON: {"summary":"kort dekomposition","selectedRoles":["product_tech"],"needsCrossReview":false}'].join("\n");
+  if (turn.messageType === "kickoff") return [...base, `Välj 2–${meeting.max_specialists} relevanta specialistroller. Kalla inte alla utan skäl.`, `Tillåtna rollnycklar (använd exakt dessa strängar): ${SPECIALIST_AGENTS_V1.join(", ")}.`, 'Svara JSON: {"summary":"kort dekomposition","selectedRoles":["product_tech"],"needsCrossReview":false}'].join("\n");
   const context = compactContext(messages);
   if (turn.messageType === "analysis") return [...base, "Analysera självständigt utifrån din sparade roll.", 'Svara JSON: {"summary":"...","findings":["..."],"recommendations":["..."]}'].join("\n");
   if (turn.messageType === "critique") return [...base, "Kondenserade relevanta bidrag:", context, "Gör en enda konstruktiv cross-review.", 'Svara JSON: {"summary":"...","concerns":["..."],"refinements":["..."]}'].join("\n");
