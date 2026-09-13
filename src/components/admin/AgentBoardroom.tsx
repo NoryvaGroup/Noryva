@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { advanceAgentMeeting, createAgentMeeting, listAgentMeetings } from "@/lib/agents.functions";
+import { advanceAgentMeeting, createAgentMeeting, decideAgentMeeting, listAgentMeetings } from "@/lib/agents.functions";
 import { MEETING_STATUS_LABEL, type MeetingStatus, type MeetingType } from "@/lib/agents/boardroom";
 import { AGENT_LABEL, type AgentName } from "@/lib/agents/tasks";
 
@@ -96,6 +96,7 @@ export function AgentBoardroom() {
   const list = useServerFn(listAgentMeetings);
   const createMeeting = useServerFn(createAgentMeeting);
   const advance = useServerFn(advanceAgentMeeting);
+  const decide = useServerFn(decideAgentMeeting);
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [agenda, setAgenda] = useState("");
