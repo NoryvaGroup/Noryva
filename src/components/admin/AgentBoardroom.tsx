@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { advanceAgentMeeting, createAgentMeeting, listAgentMeetings } from "@/lib/agents.functions";
+import { advanceAgentMeeting, createAgentMeeting, decideAgentMeeting, listAgentMeetings } from "@/lib/agents.functions";
 import { MEETING_STATUS_LABEL, type MeetingStatus, type MeetingType } from "@/lib/agents/boardroom";
 import { AGENT_LABEL, type AgentName } from "@/lib/agents/tasks";
 
@@ -96,6 +96,7 @@ export function AgentBoardroom() {
   const list = useServerFn(listAgentMeetings);
   const createMeeting = useServerFn(createAgentMeeting);
   const advance = useServerFn(advanceAgentMeeting);
+  const decide = useServerFn(decideAgentMeeting);
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [agenda, setAgenda] = useState("");
@@ -140,8 +141,18 @@ export function AgentBoardroom() {
     },
     onError: (error: Error) => setNotice(error.message),
   });
+  const decideMutation = useMutation({
+    mutationFn: (decision: "approved" | "rejected") =>
+      selected ? decide({ data: { meetingId: selected.id, decision } }) : Promise.reject(new Error("Inget möte valt.")),
+    onSuccess: async (result) => {
+      setNotice(result.decision === "approved" ? "Mötet godkändes." : "Mötet avvisades. Ingen extern åtgärd utförs.");
+      await queryClient.invalidateQueries({ queryKey: ["agent-meetings"] });
+    },
+    onError: (error: Error) => setNotice(error.message),
+  });
 
   const canAdvance = selected && !["awaiting_approval", "completed", "failed"].includes(selected.status);
+  const canDecide = selected && selected.status === "awaiting_approval" && selected.approval_status === "pending";
 
   return (
     <div className="mt-4 border-t border-border pt-4">
@@ -244,6 +255,12 @@ export function AgentBoardroom() {
                 <Button size="sm" disabled={advanceMutation.isPending} onClick={() => advanceMutation.mutate(selected.id)}>
                   <Play />{selected.status === "draft" ? "Starta kickoff" : selected.status === "paused_budget" ? "Försök igen" : "Kör nästa steg"}
                 </Button>
+              ) : null}
+              {canDecide ? (
+                <div className="flex gap-2">
+                  <Button size="sm" disabled={decideMutation.isPending} onClick={() => decideMutation.mutate("approved")}>Godkänn</Button>
+                  <Button size="sm" variant="outline" disabled={decideMutation.isPending} onClick={() => decideMutation.mutate("rejected")}>Avvisa</Button>
+                </div>
               ) : null}
             </div>
 
