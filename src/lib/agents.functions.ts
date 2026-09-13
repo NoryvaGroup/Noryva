@@ -384,22 +384,38 @@ export const verifyAgentTask = createServerFn({ method: "POST" })
     await assertAdmin(ctx);
     const task = await loadTask(ctx, data.taskId);
 
+    // Deterministisk normalisering av sparade resultat (alias/nästlade fält).
+    // Inget innehåll uppfinns; saknas innehåll underkänns uppgiften som förut.
+    const { normalizeTaskResult } = await import("@/lib/agents/normalize-result");
+    const normalized = normalizeTaskResult(
+      task["task_type"],
+      (task["result"] ?? null) as Record<string, unknown> | null,
+    );
+
     const verdict = verifyTaskResult({
       taskType: task["task_type"],
       requiresApproval: Boolean(task["requires_approval"]),
-      result: (task["result"] ?? null) as Record<string, unknown> | null,
+      result: normalized.result,
     });
 
-    const { error } = await ctx.supabase
-      .from("agent_tasks")
-      .update({ verification_status: verdict.status, verification_reasons: verdict.reasons })
-      .eq("id", task["id"]);
+    const update: Record<string, unknown> = {
+      verification_status: verdict.status,
+      verification_reasons: verdict.reasons,
+    };
+    if (normalized.addedKeys.length > 0 && normalized.result) {
+      update["result"] = normalized.result;
+    }
+
+    const { error } = await ctx.supabase.from("agent_tasks").update(update).eq("id", task["id"]);
     if (error) throw new Error(error.message);
 
     await logEvent(ctx, task["id"], "task_verified", "agent", {
       verification: verdict.status,
       reasons: verdict.reasons,
+      normalizedKeys: normalized.addedKeys,
+      externalEffect: false,
     });
+
     return { ok: true as const, ...verdict };
   });
 
