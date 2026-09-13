@@ -249,6 +249,9 @@ export const listPilotReadiness = createServerFn({ method: "GET" })
         checks: result.checks,
         blocking: result.blocking,
         warnings: result.warnings,
+        summary: summarizeGoNoGo(result),
+        handoff: buildHandoff(result),
+        operational: operationalIssues(result),
       };
     });
 
