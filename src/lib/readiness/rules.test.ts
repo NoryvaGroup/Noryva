@@ -156,7 +156,14 @@ describe("readiness-status", () => {
     const result = evaluateReadiness(
       facts({
         customer: { ...facts().customer, recipientEmail: "" },
-        mailChannel: { ...facts().mailChannel!, verified: false },
+        mailChannel: {
+          configured: true,
+          verified: false,
+          status: "draft",
+          senderEmail: "a@b.se",
+          replyToEmail: "a@b.se",
+          verifiedAt: null,
+        },
         nurture: { pending: 1, approved: 0, stuck: 0, failed: 0 },
       }),
     );

@@ -62,11 +62,11 @@ export const Route = createFileRoute("/_authenticated/admin/agents")({
 });
 
 const MANAGER = {
-  key: "noryva_manager" as AgentName,
+  key: "noryva_manager" as const,
   role: "Huvudagent / COO",
   description:
     "Tar emot mål och händelser, prioriterar och delegerar internt. Läser endast aggregerad, avidentifierad drifttelemetri. Skapar interna uppgifter – aldrig något som når kunder eller produktion.",
-};
+} satisfies { key: ActiveAgentV1; role: string; description: string };
 
 const ACTIVE_ROLES: { key: ActiveAgentV1; description: string }[] = SPECIALIST_AGENTS_V1.map(
   (key) => ({ key, description: AGENT_ROLE_CONFIG[key].description }),
