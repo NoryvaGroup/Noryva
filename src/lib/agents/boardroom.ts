@@ -205,15 +205,58 @@ export function compactContext(messages: MeetingMessage[], maxItems = 8): string
   return messages.slice(-maxItems).map((m) => `${m.role}/${m.message_type}: ${m.content.slice(0, 1600)}`).join("\n");
 }
 
+/** FRIA HJÄRNOR, HÅRDA HÄNDER: fritt analysmandat, noll exekveringsmandat. */
+export const BOARDROOM_MANDATE = [
+  "FRIA HJÄRNOR, HÅRDA HÄNDER. Du är en intern Noryva-agent med brett analys- och förbättringsmandat.",
+  "Du får fritt granska hela Noryva ur ditt specialistperspektiv: arkitektur, produkt, erbjudande, prismodell, onboarding, sälj, kundresa, kostnader och arbetssätt.",
+  "Du får ifrågasätta befintliga beslut, säga emot Manager och andra specialister, lyfta problem utanför agendans exakta formulering när de är relevanta, jämföra alternativ och rekommendera en tydlig väg.",
+  "Du får föreslå nya funktioner, experiment, refactors, effektiviseringar, implementationsplaner/prompts och konkreta prioriterade actions.",
+  "HÅRDA HÄNDER: du utför ingenting. Inga kundmail/SMS/bokningar, inga Make-ändringar, ingen publicering/deploy, ingen ändring av kunddata eller externa system, inget irreversibelt och ingen ökad spend utan mänskligt godkännande. Allt stannar i REVIEW för mänsklig prövning.",
+  "Markera osäkerhet som antagande eller risk i stället för att censurera ett djärvt förslag.",
+].join(" ");
+
 export function meetingPrompt(meeting: MeetingLike, turn: TurnPlan, messages: MeetingMessage[]): string {
   const base = [
-    "Internt Noryva Boardroom. REVIEW-only. Inga externa åtgärder, delegationer eller nya möten.",
+    BOARDROOM_MANDATE,
+    "Internt Noryva Boardroom. REVIEW-only: inga externa åtgärder, inga delegationer och inga nya möten.",
     `Typ: ${meeting.meeting_type}. Agenda: ${meeting.agenda}`,
   ];
-  if (turn.messageType === "kickoff") return [...base, `Välj 2–${meeting.max_specialists} relevanta specialistroller. Kalla inte alla utan skäl.`, `Tillåtna rollnycklar (använd exakt dessa strängar): ${SPECIALIST_AGENTS_V1.join(", ")}.`, 'Svara JSON: {"summary":"kort dekomposition","selectedRoles":["product_tech"],"needsCrossReview":false}'].join("\n");
+  if (turn.messageType === "kickoff")
+    return [
+      ...base,
+      `Välj 2–${meeting.max_specialists} relevanta specialistroller. Ta med alla roller som ger verkligt värde, men fyll inte platser utan skäl.`,
+      "Begränsa inte scopet i onödan: specialister får bredda analysen till närliggande problem. Sätt needsCrossReview till true när debatt/cross-review mellan rollerna troligen höjer kvaliteten.",
+      `Tillåtna rollnycklar (använd exakt dessa strängar): ${SPECIALIST_AGENTS_V1.join(", ")}.`,
+      'Svara JSON: {"summary":"kort dekomposition","selectedRoles":["product_tech"],"needsCrossReview":true}',
+    ].join("\n");
   const context = compactContext(messages);
-  if (turn.messageType === "analysis") return [...base, "Analysera självständigt utifrån din sparade roll.", 'Svara JSON: {"summary":"...","findings":["..."],"recommendations":["..."]}'].join("\n");
-  if (turn.messageType === "critique") return [...base, "Kondenserade relevanta bidrag:", context, "Gör en enda konstruktiv cross-review.", 'Svara JSON: {"summary":"...","concerns":["..."],"refinements":["..."]}'].join("\n");
-  if (turn.messageType === "qa_review") return [...base, "Kondenserat mötesunderlag:", context, "Gör explicit risk- och kvalitetsgranskning.", 'Svara JSON: {"summary":"...","risks":["..."],"verdict":"pass|concerns|fail","riskLevel":"low|medium|high"}'].join("\n");
-  return [...base, "Kondenserat mötesunderlag inklusive QA:", context, "Gör slutsyntes. Föreslå endast nästa steg för mänsklig prövning.", 'Svara JSON: {"summary":"...","recommendation":"...","alternatives":["..."],"expectedEffect":"...","riskLevel":"low|medium|high","estimatedEffort":"...","nextStep":"..."}'].join("\n");
+  if (turn.messageType === "analysis")
+    return [
+      ...base,
+      "Analysera självständigt och djupt utifrån din sparade roll. Ta med grundorsaker, alternativ, tydlig rekommendation och konkreta prioriterade actions. Lyft relevanta problem även om de ligger strax utanför agendan.",
+      'Svara JSON: {"summary":"...","findings":["..."],"recommendations":["..."]}',
+    ].join("\n");
+  if (turn.messageType === "critique")
+    return [
+      ...base,
+      "Kondenserade relevanta bidrag:",
+      context,
+      "Gör en konstruktiv men rak cross-review. Säg uttryckligen emot där du är oenig, jämför alternativ och skärp förslagen.",
+      'Svara JSON: {"summary":"...","concerns":["..."],"refinements":["..."]}',
+    ].join("\n");
+  if (turn.messageType === "qa_review")
+    return [
+      ...base,
+      "Kondenserat mötesunderlag:",
+      context,
+      "Gör explicit risk- och kvalitetsgranskning. Du är inte ett kreativt filter: stoppa inte strategiska eller oprövade förslag – märk dem i stället med risk, antagande och vad som behöver valideras. Neka endast det som bryter mot hårda spärrar (externa effekter, kunddata, irreversibelt, spend utan godkännande).",
+      'Svara JSON: {"summary":"...","risks":["..."],"verdict":"pass|concerns|fail","riskLevel":"low|medium|high"}',
+    ].join("\n");
+  return [
+    ...base,
+    "Kondenserat mötesunderlag inklusive QA:",
+    context,
+    "Gör slutsyntes: tydlig rekommendation, reella alternativ, förväntad effekt, risk, insats och ett konkret nästa steg (gärna en implementationsplan/prompt) som en människa kan godkänna. Föreslå endast – utför inget.",
+    'Svara JSON: {"summary":"...","recommendation":"...","alternatives":["..."],"expectedEffect":"...","riskLevel":"low|medium|high","estimatedEffort":"...","nextStep":"..."}',
+  ].join("\n");
 }
