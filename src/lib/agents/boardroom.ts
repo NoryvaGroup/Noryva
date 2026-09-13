@@ -53,7 +53,7 @@ export type MeetingLike = {
 
 export type TurnPlan = {
   role: ActiveAgentV1;
-  messageType: MeetingMessage["message_type"];
+  messageType: Exclude<MeetingMessage["message_type"], "system">;
   round: 0 | 1 | 2;
   nextStatus: MeetingStatus;
 };

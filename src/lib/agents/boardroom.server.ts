@@ -30,7 +30,7 @@ export async function listMeetingsCore(ctx: BoardroomContext) {
     .limit(12);
   if (error) throw new Error(error.message);
   const ids = (meetings ?? []).map((meeting: { id: string }) => meeting.id);
-  let messages: Record<string, unknown>[] = [];
+  let messages: any[] = [];
   if (ids.length > 0) {
     const response = await ctx.supabase
       .from("agent_meeting_messages")
@@ -237,7 +237,7 @@ export async function advanceMeetingCore(ctx: BoardroomContext, meetingId: strin
     usage = run.usage;
     if (!run.ok) {
       await ctx.supabase.from("agent_tasks").update({ status: "failed", run_status: run.runStatus, provider_run_id: providerRunId, usage }).eq("id", task["id"]);
-      await recordAgentRunUsage(ctx, { runId: reservation.runId, role: turn.role, status: "failed", inputTokens: usage.inputTokens, outputTokens: usage.outputTokens, config: budgetConfig });
+      await recordAgentRunUsage(ctx, { runId: reservation.runId, role: turn.role, status: "failed", inputTokens: usage.inputTokens ?? 0, outputTokens: usage.outputTokens ?? 0, config: budgetConfig });
       await releaseClaim(ctx, meetingId, String(token), { status: "failed", error: run.error });
       throw new Error(run.error);
     }
@@ -245,11 +245,11 @@ export async function advanceMeetingCore(ctx: BoardroomContext, meetingId: strin
       parsed = parseMeetingOutput(turn.messageType, run.outputText) as Record<string, unknown>;
     } catch (parseError) {
       await ctx.supabase.from("agent_tasks").update({ status: "failed", run_status: "failed", provider_run_id: providerRunId, usage }).eq("id", task["id"]);
-      await recordAgentRunUsage(ctx, { runId: reservation.runId, role: turn.role, status: "failed", inputTokens: usage.inputTokens, outputTokens: usage.outputTokens, config: budgetConfig });
+      await recordAgentRunUsage(ctx, { runId: reservation.runId, role: turn.role, status: "failed", inputTokens: usage.inputTokens ?? 0, outputTokens: usage.outputTokens ?? 0, config: budgetConfig });
       await releaseClaim(ctx, meetingId, String(token), { status: "failed", error: (parseError as Error).message });
       throw parseError;
     }
-    costSek = await recordAgentRunUsage(ctx, { runId: reservation.runId, role: turn.role, status: "completed", inputTokens: usage.inputTokens, outputTokens: usage.outputTokens, config: budgetConfig });
+    costSek = await recordAgentRunUsage(ctx, { runId: reservation.runId, role: turn.role, status: "completed", inputTokens: usage.inputTokens ?? 0, outputTokens: usage.outputTokens ?? 0, config: budgetConfig });
     await ctx.supabase
       .from("agent_tasks")
       .update({ status: "awaiting_review", run_status: "completed", provider_run_id: providerRunId, provider_agent_id: "saved_agent", usage, result: { boardroomOutput: parsed, externalEffect: false } })
