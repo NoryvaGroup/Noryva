@@ -141,8 +141,18 @@ export function AgentBoardroom() {
     },
     onError: (error: Error) => setNotice(error.message),
   });
+  const decideMutation = useMutation({
+    mutationFn: (decision: "approved" | "rejected") =>
+      selected ? decide({ data: { meetingId: selected.id, decision } }) : Promise.reject(new Error("Inget möte valt.")),
+    onSuccess: async (result) => {
+      setNotice(result.decision === "approved" ? "Mötet godkändes." : "Mötet avvisades. Ingen extern åtgärd utförs.");
+      await queryClient.invalidateQueries({ queryKey: ["agent-meetings"] });
+    },
+    onError: (error: Error) => setNotice(error.message),
+  });
 
   const canAdvance = selected && !["awaiting_approval", "completed", "failed"].includes(selected.status);
+  const canDecide = selected && selected.status === "awaiting_approval" && selected.approval_status === "pending";
 
   return (
     <div className="mt-4 border-t border-border pt-4">
