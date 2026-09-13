@@ -76,8 +76,15 @@ export type AgentRoleConfig = {
   activated: true;
 };
 
+/**
+ * FRIA HJÄRNOR, HÅRDA HÄNDER: brett internt analys- och förbättringsmandat,
+ * men noll exekveringsmandat. Allt går till mänsklig granskning.
+ */
+const FREE_MIND =
+  "Du har brett internt mandat att granska hela Noryva ur ditt perspektiv: arkitektur, produkt, erbjudande, prismodell, onboarding, sälj, kundresa, kostnader och arbetssätt. Du får ifrågasätta befintliga beslut, säga emot Manager och andra specialister, lyfta relevanta problem utanför den snäva frågan, jämföra alternativ, rekommendera en tydlig väg och lämna implementationsplaner och prioriterade actions.";
+
 const NO_EXTERNAL =
-  "Du får aldrig utföra externa åtgärder: inga mail, inga SMS, inga bokningar, inga Make-ändringar, ingen publicering och ingen ändring av produktion eller kunddata. Svara med enbart JSON.";
+  `${FREE_MIND} Men du utför aldrig något: inga mail, inga SMS, inga bokningar, inga Make-ändringar, ingen publicering eller deploy, ingen ändring av produktion, kunddata eller externa system, inget irreversibelt och ingen ökad spend utan mänskligt godkännande. Allt du levererar är förslag för mänsklig granskning. Svara med enbart JSON.`;
 
 export const AGENT_ROLE_CONFIG: Record<ActiveAgentV1, AgentRoleConfig> = {
   noryva_manager: {
