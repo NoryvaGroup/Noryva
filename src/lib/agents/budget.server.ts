@@ -118,17 +118,19 @@ export async function recordAgentRunUsage(
       )
     : reservationCostSek(input.role, cfg);
 
+  const patch = {
+    // 'failed' räknas inte mot taket, men behålls i loggen för spårbarhet.
+    status: input.status,
+    input_tokens: Math.max(Number(input.inputTokens ?? 0) || 0, 0),
+    output_tokens: Math.max(Number(input.outputTokens ?? 0) || 0, 0),
+    estimated_cost_sek: cost,
+  };
   try {
-    await ctx.supabase
-      .from("agent_run_ledger")
-      .update({
-        // 'failed' räknas inte mot taket, men behålls i loggen för spårbarhet.
-        status: input.status,
-        input_tokens: Math.max(Number(input.inputTokens ?? 0) || 0, 0),
-        output_tokens: Math.max(Number(input.outputTokens ?? 0) || 0, 0),
-        estimated_cost_sek: cost,
-      })
-      .eq("id", input.runId);
+    const res: any = await ctx.supabase.from("agent_run_ledger").update(patch).eq("id", input.runId);
+    if (res?.error) {
+      const admin = await adminClient();
+      if (admin) await admin.from("agent_run_ledger").update(patch).eq("id", input.runId);
+    }
   } catch {
     /* bokföringen får aldrig kasta vidare i körvägen */
   }
