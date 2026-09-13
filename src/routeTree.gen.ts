@@ -32,6 +32,7 @@ import { Route as AuthenticatedAdminAiAssistentRouteImport } from './routes/_aut
 import { Route as AuthenticatedAdminCrmRouteImport } from './routes/_authenticated/admin/crm'
 import { Route as AuthenticatedAdminGrowthRouteImport } from './routes/_authenticated/admin/growth'
 import { Route as AuthenticatedAdminKonversationerRouteImport } from './routes/_authenticated/admin/konversationer'
+import { Route as AuthenticatedAdminPilotRouteImport } from './routes/_authenticated/admin/pilot'
 import { Route as AuthenticatedAdminProfilerRouteImport } from './routes/_authenticated/admin/profiler'
 import { Route as TestOffertSlugRouteImport } from './routes/test.offert.$slug'
 import { Route as ApiPublicAgentsAutonomousTickRouteImport } from './routes/api/public/agents/autonomous-tick'
@@ -180,6 +181,11 @@ const AuthenticatedAdminKonversationerRoute =
     path: '/admin/konversationer',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAdminPilotRoute = AuthenticatedAdminPilotRouteImport.update({
+  id: '/admin/pilot',
+  path: '/admin/pilot',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedAdminProfilerRoute =
   AuthenticatedAdminProfilerRouteImport.update({
     id: '/admin/profiler',
@@ -364,6 +370,7 @@ export interface FileRoutesByFullPath {
   '/admin/crm': typeof AuthenticatedAdminCrmRoute
   '/admin/growth': typeof AuthenticatedAdminGrowthRoute
   '/admin/konversationer': typeof AuthenticatedAdminKonversationerRoute
+  '/admin/pilot': typeof AuthenticatedAdminPilotRoute
   '/admin/profiler': typeof AuthenticatedAdminProfilerRoute
   '/test/offert/$slug': typeof TestOffertSlugRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
@@ -415,6 +422,7 @@ export interface FileRoutesByTo {
   '/admin/crm': typeof AuthenticatedAdminCrmRoute
   '/admin/growth': typeof AuthenticatedAdminGrowthRoute
   '/admin/konversationer': typeof AuthenticatedAdminKonversationerRoute
+  '/admin/pilot': typeof AuthenticatedAdminPilotRoute
   '/admin/profiler': typeof AuthenticatedAdminProfilerRoute
   '/test/offert/$slug': typeof TestOffertSlugRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
@@ -468,6 +476,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/crm': typeof AuthenticatedAdminCrmRoute
   '/_authenticated/admin/growth': typeof AuthenticatedAdminGrowthRoute
   '/_authenticated/admin/konversationer': typeof AuthenticatedAdminKonversationerRoute
+  '/_authenticated/admin/pilot': typeof AuthenticatedAdminPilotRoute
   '/_authenticated/admin/profiler': typeof AuthenticatedAdminProfilerRoute
   '/test/offert/$slug': typeof TestOffertSlugRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
@@ -521,6 +530,7 @@ export interface FileRouteTypes {
     | '/admin/crm'
     | '/admin/growth'
     | '/admin/konversationer'
+    | '/admin/pilot'
     | '/admin/profiler'
     | '/test/offert/$slug'
     | '/admin/'
@@ -572,6 +582,7 @@ export interface FileRouteTypes {
     | '/admin/crm'
     | '/admin/growth'
     | '/admin/konversationer'
+    | '/admin/pilot'
     | '/admin/profiler'
     | '/test/offert/$slug'
     | '/admin'
@@ -624,6 +635,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/crm'
     | '/_authenticated/admin/growth'
     | '/_authenticated/admin/konversationer'
+    | '/_authenticated/admin/pilot'
     | '/_authenticated/admin/profiler'
     | '/test/offert/$slug'
     | '/_authenticated/admin/'
@@ -862,6 +874,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminKonversationerRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/admin/pilot': {
+      id: '/_authenticated/admin/pilot'
+      path: '/admin/pilot'
+      fullPath: '/admin/pilot'
+      preLoaderRoute: typeof AuthenticatedAdminPilotRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/admin/profiler': {
       id: '/_authenticated/admin/profiler'
       path: '/admin/profiler'
@@ -1061,6 +1080,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminCrmRoute: typeof AuthenticatedAdminCrmRoute
   AuthenticatedAdminGrowthRoute: typeof AuthenticatedAdminGrowthRoute
   AuthenticatedAdminKonversationerRoute: typeof AuthenticatedAdminKonversationerRoute
+  AuthenticatedAdminPilotRoute: typeof AuthenticatedAdminPilotRoute
   AuthenticatedAdminProfilerRoute: typeof AuthenticatedAdminProfilerRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
 }
@@ -1072,6 +1092,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminCrmRoute: AuthenticatedAdminCrmRoute,
   AuthenticatedAdminGrowthRoute: AuthenticatedAdminGrowthRoute,
   AuthenticatedAdminKonversationerRoute: AuthenticatedAdminKonversationerRoute,
+  AuthenticatedAdminPilotRoute: AuthenticatedAdminPilotRoute,
   AuthenticatedAdminProfilerRoute: AuthenticatedAdminProfilerRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
 }
