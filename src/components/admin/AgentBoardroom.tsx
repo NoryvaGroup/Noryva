@@ -160,7 +160,7 @@ export function AgentBoardroom() {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Nytt agentmöte</DialogTitle>
-                <DialogDescription>PII-fri agenda. Manager väljer 2–4 relevanta specialister efter kickoff.</DialogDescription>
+                <DialogDescription>PII-fri agenda. Manager väljer 2–5 relevanta specialister efter kickoff och får bredda analysen.</DialogDescription>
               </DialogHeader>
               <label className="space-y-1 text-sm">
                 <span className="font-medium">Ämne och agenda</span>
@@ -187,7 +187,7 @@ export function AgentBoardroom() {
                   <span className="font-medium">Max specialister</span>
                   <Select value={maxSpecialists} onValueChange={setMaxSpecialists}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>{[2, 3, 4].map((value) => <SelectItem key={value} value={String(value)}>{value}</SelectItem>)}</SelectContent>
+                    <SelectContent>{[2, 3, 4, 5].map((value) => <SelectItem key={value} value={String(value)}>{value}</SelectItem>)}</SelectContent>
                   </Select>
                 </label>
               </div>
