@@ -245,14 +245,28 @@ export function buildChecks(facts: ReadinessFacts): ReadinessCheck[] {
         "Åtgärda leveransfelet innan kunden går live.",
       ),
     );
+  } else if ((facts.leads.pendingOverBlock ?? 0) > 0) {
+    checks.push(
+      check(
+        "delivery",
+        "Leverans av förfrågningar",
+        "core",
+        "fail",
+        `${facts.leads.pendingOverBlock} har väntat över ${THRESHOLDS.leadPendingBlockMinutes} min`,
+        "Leveransen har stannat – kontrollera integrationen innan kunden går live.",
+      ),
+    );
   } else if (facts.leads.pending > 0) {
+    const aged = facts.leads.pendingOverWarn ?? 0;
     checks.push(
       check(
         "delivery",
         "Leverans av förfrågningar",
         "core",
         "warn",
-        `${facts.leads.pending} väntar på leverans`,
+        aged > 0
+          ? `${aged} har väntat över ${THRESHOLDS.leadPendingWarnMinutes} min`
+          : `${facts.leads.pending} väntar på leverans`,
         "Kontrollera att leveransflödet hinner ikapp.",
       ),
     );
