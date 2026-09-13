@@ -174,12 +174,12 @@ export function evaluateBudgetGate(input: {
       reason: "Månadens hårda kostnadstak är nått. Inga nya agentkörningar startas.",
     };
   }
-  if (input.kind === "autonomous") {
+  if (input.kind === "autonomous" || input.kind === "boardroom") {
     if (projected > cfg.softCapSek) {
       return {
         allowed: false,
         state: "soft_paused",
-        reason: "Månadens mjuka kostnadstak är nått. Autonoma körningar pausas.",
+        reason: "Månadens mjuka kostnadstak är nått. Agentkörningar pausas.",
       };
     }
     // Dygnstaket gäller PER ROLL: två agenter som kört en gång var blockerar inte varandra.

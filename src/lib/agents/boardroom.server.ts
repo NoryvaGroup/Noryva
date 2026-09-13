@@ -135,7 +135,18 @@ async function createOrLoadTurnTask(ctx: BoardroomContext, input: {
     })
     .select("id, status, result, provider_run_id, usage")
     .single();
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (/duplicate key|23505/i.test(String(error.message ?? ""))) {
+      const { data: winner, error: winnerError } = await ctx.supabase
+        .from("agent_tasks")
+        .select("id, status, result, provider_run_id, usage")
+        .eq("idempotency_key", key)
+        .maybeSingle();
+      if (winnerError || !winner) throw new Error(winnerError?.message ?? "Mötessteget kunde inte återläsas.");
+      return winner as Record<string, any>;
+    }
+    throw new Error(error.message);
+  }
   return data as Record<string, any>;
 }
 
