@@ -80,6 +80,170 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_meeting_messages: {
+        Row: {
+          content: string
+          created_at: string
+          estimated_cost_sek: number
+          id: string
+          input_tokens: number
+          ledger_id: string | null
+          meeting_id: string
+          message_type: string
+          output_tokens: number
+          provider_run_id: string
+          reply_to_message_id: string | null
+          role: string
+          round: number
+          sequence: number
+          task_id: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          estimated_cost_sek?: number
+          id?: string
+          input_tokens?: number
+          ledger_id?: string | null
+          meeting_id: string
+          message_type: string
+          output_tokens?: number
+          provider_run_id?: string
+          reply_to_message_id?: string | null
+          role: string
+          round: number
+          sequence: number
+          task_id?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          estimated_cost_sek?: number
+          id?: string
+          input_tokens?: number
+          ledger_id?: string | null
+          meeting_id?: string
+          message_type?: string
+          output_tokens?: number
+          provider_run_id?: string
+          reply_to_message_id?: string | null
+          role?: string
+          round?: number
+          sequence?: number
+          task_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_meeting_messages_ledger_id_fkey"
+            columns: ["ledger_id"]
+            isOneToOne: false
+            referencedRelation: "agent_run_ledger"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_meeting_messages_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "agent_meetings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_meeting_messages_reply_to_message_id_fkey"
+            columns: ["reply_to_message_id"]
+            isOneToOne: false
+            referencedRelation: "agent_meeting_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_meeting_messages_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "agent_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_meetings: {
+        Row: {
+          agenda: string
+          alternatives: Json
+          approval_status: string
+          claimed_at: string | null
+          completed_at: string | null
+          created_at: string
+          created_by: string
+          current_round: number
+          error: string
+          estimated_cost_sek: number
+          estimated_effort: string
+          expected_effect: string
+          final_summary: string
+          id: string
+          max_specialists: number
+          meeting_type: string
+          needs_cross_review: boolean | null
+          processing_token: string | null
+          recommendation: string
+          risk_level: string
+          selected_roles: string[]
+          started_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          agenda: string
+          alternatives?: Json
+          approval_status?: string
+          claimed_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by: string
+          current_round?: number
+          error?: string
+          estimated_cost_sek?: number
+          estimated_effort?: string
+          expected_effect?: string
+          final_summary?: string
+          id?: string
+          max_specialists?: number
+          meeting_type: string
+          needs_cross_review?: boolean | null
+          processing_token?: string | null
+          recommendation?: string
+          risk_level?: string
+          selected_roles?: string[]
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          agenda?: string
+          alternatives?: Json
+          approval_status?: string
+          claimed_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string
+          current_round?: number
+          error?: string
+          estimated_cost_sek?: number
+          estimated_effort?: string
+          expected_effect?: string
+          final_summary?: string
+          id?: string
+          max_specialists?: number
+          meeting_type?: string
+          needs_cross_review?: boolean | null
+          processing_token?: string | null
+          recommendation?: string
+          risk_level?: string
+          selected_roles?: string[]
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       agent_run_ledger: {
         Row: {
           created_at: string
@@ -1800,6 +1964,14 @@ export type Database = {
       cancel_nurture_review: {
         Args: { p_reason: string; p_review_id: string }
         Returns: Json
+      }
+      claim_agent_meeting_step: {
+        Args: { p_expected_status: string; p_meeting_id: string }
+        Returns: boolean
+      }
+      claim_agent_meeting_turn: {
+        Args: { p_expected_status: string; p_meeting_id: string }
+        Returns: string
       }
       claim_growth_analysis: {
         Args: { p_analysis_version: string; p_lead_id: string }

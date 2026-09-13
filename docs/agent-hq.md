@@ -174,21 +174,23 @@ Arkitektur:
 
 ```text
 Lovable / Agent HQ   = kontrollpanel (roller, kö, kostnad, audit, godkännande)
-Supabase             = kontroll- och auditlager (agent_tasks, agent_task_events,
+Noryvas backend      = kontroll- och auditlager (agent_tasks, agent_task_events,
                        godkännanden, budget, provider-metadata)
 OpenAI Agents API    = agent-harness (sessioner, orkestrering, kontext)
 Make                 = ingen agenthjärna, orört
 ```
 
-Aktiva roller i v1:
+Aktiva roller:
 
 - **Noryva Manager (COO)** – tar mål/händelser, prioriterar och delegerar
   internt. Läser endast aggregerad, PII-fri drifttelemetri.
 - **Product & Tech** – granskar systemet och föreslår förbättringar plus ett
   färdigt `implementationPrompt`. Får aldrig publicera, ändra produktion, Make,
   mail eller kunddata.
+- **Growth & Sales**, **Customer Success**, **QA / Risk** och
+  **Operations & Finance** – separata, sparade specialistroller. Strategy &
+  Innovation är endast planerad och kan inte köras.
 
-Vilande/planerade: Growth & Sales, Customer Success, QA/Risk.
 Admin & Finance finns kvar som bakåtkompatibelt värde i databasen men visas inte.
 
 Befogenhetskedja: `LÄSA -> ANALYSERA -> FÖRESLÅ -> TESTA -> BE OM GODKÄNNANDE ->
@@ -217,6 +219,22 @@ egen explicit körning.
 
 Legacy: `src/lib/agents/run.server.ts` + `reasoning.server.ts` (Responses API)
 är kvar för de äldre uppgiftstyperna och väljs aldrig för v2-rollerna.
+
+### Agentmöten / Boardroom
+
+Manuella interna möten lagras i `agent_meetings` och det faktiska transkriptet i
+`agent_meeting_messages`. Högst ett möte är aktivt samtidigt. Flödet är
+`draft -> manager kickoff -> round 1 -> valfri cross-review -> QA/Risk -> manager
+synthesis -> awaiting approval`. Manager väljer 2–4 av de fem aktiva
+specialisterna. Varje anrop kör högst en sparad agentroll och skapar en spårbar
+`agent_tasks`-rad märkt `boardroom_turn`.
+
+Varje provider-turn reserveras atomiskt i befintliga `agent_run_ledger` via
+`reserve_agent_run`. Boardroom omfattas av 300/500 SEK-taken och samma per-roll-
+och månadstak som autonoma runs. Blockerad reservation ger `paused_budget`; inga
+fler steg körs. Underlag kondenseras mellan rundorna och agenda med uppenbar
+e-postadress eller telefonnummer avvisas. Det finns ingen execute-, publish- eller
+send-status, ingen cronstart och inga externa verktyg.
 
 ### Miljövariabler
 

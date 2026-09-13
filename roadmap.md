@@ -44,3 +44,5 @@
 - [x] Schemalagd via pg_cron-jobbet noryva-agent-hq-tick (7 * * * *, pg_net + Vault-auth)
 - [x] Pilot readiness: operativ GO/NO-GO, handoff, thresholds och driftvarningar i admin
 - [x] Agent HQ: lätt organisationsöversikt med ägare, Manager, specialister och planerad roll
+## Active
+- [x] Build Agent Boardroom meeting engine and admin UI
