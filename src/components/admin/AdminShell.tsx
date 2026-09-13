@@ -18,7 +18,8 @@ export function AdminShell({ title, children }: { title: string; children: React
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="border-b border-border">
-        <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-5 py-4">
+        <div className="mx-auto flex w-full max-w-[1600px] items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+
           <Link to="/admin" className="flex items-center gap-3">
             <Logo />
           </Link>
@@ -56,7 +57,7 @@ export function AdminShell({ title, children }: { title: string; children: React
 
         </div>
       </header>
-      <main className="mx-auto w-full max-w-5xl px-5 py-10">
+      <main className="mx-auto w-full max-w-[1600px] px-4 py-10 sm:px-6 lg:px-8">
         <h1 className="mb-8 text-2xl font-semibold">{title}</h1>
         {children}
       </main>
