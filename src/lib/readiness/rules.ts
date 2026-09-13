@@ -77,6 +77,10 @@ export type ReadinessFacts = {
     total: number;
     pending: number;
     failed: number;
+    /** Pending äldre än `leadPendingWarnMinutes`. */
+    pendingOverWarn?: number;
+    /** Pending äldre än `leadPendingBlockMinutes`. */
+    pendingOverBlock?: number;
     latest: {
       deliveryStatus: string;
       deliveryError: string;
