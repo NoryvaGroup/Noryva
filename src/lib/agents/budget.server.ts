@@ -22,6 +22,16 @@ import type { RuntimeEnv } from "@/lib/growth/runtime-env";
 
 export type BudgetCtx = { supabase: any };
 
+/** Admin-klient laddas först vid behov (server-only, aldrig i klientbundlen). */
+async function adminClient(): Promise<any | null> {
+  try {
+    const mod: any = await import("@/integrations/supabase/client.server");
+    return mod?.supabaseAdmin ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export type Reservation =
   | { ok: true; runId: string; reservedCostSek: number; state: "ok" }
   | { ok: false; runId: ""; state: BudgetState; reason: string };
