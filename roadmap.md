@@ -42,3 +42,5 @@
 - [x] Agent HQ v2: konservativt autonomt läge (1 körning/tick, 1 Manager-kickoff/dygn, max 2/dygn och 60/månad, allt REVIEW)
 - [x] Agent HQ v2: verifierad E2E Manager → delegerad specialistuppgift → separat specialistkörning, inga externa effekter
 - [x] Schemalagd via pg_cron-jobbet noryva-agent-hq-tick (7 * * * *, pg_net + Vault-auth)
+- [x] Pilot readiness: operativ GO/NO-GO, handoff, thresholds och driftvarningar i admin
+- [x] Agent HQ: lätt organisationsöversikt med ägare, Manager, specialister och planerad roll

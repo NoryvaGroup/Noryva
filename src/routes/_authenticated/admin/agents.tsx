@@ -72,6 +72,11 @@ const ACTIVE_ROLES: { key: ActiveAgentV1; description: string }[] = SPECIALIST_A
   (key) => ({ key, description: AGENT_ROLE_CONFIG[key].description }),
 );
 
+const PLANNED_ROLE = {
+  label: "Strategy & Innovation",
+  description: "Affärsutveckling, nya produkter, marknader och strategiska möjligheter",
+};
+
 
 
 type LlmMetaRow = {
@@ -291,6 +296,12 @@ function AgentHqPage() {
   const tasks = (data?.tasks ?? []) as unknown as TaskRow[];
   const visibleTasks = filter === "all" ? tasks : tasks.filter((t) => t.status === filter);
   const reviews = tasks.filter((t) => t.requires_approval && t.approval_status === "pending");
+  const roleStatus = (role: ActiveAgentV1) => {
+    const task = tasks.find((item) => item.assigned_agent === role);
+    return task?.run_status || task?.status || "Ingen aktuell körning";
+  };
+  const runsToday = (role: ActiveAgentV1) =>
+    budget.data?.snapshot.autonomousRunsTodayByRole?.[role] ?? 0;
 
   return (
     <AdminShell title="Noryva Agent HQ">
@@ -365,25 +376,68 @@ function AgentHqPage() {
         </section>
 
         <section>
-          <h2 className="mb-3 text-lg font-semibold">Roller</h2>
-          <div className="rounded-xl border-2 border-primary/50 bg-card p-5">
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="text-base font-semibold">{AGENT_LABEL[MANAGER.key]}</span>
-              <Badge>{MANAGER.role}</Badge>
+          <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <p className="text-xs font-medium uppercase text-muted-foreground">Organisation</p>
+              <h2 className="text-lg font-semibold">Agentteam</h2>
             </div>
-            <p className="mt-2 text-sm text-muted-foreground">{MANAGER.description}</p>
+            <div className="text-right">
+              <p className="text-xs text-muted-foreground">Ägare</p>
+              <p className="font-medium">Noryva</p>
+            </div>
           </div>
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            {ACTIVE_ROLES.map((s) => (
-              <div key={s.key} className="rounded-xl border border-border bg-card p-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium">{AGENT_LABEL[s.key]}</span>
-                  <Badge>Aktiv intern roll</Badge>
+          <div className="rounded-xl border-2 border-primary/50 bg-card p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-semibold">{AGENT_LABEL[MANAGER.key]}</span>
+                <Badge>{MANAGER.role}</Badge>
+              </div>
+              <span className="text-xs text-muted-foreground">
+                {roleStatus(MANAGER.key)} · {runsToday(MANAGER.key)} körningar idag
+              </span>
+            </div>
+            <p className="mt-2 text-sm text-muted-foreground">{AGENT_ROLE_CONFIG[MANAGER.key].description}</p>
+          </div>
+
+          <div className="mx-auto h-4 w-px bg-border" aria-hidden />
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            {ACTIVE_ROLES.map((role) => (
+              <div key={role.key} className="rounded-xl border border-border bg-card p-4">
+                <div className="flex min-h-12 flex-col gap-1">
+                  <span className="font-medium">{AGENT_LABEL[role.key]}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {roleStatus(role.key)} · {runsToday(role.key)} körningar idag
+                  </span>
                 </div>
-                <p className="mt-1.5 text-sm text-muted-foreground">{s.description}</p>
+                <p className="mt-2 text-sm text-muted-foreground">{role.description}</p>
               </div>
             ))}
+          </div>
+
+          <div className="mt-3 max-w-md rounded-xl border border-dashed border-border bg-card p-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-medium">{PLANNED_ROLE.label}</span>
+              <Badge variant="outline">PLANERAD / INTE AKTIV</Badge>
+            </div>
+            <p className="mt-1.5 text-sm text-muted-foreground">{PLANNED_ROLE.description}</p>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+            <div>
+              <h3 className="text-sm font-semibold">Möten &amp; samarbete</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Manager kan orkestrera specialistgranskningar. Produktionsåtgärder kräver fortfarande godkännande.
+              </p>
+            </div>
+            <a
+              href="https://docs.google.com/spreadsheets/d/1BdlkE4bJO7fyRkdJFaIYHNzhXYYG6fgaLiwFyHqkRak/edit"
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-full border border-border px-3 py-2 text-sm font-medium"
+            >
+              Öppna möteslogg
+            </a>
           </div>
         </section>
 
