@@ -1,0 +1,1 @@
+ALTER TABLE public.agent_meetings ADD COLUMN max_specialists integer NOT NULL DEFAULT 3 CHECK (max_specialists BETWEEN 2 AND 4);

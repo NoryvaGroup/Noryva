@@ -178,6 +178,7 @@ export type Database = {
           expected_effect: string
           final_summary: string
           id: string
+          max_specialists: number
           meeting_type: string
           needs_cross_review: boolean | null
           recommendation: string
@@ -201,6 +202,7 @@ export type Database = {
           expected_effect?: string
           final_summary?: string
           id?: string
+          max_specialists?: number
           meeting_type: string
           needs_cross_review?: boolean | null
           recommendation?: string
@@ -224,6 +226,7 @@ export type Database = {
           expected_effect?: string
           final_summary?: string
           id?: string
+          max_specialists?: number
           meeting_type?: string
           needs_cross_review?: boolean | null
           recommendation?: string
