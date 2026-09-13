@@ -182,6 +182,16 @@ export const listPilotReadiness = createServerFn({ method: "GET" })
               total: leadRows.length,
               pending: leadRows.filter((l: any) => l.delivery_status === "pending").length,
               failed: leadRows.filter((l: any) => l.delivery_status === "failed").length,
+              pendingOverWarn: leadRows.filter(
+                (l: any) =>
+                  l.delivery_status === "pending" &&
+                  olderThan(l.created_at, THRESHOLDS.leadPendingWarnMinutes),
+              ).length,
+              pendingOverBlock: leadRows.filter(
+                (l: any) =>
+                  l.delivery_status === "pending" &&
+                  olderThan(l.created_at, THRESHOLDS.leadPendingBlockMinutes),
+              ).length,
               latest: latestLead
                 ? {
                     deliveryStatus: String(latestLead.delivery_status ?? ""),
