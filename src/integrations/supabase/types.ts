@@ -168,6 +168,7 @@ export type Database = {
           agenda: string
           alternatives: Json
           approval_status: string
+          claimed_at: string | null
           completed_at: string | null
           created_at: string
           created_by: string
@@ -181,6 +182,7 @@ export type Database = {
           max_specialists: number
           meeting_type: string
           needs_cross_review: boolean | null
+          processing_token: string | null
           recommendation: string
           risk_level: string
           selected_roles: string[]
@@ -192,6 +194,7 @@ export type Database = {
           agenda: string
           alternatives?: Json
           approval_status?: string
+          claimed_at?: string | null
           completed_at?: string | null
           created_at?: string
           created_by: string
@@ -205,6 +208,7 @@ export type Database = {
           max_specialists?: number
           meeting_type: string
           needs_cross_review?: boolean | null
+          processing_token?: string | null
           recommendation?: string
           risk_level?: string
           selected_roles?: string[]
@@ -216,6 +220,7 @@ export type Database = {
           agenda?: string
           alternatives?: Json
           approval_status?: string
+          claimed_at?: string | null
           completed_at?: string | null
           created_at?: string
           created_by?: string
@@ -229,6 +234,7 @@ export type Database = {
           max_specialists?: number
           meeting_type?: string
           needs_cross_review?: boolean | null
+          processing_token?: string | null
           recommendation?: string
           risk_level?: string
           selected_roles?: string[]
@@ -1962,6 +1968,10 @@ export type Database = {
       claim_agent_meeting_step: {
         Args: { p_expected_status: string; p_meeting_id: string }
         Returns: boolean
+      }
+      claim_agent_meeting_turn: {
+        Args: { p_expected_status: string; p_meeting_id: string }
+        Returns: string
       }
       claim_growth_analysis: {
         Args: { p_analysis_version: string; p_lead_id: string }
