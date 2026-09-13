@@ -244,7 +244,8 @@ export async function advanceMeetingCore(ctx: BoardroomContext, meetingId: strin
         instructions: taskInstructions(turn.role, meeting.agenda, turn.messageType),
         input: meetingPrompt(meeting, turn, messages),
       },
-      ctx.harness ?? {},
+      // Boardroom-svar är längre än vanliga tasks; ge polling mer tid.
+      { timeoutMs: 180_000, ...(ctx.harness ?? {}) },
     );
     providerRunId = run.providerRunId;
     providerAgentId = run.providerAgentId;
