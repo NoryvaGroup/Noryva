@@ -256,6 +256,12 @@ export function AgentBoardroom() {
                   <Play />{selected.status === "draft" ? "Starta kickoff" : selected.status === "paused_budget" ? "Försök igen" : "Kör nästa steg"}
                 </Button>
               ) : null}
+              {canDecide ? (
+                <div className="flex gap-2">
+                  <Button size="sm" disabled={decideMutation.isPending} onClick={() => decideMutation.mutate("approved")}>Godkänn</Button>
+                  <Button size="sm" variant="outline" disabled={decideMutation.isPending} onClick={() => decideMutation.mutate("rejected")}>Avvisa</Button>
+                </div>
+              ) : null}
             </div>
 
             {selected.error ? <p className="mt-3 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{selected.error}</p> : null}
