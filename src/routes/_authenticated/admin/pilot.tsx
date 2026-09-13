@@ -5,6 +5,8 @@ import { useMemo, useState } from "react";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { listPilotReadiness } from "@/lib/readiness.functions";
 import {
+  type GoNoGoSummary,
+  type Handoff,
   ONBOARDING_STEPS,
   READINESS_LABEL,
   THRESHOLDS,
@@ -90,6 +92,79 @@ function OnboardingSequence({ checks }: { checks: ReadinessCheck[] }) {
         );
       })}
     </ol>
+  );
+}
+
+function CompactIssueList({ items, empty }: { items: ReadinessCheck[]; empty: string }) {
+  if (items.length === 0) return <p className="text-xs text-muted-foreground">{empty}</p>;
+  return (
+    <ul className="space-y-1.5">
+      {items.map((item) => (
+        <li key={item.id} className="flex gap-2 text-xs">
+          <span className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${LEVEL_DOT[item.level]}`} aria-hidden />
+          <span>
+            <span className="font-medium">{item.label}:</span>{" "}
+            <span className="text-muted-foreground">{item.detail}</span>
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function GoNoGoPanel({ summary }: { summary: GoNoGoSummary }) {
+  return (
+    <section className="mb-5 border-y border-border py-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="text-xs font-medium uppercase text-muted-foreground">GO / NO-GO</p>
+          <h3 className="text-lg font-semibold">{summary.go ? "GO för kärnflödet" : "NO-GO för kärnflödet"}</h3>
+        </div>
+        <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${summary.go ? STATUS_STYLE.full_ready : STATUS_STYLE.no_go}`}>
+          {summary.go ? "GO" : "NO-GO"}
+        </span>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div>
+          <h4 className="mb-2 text-xs font-semibold">Blockerar CORE READY</h4>
+          <CompactIssueList items={summary.coreBlockers} empty="Inga kärnblockerare." />
+        </div>
+        <div>
+          <h4 className="mb-2 text-xs font-semibold">Blockerar FULL READY</h4>
+          <CompactIssueList items={summary.fullBlockers} empty="Inga full-blockerare." />
+        </div>
+        <div>
+          <h4 className="mb-2 text-xs font-semibold">Varningar</h4>
+          <CompactIssueList items={summary.warnings} empty="Inga varningar." />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function PilotHandoff({ handoff, customerId }: { handoff: Handoff; customerId: string }) {
+  return (
+    <section className="mb-5 grid gap-4 border-b border-border pb-5 sm:grid-cols-3">
+      <div>
+        <h3 className="mb-2 text-xs font-semibold uppercase text-muted-foreground">Klart</h3>
+        <p className="text-sm">{handoff.done.length ? handoff.done.join(" · ") : "Inget verifierat ännu."}</p>
+      </div>
+      <div>
+        <h3 className="mb-2 text-xs font-semibold uppercase text-muted-foreground">Återstår</h3>
+        <p className="text-sm">{handoff.remaining.length ? handoff.remaining.join(" · ") : "Inget återstår."}</p>
+      </div>
+      <div>
+        <h3 className="mb-2 text-xs font-semibold uppercase text-muted-foreground">Nästa säkra åtgärd</h3>
+        <p className="text-sm">{handoff.nextAction || "Kunden är redo enligt samtliga kontroller."}</p>
+        <Link
+          to="/admin/$customerId"
+          params={{ customerId }}
+          className="mt-3 inline-block rounded-full border border-border px-3 py-1.5 text-xs font-medium"
+        >
+          Öppna kundvyn
+        </Link>
+      </div>
+    </section>
   );
 }
 
@@ -213,18 +288,13 @@ function PilotReadiness() {
                   {open && (
                     <div className="border-t border-border px-5 py-4">
                       <OnboardingSequence checks={row.checks} />
+                       <GoNoGoPanel summary={row.summary} />
+                       <PilotHandoff handoff={row.handoff} customerId={row.customer.id} />
                       <ul>
                         {row.checks.map((check) => (
                           <CheckRow key={check.id} check={check} />
                         ))}
                       </ul>
-                      <Link
-                        to="/admin/$customerId"
-                        params={{ customerId: row.customer.id }}
-                        className="mt-4 inline-block rounded-full border border-border px-4 py-2 text-sm"
-                      >
-                        Öppna kundvyn
-                      </Link>
                     </div>
                   )}
                 </li>

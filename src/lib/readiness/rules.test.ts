@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   evaluateReadiness,
+  buildHandoff,
   isTestCustomer,
   ONBOARDING_STEPS,
   stepLevel,
+  summarizeGoNoGo,
+  THRESHOLDS,
   type ReadinessFacts,
 } from "./rules";
 
@@ -131,5 +134,64 @@ describe("readiness-status", () => {
     expect(stepLevel(r.checks, delivery.checks)).toBe("fail");
     const golive = ONBOARDING_STEPS.find((s) => s.key === "golive")!;
     expect(stepLevel(r.checks, golive.checks)).toBe("ok");
+  });
+
+  it("växlar från varning till blockerande vid väntande lead-threshold", () => {
+    const warning = evaluateReadiness(
+      facts({ leads: { total: 1, pending: 1, failed: 0, pendingOverWarn: 1, pendingOverBlock: 0, latest: null } }),
+    );
+    expect(THRESHOLDS.leadPendingWarnMinutes).toBe(30);
+    expect(warning.status).toBe("review");
+    expect(warning.checks.find((c) => c.id === "delivery")?.level).toBe("warn");
+
+    const blocked = evaluateReadiness(
+      facts({ leads: { total: 1, pending: 1, failed: 0, pendingOverWarn: 1, pendingOverBlock: 1, latest: null } }),
+    );
+    expect(THRESHOLDS.leadPendingBlockMinutes).toBe(120);
+    expect(blocked.status).toBe("no_go");
+    expect(blocked.checks.find((c) => c.id === "delivery")?.level).toBe("fail");
+  });
+
+  it("separerar core-blockerare, full-blockerare och varningar", () => {
+    const result = evaluateReadiness(
+      facts({
+        customer: { ...facts().customer, recipientEmail: "" },
+        mailChannel: {
+          configured: true,
+          verified: false,
+          status: "draft",
+          senderEmail: "a@b.se",
+          replyToEmail: "a@b.se",
+          verifiedAt: null,
+        },
+        nurture: { pending: 1, approved: 0, stuck: 0, failed: 0 },
+      }),
+    );
+    const summary = summarizeGoNoGo(result);
+    expect(summary.go).toBe(false);
+    expect(summary.coreBlockers.map((c) => c.id)).toContain("recipient");
+    expect(summary.fullBlockers.map((c) => c.id)).toContain("mail");
+    expect(summary.warnings.map((c) => c.id)).toContain("nurture");
+  });
+
+  it("bygger handoff med tidigaste säkra kärnåtgärd", () => {
+    const result = evaluateReadiness(
+      facts({ customer: { ...facts().customer, deliveryWebhookUrl: "", recipientEmail: "" } }),
+    );
+    const handoff = buildHandoff(result);
+    expect(handoff.done).toContain("Kundprofil");
+    expect(handoff.remaining.some((item) => item.startsWith("Leveransadress"))).toBe(true);
+    expect(handoff.nextActionCheckId).toBe("webhook");
+  });
+
+  it("klassar testdata konservativt utan att filtrera bort skarpa kunder", () => {
+    const customers = [
+      facts().customer,
+      { ...facts().customer, id: "22222222-2222-4222-8222-222222222222", slug: "demo-kund" },
+      { ...facts().customer, id: "33333333-3333-4333-8333-333333333333", status: "draft" },
+    ];
+    expect(customers.filter((customer) => !isTestCustomer(customer)).map((customer) => customer.id)).toEqual([
+      facts().customer.id,
+    ]);
   });
 });
