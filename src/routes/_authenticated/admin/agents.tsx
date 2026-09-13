@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { AdminShell } from "@/components/admin/AdminShell";
+import { AgentBoardroom } from "@/components/admin/AgentBoardroom";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -423,22 +424,7 @@ function AgentHqPage() {
             <p className="mt-1.5 text-sm text-muted-foreground">{PLANNED_ROLE.description}</p>
           </div>
 
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-            <div>
-              <h3 className="text-sm font-semibold">Möten &amp; samarbete</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Manager kan orkestrera specialistgranskningar. Produktionsåtgärder kräver fortfarande godkännande.
-              </p>
-            </div>
-            <a
-              href="https://docs.google.com/spreadsheets/d/1BdlkE4bJO7fyRkdJFaIYHNzhXYYG6fgaLiwFyHqkRak/edit"
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-full border border-border px-3 py-2 text-sm font-medium"
-            >
-              Öppna möteslogg
-            </a>
-          </div>
+          <AgentBoardroom />
         </section>
 
         <section className="rounded-xl border border-border bg-card p-4">
