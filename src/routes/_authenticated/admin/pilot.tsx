@@ -7,6 +7,7 @@ import { listPilotReadiness } from "@/lib/readiness.functions";
 import {
   ONBOARDING_STEPS,
   READINESS_LABEL,
+  THRESHOLDS,
   stepLevel,
   type CheckLevel,
   type ReadinessCheck,
