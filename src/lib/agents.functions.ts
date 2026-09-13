@@ -197,6 +197,46 @@ export const advanceAgentMeeting = createServerFn({ method: "POST" })
     return advanceMeetingCore({ ...ctx, harness: { request: getRequest() } }, data.meetingId);
   });
 
+const meetingDecisionInput = z.object({
+  meetingId: z.string().uuid(),
+  decision: z.enum(["approved", "rejected"]),
+});
+
+/**
+ * Mänskligt beslut om ett mötes slutsats. Ändrar ENDAST intern
+ * approval-/mötesstatus – aldrig någon extern effekt eller agentkörning.
+ */
+export const decideAgentMeeting = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => meetingDecisionInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const ctx = context as AdminContext;
+    await assertAdmin(ctx);
+    const { data: meeting, error: readError } = await ctx.supabase
+      .from("agent_meetings")
+      .select("id, status, approval_status")
+      .eq("id", data.meetingId)
+      .maybeSingle();
+    if (readError) throw new Error(readError.message);
+    if (!meeting) throw new Error("Mötet hittades inte.");
+    if (meeting.status !== "awaiting_approval" || meeting.approval_status !== "pending") {
+      throw new Error("Mötet väntar inte på godkännande.");
+    }
+    const { error } = await ctx.supabase
+      .from("agent_meetings")
+      .update({
+        approval_status: data.decision,
+        status: "completed",
+        completed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", data.meetingId)
+      .eq("status", "awaiting_approval")
+      .eq("approval_status", "pending");
+    if (error) throw new Error(error.message);
+    return { ok: true as const, decision: data.decision, status: "completed" as const, externalEffect: false as const };
+  });
+
 /* ---------------------------------------------- orchestrator (legacy) */
 
 
