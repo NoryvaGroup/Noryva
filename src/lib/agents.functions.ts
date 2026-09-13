@@ -18,6 +18,7 @@ import {
   type AgentEvent,
   type TaskStatus,
 } from "@/lib/agents/tasks";
+import { MEETING_TYPES } from "@/lib/agents/boardroom";
 
 type AdminContext = { supabase: any; userId: string };
 
@@ -157,6 +158,43 @@ export const getAgentBudgetStatus = createServerFn({ method: "GET" })
     const config = readBudgetConfig(runtimeEnvFromRequest(getRequest()));
     const snapshot = await readBudgetSnapshot(ctx);
     return { config, snapshot, state: budgetStatusLabel(snapshot, config) };
+  });
+
+/* ---------------------------------------------------- Agent Boardroom */
+
+export const listAgentMeetings = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const ctx = context as AdminContext;
+    await assertAdmin(ctx);
+    const { listMeetingsCore } = await import("@/lib/agents/boardroom.server");
+    return listMeetingsCore(ctx);
+  });
+
+const meetingInput = z.object({
+  agenda: z.string().trim().min(10).max(2000),
+  meetingType: z.enum(MEETING_TYPES),
+  maxSpecialists: z.number().int().min(2).max(4),
+});
+
+export const createAgentMeeting = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => meetingInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const ctx = context as AdminContext;
+    await assertAdmin(ctx);
+    const { createMeetingCore } = await import("@/lib/agents/boardroom.server");
+    return createMeetingCore(ctx, data);
+  });
+
+export const advanceAgentMeeting = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ meetingId: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const ctx = context as AdminContext;
+    await assertAdmin(ctx);
+    const { advanceMeetingCore } = await import("@/lib/agents/boardroom.server");
+    return advanceMeetingCore({ ...ctx, harness: { request: getRequest() } }, data.meetingId);
   });
 
 /* ---------------------------------------------- orchestrator (legacy) */
