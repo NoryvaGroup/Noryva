@@ -45,10 +45,30 @@ export async function reserveAgentRun(
     p_model: modelForRole(input.role),
   });
 
+  let row = (data ?? {}) as Record<string, unknown>;
   if (error) {
-    return { ok: false, runId: "", state: "hard_blocked", reason: "Budgetkontrollen kunde inte göras." };
+    // Endast service_role får köra reservations-RPC:n. Faller tillbaka på
+    // admin-klienten server-side; spärrarna ligger kvar i SQL-funktionen.
+    const admin = await adminClient();
+    if (!admin) {
+      return { ok: false, runId: "", state: "hard_blocked", reason: "Budgetkontrollen kunde inte göras." };
+    }
+    const retry = await admin.rpc("reserve_agent_run", {
+      p_role: input.role,
+      p_task_id: input.taskId,
+      p_run_kind: input.kind,
+      p_reserved_cost_sek: reserved,
+      p_soft_cap_sek: cfg.softCapSek,
+      p_hard_cap_sek: cfg.hardCapSek,
+      p_max_autonomous_runs_day: cfg.maxAutonomousRunsPerDay,
+      p_max_autonomous_runs_month: cfg.maxAutonomousRunsPerMonth,
+      p_model: modelForRole(input.role),
+    });
+    if (retry.error) {
+      return { ok: false, runId: "", state: "hard_blocked", reason: "Budgetkontrollen kunde inte göras." };
+    }
+    row = (retry.data ?? {}) as Record<string, unknown>;
   }
-  const row = (data ?? {}) as Record<string, unknown>;
   if (row["ok"] !== true) {
     return {
       ok: false,
