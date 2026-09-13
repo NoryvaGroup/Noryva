@@ -251,13 +251,14 @@ som execution provider.
 Manuella interna möten lagras i `agent_meetings` och det faktiska transkriptet i
 `agent_meeting_messages`. Högst ett möte är aktivt samtidigt. Flödet är
 `draft -> manager kickoff -> round 1 -> valfri cross-review -> QA/Risk -> manager
-synthesis -> awaiting approval`. Manager väljer 2–4 av de fem aktiva
-specialisterna. Varje anrop kör högst en sparad agentroll och skapar en spårbar
-`agent_tasks`-rad märkt `boardroom_turn`.
+synthesis -> awaiting approval`. Manager väljer 2–5 av de fem aktiva
+specialisterna och ska inte överbegränsa scope. Varje anrop kör högst en sparad
+agentroll och skapar en spårbar `agent_tasks`-rad märkt `boardroom_turn`.
 
 Varje provider-turn reserveras atomiskt i befintliga `agent_run_ledger` via
-`reserve_agent_run`. Boardroom omfattas av 300/500 SEK-taken och samma per-roll-
-och månadstak som autonoma runs. Blockerad reservation ger `paused_budget`; inga
+`reserve_agent_run`. Manuella boardroom-runs omfattas av **hard cap 500 SEK**,
+men INTE av soft cap eller per-roll/månadstaket för autonoma runs (de taken
+gäller `run_kind = 'autonomous'`). Blockerad reservation ger `paused_budget`; inga
 fler steg körs. Underlag kondenseras mellan rundorna och agenda med uppenbar
 e-postadress eller telefonnummer avvisas. Det finns ingen execute-, publish- eller
 send-status, ingen cronstart och inga externa verktyg.
