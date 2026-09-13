@@ -220,6 +220,32 @@ egen explicit körning.
 Legacy: `src/lib/agents/run.server.ts` + `reasoning.server.ts` (Responses API)
 är kvar för de äldre uppgiftstyperna och väljs aldrig för v2-rollerna.
 
+### Mandat: FRIA HJÄRNOR, HÅRDA HÄNDER
+
+Interna agenter har **brett analys- och förbättringsmandat** men **inget
+autonomt exekveringsmandat**.
+
+Fritt (analys/förslag):
+- granska hela Noryva ur sitt specialistperspektiv och ifrågasätta arkitektur,
+  produkt, erbjudande, prismodell, onboarding, sälj, kundresa, kostnader och
+  arbetssätt
+- föreslå nya funktioner, experiment, refactors, effektiviseringar,
+  implementationsplaner/prompts och prioriterade actions
+- lyfta relevanta problem utanför agendans exakta formulering
+- säga emot Manager och andra specialister, jämföra alternativ och rekommendera
+  en tydlig väg
+- cross-review/debatt mellan roller är önskvärt, inte ett undantag. QA/Risk gör
+  slutgranskning men är inte ett kreativt filter: oprövade förslag märks med
+  risk/antagande i stället för att stoppas. QA nekar endast det som bryter mot
+  hårda spärrar.
+
+Hårt spärrat (oförändrat): inga kundmail/SMS/bokningar, inga
+Make-produktionsändringar, ingen publicering/deploy på agentens initiativ, ingen
+ändring av kunddata eller externa system, inget irreversibelt och ingen ökad
+spend utan mänskligt godkännande. `AUTHORITY_EXECUTE_ENABLED = false` och
+`AGENT_EXTERNAL_ACTIONS_ENABLED = false` gäller fortfarande. Astra används inte
+som execution provider.
+
 ### Agentmöten / Boardroom
 
 Manuella interna möten lagras i `agent_meetings` och det faktiska transkriptet i
