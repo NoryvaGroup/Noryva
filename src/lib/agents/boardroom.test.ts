@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_ROUNDS, hasLikelyPii, planNextTurn, validateMeetingInput, type MeetingLike, type MeetingMessage } from "./boardroom";
+import { ACTIVE_MEETING_STATUSES, MAX_ROUNDS, MEETING_STATUSES, budgetPause, hasLikelyPii, isActiveMeetingStatus, parseMeetingOutput, planNextTurn, validateMeetingInput, type MeetingLike, type MeetingMessage } from "./boardroom";
 
 const meeting = (patch: Partial<MeetingLike> = {}): MeetingLike => ({
   agenda: "Bedöm nästa säkra produktprioritering",
@@ -31,6 +31,8 @@ describe("Boardroom state machine", () => {
   it("kräver QA före syntes och har inget execute-state", () => {
     expect(planNextTurn(meeting({ status: "manager_synthesis", selected_roles: ["product_tech", "growth_sales"] }), [])).toBeNull();
     expect(planNextTurn(meeting({ status: "manager_synthesis", selected_roles: ["product_tech", "growth_sales"] }), [msg("qa_risk", "qa_review", 1)])?.nextStatus).toBe("awaiting_approval");
+    expect(MEETING_STATUSES).not.toContain("execute");
+    expect(MEETING_STATUSES).not.toContain("published");
   });
 
   it("stoppar över fyra specialister och PII", () => {
@@ -40,5 +42,25 @@ describe("Boardroom state machine", () => {
 
   it("är idempotent när stegets meddelande redan finns", () => {
     expect(planNextTurn(meeting({ status: "draft" }), [msg("noryva_manager", "kickoff", 1)])).toBeNull();
+  });
+
+  it("pausar fail-safe när budgetspärren stoppar och behåller ett aktivt möte", () => {
+    expect(budgetPause("Hårt kostnadstak")).toEqual({ status: "paused_budget", error: "Hårt kostnadstak" });
+    expect(isActiveMeetingStatus("paused_budget")).toBe(true);
+  });
+
+  it("definierar exakt de statusar som omfattas av ett-aktivt-möte-spärren", () => {
+    expect(ACTIVE_MEETING_STATUSES).toEqual([
+      "draft", "manager_kickoff", "round_1", "cross_review", "qa_review", "manager_synthesis", "paused_budget",
+    ]);
+    expect(isActiveMeetingStatus("awaiting_approval")).toBe(false);
+  });
+
+  it("avvisar duplicerade specialistroller i kickoff", () => {
+    expect(() => parseMeetingOutput("kickoff", JSON.stringify({
+      summary: "En tillräckligt tydlig kickoff",
+      selectedRoles: ["product_tech", "product_tech"],
+      needsCrossReview: false,
+    }))).toThrow();
   });
 });

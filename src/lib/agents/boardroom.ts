@@ -34,6 +34,14 @@ export const ACTIVE_MEETING_STATUSES: MeetingStatus[] = [
 export const MAX_SPECIALISTS = 4;
 export const MAX_ROUNDS = 2;
 
+export function isActiveMeetingStatus(status: MeetingStatus): boolean {
+  return ACTIVE_MEETING_STATUSES.includes(status);
+}
+
+export function budgetPause(reason: string) {
+  return { status: "paused_budget" as const, error: reason || "Budgetspärren stoppade mötet." };
+}
+
 export type MeetingMessage = {
   role: ActiveAgentV1 | "system";
   message_type: "kickoff" | "analysis" | "critique" | "qa_review" | "synthesis" | "system";
@@ -140,7 +148,10 @@ const list = z.array(z.string().trim().min(2).max(1200)).max(8);
 const schemas = {
   kickoff: z.object({
     summary,
-    selectedRoles: z.array(z.enum(SPECIALIST_AGENTS_V1)).min(2).max(MAX_SPECIALISTS),
+    selectedRoles: z.array(z.enum(SPECIALIST_AGENTS_V1)).min(2).max(MAX_SPECIALISTS).refine(
+      (roles) => new Set(roles).size === roles.length,
+      "Specialistrollerna måste vara unika.",
+    ),
     needsCrossReview: z.boolean(),
   }),
   analysis: z.object({ summary, findings: list, recommendations: list }),

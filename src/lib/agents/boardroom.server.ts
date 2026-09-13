@@ -3,6 +3,7 @@ import { readBudgetConfig } from "./budget";
 import { recordAgentRunUsage, reserveAgentRun } from "./budget.server";
 import {
   compactContext,
+  budgetPause,
   meetingPrompt,
   parseMeetingOutput,
   planNextTurn,
@@ -196,6 +197,7 @@ export async function advanceMeetingCore(ctx: BoardroomContext, meetingId: strin
 
   let parsed: Record<string, unknown> | null = null;
   let providerRunId = String(task["provider_run_id"] ?? "");
+  let providerAgentId = "";
   let usage = (task["usage"] ?? {}) as { inputTokens?: number; outputTokens?: number };
   let ledgerId = "";
   let costSek = 0;
@@ -210,7 +212,7 @@ export async function advanceMeetingCore(ctx: BoardroomContext, meetingId: strin
       config: budgetConfig,
     });
     if (!reservation.ok) {
-      await releaseClaim(ctx, meetingId, String(token), { status: "paused_budget", error: reservation.reason });
+      await releaseClaim(ctx, meetingId, String(token), budgetPause(reservation.reason));
       return { ok: false as const, paused: true as const, status: "paused_budget" as const, reason: reservation.reason, externalEffect: false as const };
     }
     ledgerId = reservation.runId;
@@ -234,6 +236,7 @@ export async function advanceMeetingCore(ctx: BoardroomContext, meetingId: strin
       ctx.harness ?? {},
     );
     providerRunId = run.providerRunId;
+    providerAgentId = run.providerAgentId;
     usage = run.usage;
     if (!run.ok) {
       await ctx.supabase.from("agent_tasks").update({ status: "failed", run_status: run.runStatus, provider_run_id: providerRunId, usage }).eq("id", task["id"]);
@@ -252,7 +255,7 @@ export async function advanceMeetingCore(ctx: BoardroomContext, meetingId: strin
     costSek = await recordAgentRunUsage(ctx, { runId: reservation.runId, role: turn.role, status: "completed", inputTokens: usage.inputTokens ?? 0, outputTokens: usage.outputTokens ?? 0, config: budgetConfig });
     await ctx.supabase
       .from("agent_tasks")
-      .update({ status: "awaiting_review", run_status: "completed", provider_run_id: providerRunId, provider_agent_id: "saved_agent", usage, result: { boardroomOutput: parsed, externalEffect: false } })
+      .update({ status: "awaiting_review", run_status: "completed", provider_run_id: providerRunId, provider_agent_id: providerAgentId, usage, result: { boardroomOutput: parsed, externalEffect: false } })
       .eq("id", task["id"]);
   }
 
