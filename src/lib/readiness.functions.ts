@@ -9,11 +9,17 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { rowToMailChannel } from "./growth/mail-channel";
-import { evaluateReadiness, isTestCustomer, type ReadinessFacts } from "./readiness/rules";
+import {
+  buildHandoff,
+  evaluateReadiness,
+  isTestCustomer,
+  operationalIssues,
+  summarizeGoNoGo,
+  THRESHOLDS,
+  type ReadinessFacts,
+} from "./readiness/rules";
 
 type AdminContext = { supabase: any; userId: string };
-
-const STUCK_MINUTES = 30;
 
 async function assertAdmin(context: AdminContext) {
   const { data, error } = await context.supabase.rpc("has_role", {
