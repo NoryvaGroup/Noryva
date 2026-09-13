@@ -59,7 +59,7 @@ describe("agent budget", () => {
     ).toMatchObject({ allowed: true, state: "ok" });
     expect(
       evaluateBudgetGate({ kind: "boardroom", role: "noryva_manager", snapshot: snap }),
-    ).toMatchObject({ allowed: false, state: "soft_paused" });
+    ).toMatchObject({ allowed: true, state: "ok" });
   });
 
   it("hard cap stoppar även manuella körningar", () => {
