@@ -174,7 +174,7 @@ export const listAgentMeetings = createServerFn({ method: "GET" })
 const meetingInput = z.object({
   agenda: z.string().trim().min(10).max(2000),
   meetingType: z.enum(MEETING_TYPES),
-  maxSpecialists: z.number().int().min(2).max(4),
+  maxSpecialists: z.number().int().min(2).max(5),
 });
 
 export const createAgentMeeting = createServerFn({ method: "POST" })

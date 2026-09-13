@@ -174,12 +174,14 @@ export function evaluateBudgetGate(input: {
       reason: "Månadens hårda kostnadstak är nått. Inga nya agentkörningar startas.",
     };
   }
-  if (input.kind === "autonomous" || input.kind === "boardroom") {
+  // Run caps och soft cap gäller ENDAST autonoma körningar. Manuella och
+  // manuellt startade boardroom-körningar begränsas av hard cap (500 SEK).
+  if (input.kind === "autonomous") {
     if (projected > cfg.softCapSek) {
       return {
         allowed: false,
         state: "soft_paused",
-        reason: "Månadens mjuka kostnadstak är nått. Agentkörningar pausas.",
+        reason: "Månadens mjuka kostnadstak är nått. Autonoma körningar pausas.",
       };
     }
     // Dygnstaket gäller PER ROLL: två agenter som kört en gång var blockerar inte varandra.

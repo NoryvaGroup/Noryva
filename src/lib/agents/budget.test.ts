@@ -59,7 +59,7 @@ describe("agent budget", () => {
     ).toMatchObject({ allowed: true, state: "ok" });
     expect(
       evaluateBudgetGate({ kind: "boardroom", role: "noryva_manager", snapshot: snap }),
-    ).toMatchObject({ allowed: false, state: "soft_paused" });
+    ).toMatchObject({ allowed: true, state: "ok" });
   });
 
   it("hard cap stoppar även manuella körningar", () => {
@@ -107,13 +107,21 @@ describe("agent budget", () => {
         snapshot: snapshot({ autonomousRunsTodayByRole: { noryva_manager: 99 } }),
       }),
     ).toMatchObject({ allowed: true });
+    // Manuella boardroom-körningar begränsas av hard cap, inte av run caps.
     expect(
       evaluateBudgetGate({
         kind: "boardroom",
         role: "noryva_manager",
-        snapshot: snapshot({ autonomousRunsMonth: 360 }),
+        snapshot: snapshot({ autonomousRunsMonth: 360, autonomousRunsTodayByRole: { noryva_manager: 99 } }),
       }),
-    ).toMatchObject({ allowed: false, state: "run_capped" });
+    ).toMatchObject({ allowed: true, state: "ok" });
+    expect(
+      evaluateBudgetGate({
+        kind: "boardroom",
+        role: "noryva_manager",
+        snapshot: snapshot({ spentMonthSek: 499.9 }),
+      }),
+    ).toMatchObject({ allowed: false, state: "hard_blocked" });
   });
 
   it("reservationen använder konservativ schablon", () => {

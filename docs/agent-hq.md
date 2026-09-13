@@ -220,18 +220,45 @@ egen explicit körning.
 Legacy: `src/lib/agents/run.server.ts` + `reasoning.server.ts` (Responses API)
 är kvar för de äldre uppgiftstyperna och väljs aldrig för v2-rollerna.
 
+### Mandat: FRIA HJÄRNOR, HÅRDA HÄNDER
+
+Interna agenter har **brett analys- och förbättringsmandat** men **inget
+autonomt exekveringsmandat**.
+
+Fritt (analys/förslag):
+- granska hela Noryva ur sitt specialistperspektiv och ifrågasätta arkitektur,
+  produkt, erbjudande, prismodell, onboarding, sälj, kundresa, kostnader och
+  arbetssätt
+- föreslå nya funktioner, experiment, refactors, effektiviseringar,
+  implementationsplaner/prompts och prioriterade actions
+- lyfta relevanta problem utanför agendans exakta formulering
+- säga emot Manager och andra specialister, jämföra alternativ och rekommendera
+  en tydlig väg
+- cross-review/debatt mellan roller är önskvärt, inte ett undantag. QA/Risk gör
+  slutgranskning men är inte ett kreativt filter: oprövade förslag märks med
+  risk/antagande i stället för att stoppas. QA nekar endast det som bryter mot
+  hårda spärrar.
+
+Hårt spärrat (oförändrat): inga kundmail/SMS/bokningar, inga
+Make-produktionsändringar, ingen publicering/deploy på agentens initiativ, ingen
+ändring av kunddata eller externa system, inget irreversibelt och ingen ökad
+spend utan mänskligt godkännande. `AUTHORITY_EXECUTE_ENABLED = false` och
+`AGENT_EXTERNAL_ACTIONS_ENABLED = false` gäller fortfarande. Astra används inte
+som execution provider.
+
 ### Agentmöten / Boardroom
 
 Manuella interna möten lagras i `agent_meetings` och det faktiska transkriptet i
 `agent_meeting_messages`. Högst ett möte är aktivt samtidigt. Flödet är
 `draft -> manager kickoff -> round 1 -> valfri cross-review -> QA/Risk -> manager
-synthesis -> awaiting approval`. Manager väljer 2–4 av de fem aktiva
-specialisterna. Varje anrop kör högst en sparad agentroll och skapar en spårbar
-`agent_tasks`-rad märkt `boardroom_turn`.
+synthesis -> awaiting approval`. Manager väljer 2–5 av de fem aktiva
+specialisterna och ska inte överbegränsa scope. Varje anrop kör högst en sparad
+agentroll och skapar en spårbar `agent_tasks`-rad märkt `boardroom_turn`.
 
 Varje provider-turn reserveras atomiskt i befintliga `agent_run_ledger` via
-`reserve_agent_run`. Boardroom omfattas av 300/500 SEK-taken och samma per-roll-
-och månadstak som autonoma runs. Blockerad reservation ger `paused_budget`; inga
+`reserve_agent_run`. Manuella boardroom-runs omfattas av **hard cap 500 SEK**,
+men INTE av soft cap eller per-roll/månadstaket för autonoma runs (de taken
+gäller `run_kind = 'autonomous'`). Blockerad reservation ger `paused_budget`; inga
 fler steg körs. Underlag kondenseras mellan rundorna och agenda med uppenbar
 e-postadress eller telefonnummer avvisas. Det finns ingen execute-, publish- eller
 send-status, ingen cronstart och inga externa verktyg.

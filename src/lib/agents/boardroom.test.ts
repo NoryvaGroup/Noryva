@@ -35,8 +35,9 @@ describe("Boardroom state machine", () => {
     expect(MEETING_STATUSES).not.toContain("published");
   });
 
-  it("stoppar över fyra specialister och PII", () => {
-    expect(() => validateMeetingInput({ agenda: "Säker intern strategi utan persondata", maxSpecialists: 5 })).toThrow();
+  it("tillåter upp till fem specialister men stoppar fler och PII", () => {
+    expect(validateMeetingInput({ agenda: "Säker intern strategi utan persondata", maxSpecialists: 5 })).toBeTruthy();
+    expect(() => validateMeetingInput({ agenda: "Säker intern strategi utan persondata", maxSpecialists: 6 })).toThrow();
     expect(hasLikelyPii("Kontakta anna@example.se")).toBe(true);
   });
 
