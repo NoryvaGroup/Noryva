@@ -7,6 +7,7 @@ import { listPilotReadiness } from "@/lib/readiness.functions";
 import {
   ONBOARDING_STEPS,
   READINESS_LABEL,
+  THRESHOLDS,
   stepLevel,
   type CheckLevel,
   type ReadinessCheck,
@@ -109,9 +110,12 @@ function PilotReadiness() {
   const alerts = useMemo(
     () =>
       (data?.customers ?? [])
-        .filter((c) => !c.isTest && c.blocking.length > 0)
-        .flatMap((c) => c.blocking.map((b) => ({ customer: c.customer.name, check: b }))),
-    [data],
+        .filter((c) => showTest || !c.isTest)
+        .filter((c) => c.operational.length > 0)
+        .flatMap((c) =>
+          c.operational.map((b) => ({ customer: c.customer.name, isTest: c.isTest, check: b })),
+        ),
+    [data, showTest],
   );
 
   return (
@@ -131,15 +135,28 @@ function PilotReadiness() {
       {data && (
         <>
           <section className="mb-8 rounded-2xl border border-border bg-card p-5">
-            <h2 className="mb-3 text-sm font-semibold">Driftvarningar</h2>
+            <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="text-sm font-semibold">Driftvarningar</h2>
+              <span className="text-[11px] text-muted-foreground">
+                Leverans: varning efter {THRESHOLDS.leadPendingWarnMinutes} min, blockerande efter{" "}
+                {THRESHOLDS.leadPendingBlockMinutes} min. Fastnat utskick efter{" "}
+                {THRESHOLDS.nurtureClaimedStuckMinutes} min.
+              </span>
+            </div>
             {alerts.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Inga blockerande problem bland skarpa kunder.</p>
+              <p className="text-sm text-muted-foreground">
+                Inga driftproblem bland {showTest ? "visade" : "skarpa"} kunder.
+              </p>
             ) : (
               <ul className="space-y-2">
                 {alerts.map((a, i) => (
                   <li key={i} className="flex flex-wrap items-baseline gap-2 text-sm">
+                    <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${LEVEL_DOT[a.check.level]}`} aria-hidden />
                     <span className="font-medium">{a.customer}</span>
-                    <span className="text-muted-foreground">{a.check.label}:</span>
+                    {a.isTest && <span className="text-[11px] text-muted-foreground">(testdata)</span>}
+                    <span className="text-muted-foreground">
+                      {a.check.label} – {a.check.detail}:
+                    </span>
                     <span>{a.check.nextAction}</span>
                   </li>
                 ))}

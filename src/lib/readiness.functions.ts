@@ -9,11 +9,17 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { rowToMailChannel } from "./growth/mail-channel";
-import { evaluateReadiness, isTestCustomer, type ReadinessFacts } from "./readiness/rules";
+import {
+  buildHandoff,
+  evaluateReadiness,
+  isTestCustomer,
+  operationalIssues,
+  summarizeGoNoGo,
+  THRESHOLDS,
+  type ReadinessFacts,
+} from "./readiness/rules";
 
 type AdminContext = { supabase: any; userId: string };
-
-const STUCK_MINUTES = 30;
 
 async function assertAdmin(context: AdminContext) {
   const { data, error } = await context.supabase.rpc("has_role", {
@@ -176,6 +182,16 @@ export const listPilotReadiness = createServerFn({ method: "GET" })
               total: leadRows.length,
               pending: leadRows.filter((l: any) => l.delivery_status === "pending").length,
               failed: leadRows.filter((l: any) => l.delivery_status === "failed").length,
+              pendingOverWarn: leadRows.filter(
+                (l: any) =>
+                  l.delivery_status === "pending" &&
+                  olderThan(l.created_at, THRESHOLDS.leadPendingWarnMinutes),
+              ).length,
+              pendingOverBlock: leadRows.filter(
+                (l: any) =>
+                  l.delivery_status === "pending" &&
+                  olderThan(l.created_at, THRESHOLDS.leadPendingBlockMinutes),
+              ).length,
               latest: latestLead
                 ? {
                     deliveryStatus: String(latestLead.delivery_status ?? ""),
@@ -191,7 +207,7 @@ export const listPilotReadiness = createServerFn({ method: "GET" })
               pending: nurtureRows.filter((n: any) => n.status === "pending" || n.status === "planned").length,
               approved: nurtureRows.filter((n: any) => n.status === "approved").length,
               stuck: nurtureRows.filter(
-                (n: any) => !n.sent_at && n.status === "claimed" && olderThan(n.claimed_at, STUCK_MINUTES),
+                (n: any) => !n.sent_at && n.status === "claimed" && olderThan(n.claimed_at, THRESHOLDS.nurtureClaimedStuckMinutes),
               ).length,
               failed: nurtureRows.filter((n: any) => n.status === "failed" || n.status === "unknown").length,
             }
@@ -201,7 +217,7 @@ export const listPilotReadiness = createServerFn({ method: "GET" })
               pending: reminderRows.filter((r: any) => r.status === "pending").length,
               failed: reminderRows.filter((r: any) => r.status === "failed" || r.status === "unknown").length,
               stuck: reminderRows.filter(
-                (r: any) => !r.sent_at && r.status === "claimed" && olderThan(r.claimed_at, STUCK_MINUTES),
+                (r: any) => !r.sent_at && r.status === "claimed" && olderThan(r.claimed_at, THRESHOLDS.reminderClaimedStuckMinutes),
               ).length,
               latestStatus: String(reminderRows[0]?.status ?? ""),
             }
@@ -209,7 +225,7 @@ export const listPilotReadiness = createServerFn({ method: "GET" })
         replies: inboundRows
           ? {
               unprocessed: inboundRows.filter(
-                (e: any) => e.status !== "done" && e.status !== "completed" && olderThan(e.created_at, STUCK_MINUTES),
+                (e: any) => e.status !== "done" && e.status !== "completed" && olderThan(e.created_at, THRESHOLDS.inboundUnprocessedMinutes),
               ).length,
             }
           : null,
@@ -233,6 +249,9 @@ export const listPilotReadiness = createServerFn({ method: "GET" })
         checks: result.checks,
         blocking: result.blocking,
         warnings: result.warnings,
+        summary: summarizeGoNoGo(result),
+        handoff: buildHandoff(result),
+        operational: operationalIssues(result),
       };
     });
 
