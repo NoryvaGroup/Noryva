@@ -345,3 +345,39 @@ inget arbete finns eller budget-/run-taken är nådda.
   `awaiting_review`, `externalEffect=false`.
 - `agent_run_ledger` bokförde båda körningarna; snapshot visade 0,60 SEK för
   månaden och 0 autonoma körningar.
+
+## Pilot readiness (kund-onboarding)
+
+Adminvyn `/admin/pilot` är **READ-ONLY** diagnostik: inga mutationer, inga
+externa anrop (mail/SMS/Make), inga provider-runs. Reglerna bor i
+`src/lib/readiness/rules.ts`, datainsamlingen i `src/lib/readiness.functions.ts`
+(`listPilotReadiness`, admin-only via `requireSupabaseAuth` + `has_role`).
+
+Läser: `customers`, `form_questions`, `customer_profiles`,
+`customer_mail_channels`, `leads`, `nurture_reviews`,
+`lead_reminder_deliveries`, `nurture_inbound_events`.
+
+Kontroller, grupp CORE (lead pipeline):
+- `published` – status = published (annars blockerande)
+- `form` – minst 1 fråga (blockerande), minst 1 obligatorisk (varning)
+- `webhook`, `recipient` – måste finnas
+- `profile`, `notify` – kundprofil sparad och minst en notismottagare
+- `delivery` – misslyckade leveranser blockerar, pending/0 leads ger varning
+
+Grupp FULL (nurture/reply-automation):
+- `mail` – mailkanal måste vara verified med avsändare och svarsadress
+- `nurture` – fastnade/misslyckade poster blockerar, kö ger varning
+- `reminders` – misslyckade/fastnade blockerar
+- `replies` – inkomna svar som inte slutförts blockerar
+- `ai`, `mode`, `contacted` – informativa/varningar
+
+Statusregler (`evaluateReadiness`):
+1. CORE har `fail` → **NO-GO**
+2. CORE har `unknown` → **REVIEW** (fail-safe: oläsbar data blir aldrig grönt)
+3. FULL har `fail`/`unknown` → **CORE READY**
+4. Enbart varningar → **REVIEW**
+5. Allt grönt → **FULL READY**
+
+Testdata filtreras från standardvyn när status ≠ published eller när
+slug/namn matchar test/e2e/router/demo/sandbox; visas via "Visa testdata".
+Fastnad = `claimed` utan `sent_at` äldre än 30 minuter.
