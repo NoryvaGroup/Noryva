@@ -40,7 +40,7 @@ export const ROLE_MODEL: Record<BudgetRole, string> = {
   operations_finance: "gpt-5.4-mini",
 };
 
-export type RunKind = "manual" | "autonomous";
+export type RunKind = "manual" | "autonomous" | "boardroom";
 
 export type BudgetConfig = {
   softCapSek: number;
