@@ -31,7 +31,7 @@ export const ACTIVE_MEETING_STATUSES: MeetingStatus[] = [
   "manager_synthesis",
   "paused_budget",
 ];
-export const MAX_SPECIALISTS = 4;
+export const MAX_SPECIALISTS = 5;
 export const MAX_ROUNDS = 2;
 
 export function isActiveMeetingStatus(status: MeetingStatus): boolean {
@@ -90,7 +90,7 @@ export function validateMeetingInput(input: { agenda: string; maxSpecialists: nu
   if (agenda.length < 10 || agenda.length > 2000) throw new Error("Agendan måste vara 10–2000 tecken.");
   if (hasLikelyPii(agenda)) throw new Error("Ta bort e-postadress eller telefonnummer från agendan.");
   if (!Number.isInteger(input.maxSpecialists) || input.maxSpecialists < 2 || input.maxSpecialists > MAX_SPECIALISTS) {
-    throw new Error("Välj mellan 2 och 4 specialister.");
+    throw new Error("Välj mellan 2 och 5 specialister.");
   }
   return agenda;
 }
