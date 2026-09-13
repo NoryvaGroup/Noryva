@@ -109,9 +109,12 @@ function PilotReadiness() {
   const alerts = useMemo(
     () =>
       (data?.customers ?? [])
-        .filter((c) => !c.isTest && c.blocking.length > 0)
-        .flatMap((c) => c.blocking.map((b) => ({ customer: c.customer.name, check: b }))),
-    [data],
+        .filter((c) => showTest || !c.isTest)
+        .filter((c) => c.operational.length > 0)
+        .flatMap((c) =>
+          c.operational.map((b) => ({ customer: c.customer.name, isTest: c.isTest, check: b })),
+        ),
+    [data, showTest],
   );
 
   return (
