@@ -1,0 +1,2 @@
+ALTER TABLE public.agent_run_ledger DROP CONSTRAINT IF EXISTS agent_run_ledger_run_kind_check;
+ALTER TABLE public.agent_run_ledger ADD CONSTRAINT agent_run_ledger_run_kind_check CHECK (run_kind = ANY (ARRAY['manual'::text, 'autonomous'::text, 'boardroom'::text]));

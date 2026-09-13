@@ -168,12 +168,34 @@ const schemas = {
   }),
 };
 
+/** Normaliserar rollnamn ("Product & Tech", "Product/Tech") till interna nycklar. */
+export function normalizeRoleKey(raw: unknown): string {
+  const s = String(raw ?? "").toLowerCase().trim();
+  const slug = s.replace(/[^a-z]+/g, "_").replace(/^_|_$/g, "");
+  const direct = (SPECIALIST_AGENTS_V1 as readonly string[]).find((r) => r === slug);
+  if (direct) return direct;
+  if (slug.includes("product") || slug.includes("tech")) return "product_tech";
+  if (slug.includes("growth") || slug.includes("sales")) return "growth_sales";
+  if (slug.includes("customer")) return "customer_success";
+  if (slug.includes("qa") || slug.includes("risk")) return "qa_risk";
+  if (slug.includes("operation") || slug.includes("finance")) return "operations_finance";
+  return slug;
+}
+
 export function parseMeetingOutput(type: Exclude<MeetingMessage["message_type"], "system">, text: string) {
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
   if (start < 0 || end <= start) throw new Error("Agentens svar innehöll ingen giltig JSON.");
   let value: unknown;
   try { value = JSON.parse(text.slice(start, end + 1)); } catch { throw new Error("Agentens svar kunde inte tolkas som JSON."); }
+  if (type === "kickoff" && value && typeof value === "object") {
+    const v = value as Record<string, unknown>;
+    if (Array.isArray(v["selectedRoles"])) {
+      const unique = Array.from(new Set((v["selectedRoles"] as unknown[]).map(normalizeRoleKey)));
+      v["selectedRoles"] = unique.slice(0, MAX_SPECIALISTS);
+    }
+    if (typeof v["needsCrossReview"] !== "boolean") v["needsCrossReview"] = false;
+  }
   const parsed = schemas[type].safeParse(value);
   if (!parsed.success) throw new Error("Agentens svar matchade inte mötesstegets format.");
   return parsed.data;
@@ -188,7 +210,7 @@ export function meetingPrompt(meeting: MeetingLike, turn: TurnPlan, messages: Me
     "Internt Noryva Boardroom. REVIEW-only. Inga externa åtgärder, delegationer eller nya möten.",
     `Typ: ${meeting.meeting_type}. Agenda: ${meeting.agenda}`,
   ];
-  if (turn.messageType === "kickoff") return [...base, `Välj 2–${meeting.max_specialists} relevanta specialistroller. Kalla inte alla utan skäl.`, 'Svara JSON: {"summary":"kort dekomposition","selectedRoles":["product_tech"],"needsCrossReview":false}'].join("\n");
+  if (turn.messageType === "kickoff") return [...base, `Välj 2–${meeting.max_specialists} relevanta specialistroller. Kalla inte alla utan skäl.`, `Tillåtna rollnycklar (använd exakt dessa strängar): ${SPECIALIST_AGENTS_V1.join(", ")}.`, 'Svara JSON: {"summary":"kort dekomposition","selectedRoles":["product_tech"],"needsCrossReview":false}'].join("\n");
   const context = compactContext(messages);
   if (turn.messageType === "analysis") return [...base, "Analysera självständigt utifrån din sparade roll.", 'Svara JSON: {"summary":"...","findings":["..."],"recommendations":["..."]}'].join("\n");
   if (turn.messageType === "critique") return [...base, "Kondenserade relevanta bidrag:", context, "Gör en enda konstruktiv cross-review.", 'Svara JSON: {"summary":"...","concerns":["..."],"refinements":["..."]}'].join("\n");
