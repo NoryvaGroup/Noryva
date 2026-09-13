@@ -441,3 +441,78 @@ export function stepLevel(checks: ReadinessCheck[], stepKeys: string[]): CheckLe
   if (relevant.some((c) => c.level === "warn")) return "warn";
   return "ok";
 }
+
+// ---------------------------------------------------------------------------
+// Sammanfattningar – all härledning sker från redan beräknade kontroller.
+// ---------------------------------------------------------------------------
+
+export type GoNoGoSummary = {
+  /** Sant endast när kärnflödet är helt grönt. */
+  go: boolean;
+  /** Blockerar CORE READY (fail eller okänt i kärnflödet). */
+  coreBlockers: ReadinessCheck[];
+  /** Blockerar FULL READY men inte kärnflödet. */
+  fullBlockers: ReadinessCheck[];
+  /** Rena varningar, blockerar inget. */
+  warnings: ReadinessCheck[];
+  coreReason: string;
+  fullReason: string;
+};
+
+function reason(items: ReadinessCheck[], okText: string): string {
+  if (items.length === 0) return okText;
+  return items.map((c) => `${c.label}: ${c.detail}`).join(" · ");
+}
+
+export function summarizeGoNoGo(result: ReadinessResult): GoNoGoSummary {
+  const core = result.checks.filter((c) => c.group === "core");
+  const full = result.checks.filter((c) => c.group === "full");
+  const coreBlockers = core.filter((c) => c.level === "fail" || c.level === "unknown");
+  const fullBlockers = full.filter((c) => c.level === "fail" || c.level === "unknown");
+  return {
+    go: result.coreReady,
+    coreBlockers,
+    fullBlockers,
+    warnings: result.checks.filter((c) => c.level === "warn"),
+    coreReason: reason(coreBlockers, "Kärnflödet är komplett."),
+    fullReason: reason(fullBlockers, "Hela automationen är komplett."),
+  };
+}
+
+export type Handoff = {
+  done: string[];
+  remaining: string[];
+  /** Exakt nästa säkra åtgärd, eller tom sträng när inget återstår. */
+  nextAction: string;
+  nextActionCheckId: string;
+};
+
+/** Följer onboarding-sekvensen så nästa åtgärd alltid är den tidigaste luckan. */
+export function buildHandoff(result: ReadinessResult): Handoff {
+  const byId = new Map(result.checks.map((c) => [c.id, c]));
+  const ordered: ReadinessCheck[] = [];
+  for (const step of ONBOARDING_STEPS) {
+    for (const id of step.checks) {
+      const c = byId.get(id);
+      if (c && !ordered.includes(c)) ordered.push(c);
+    }
+  }
+  for (const c of result.checks) if (!ordered.includes(c)) ordered.push(c);
+
+  const done = ordered.filter((c) => c.level === "ok").map((c) => c.label);
+  const open = ordered.filter((c) => c.level !== "ok");
+  const next = open.find((c) => c.group === "core") ?? open[0] ?? null;
+
+  return {
+    done,
+    remaining: open.map((c) => `${c.label} – ${c.detail}`),
+    nextAction: next?.nextAction ?? "",
+    nextActionCheckId: next?.id ?? "",
+  };
+}
+
+/** Driftvarningar: bara verkliga problem, och bara i driftkontrollerna. */
+export function operationalIssues(result: ReadinessResult): ReadinessCheck[] {
+  const ids = OPERATIONAL_CHECK_IDS as readonly string[];
+  return result.checks.filter((c) => ids.includes(c.id) && (c.level === "fail" || c.level === "unknown"));
+}
