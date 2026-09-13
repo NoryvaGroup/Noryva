@@ -8,6 +8,26 @@
 export type CheckLevel = "ok" | "warn" | "fail" | "unknown";
 export type CheckGroup = "core" | "full";
 
+/**
+ * Tidsgränser samlade på ett ställe. Ändra här – aldrig utspritt i UI eller
+ * dataläsning. Alla värden i minuter.
+ */
+export const THRESHOLDS = {
+  /** Lead som ligger kvar som pending längre än detta = varning. */
+  leadPendingWarnMinutes: 30,
+  /** Lead som ligger kvar som pending längre än detta = blockerande. */
+  leadPendingBlockMinutes: 120,
+  /** Nurture-utskick som claimats men inte skickats = fastnat. */
+  nurtureClaimedStuckMinutes: 30,
+  /** Påminnelse som claimats men inte skickats = fastnat. */
+  reminderClaimedStuckMinutes: 30,
+  /** Inkommet svar som inte slutbehandlats = fastnat. */
+  inboundUnprocessedMinutes: 30,
+} as const;
+
+/** Kontroller som räknas som driftövervakning (inte ren onboarding). */
+export const OPERATIONAL_CHECK_IDS = ["delivery", "nurture", "reminders", "replies", "mail"] as const;
+
 export type ReadinessCheck = {
   id: string;
   label: string;
