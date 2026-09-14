@@ -203,6 +203,8 @@ const schemas = {
     // Manager kan internt begära EN riktad komplettering innan slutsats.
     revisionRoles: z.array(z.string().trim().min(2).max(60)).max(MAX_SPECIALISTS).optional(),
     revisionFocus: z.string().trim().max(600).optional(),
+    // Genomförandeplan efter mänskligt godkännande. Valideras i execution-lagret.
+    executionPlan: z.array(z.unknown()).max(6).optional(),
   }),
 };
 
@@ -370,6 +372,7 @@ export function meetingPrompt(meeting: MeetingLike, turn: TurnPlan, messages: Me
     "Gör slutsyntes: tydlig rekommendation, reella alternativ, förväntad effekt, risk, insats och ett konkret nästa steg (gärna en implementationsplan/prompt) som en människa kan godkänna. Föreslå endast – utför inget.",
     BREVITY,
     "Bedöm först om underlaget räcker. Räcker det inte får du EN gång begära riktad komplettering genom att sätta revisionRoles (rollnycklar) och revisionFocus. Lämna dem tomma när du är redo att slutföra.",
-    'Svara JSON: {"summary":"...","recommendation":"...","alternatives":["..."],"expectedEffect":"...","riskLevel":"low|medium|high","estimatedEffort":"...","nextStep":"...","revisionRoles":[],"revisionFocus":""}',
+    "Lägg även en kort executionPlan med högst 5 små uppgifter som kan påbörjas internt EFTER mänskligt godkännande. actionType är internal_analysis, internal_config, code_change, qa_verification eller customer_contact. Allt som innebär kontakt med kund eller lead måste ha requiresCustomerContact=true och utförs aldrig automatiskt.",
+    'Svara JSON: {"summary":"...","recommendation":"...","alternatives":["..."],"expectedEffect":"...","riskLevel":"low|medium|high","estimatedEffort":"...","nextStep":"...","revisionRoles":[],"revisionFocus":"","executionPlan":[{"role":"product_tech","actionType":"internal_analysis","goal":"...","successCriteria":"...","requiresCustomerContact":false,"dependencies":[]}]}',
   ].join("\n");
 }
