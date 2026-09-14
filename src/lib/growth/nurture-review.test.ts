@@ -66,8 +66,16 @@ function makeSupabase() {
         industry: "varuautomater",
         service_area: "Borås",
         status: "published",
+        launch_approved: true,
       },
-      { id: CUST_B, name: "Taklyftet", industry: "tak", service_area: "Göteborg", status: "published" },
+      {
+        id: CUST_B,
+        name: "Taklyftet",
+        industry: "tak",
+        service_area: "Göteborg",
+        status: "published",
+        launch_approved: true,
+      },
     ],
     customer_profiles: [
       {

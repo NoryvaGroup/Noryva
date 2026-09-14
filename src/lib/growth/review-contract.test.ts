@@ -21,6 +21,7 @@ const VERIFIED = rowToMailChannel({
 const base = {
   reviewCustomerId: CUST_A,
   leadCustomerId: CUST_A,
+  launchApproved: true,
   reviewRecipient: "kund@example.com",
   storedLeadRecipient: "Kund@Example.com",
   mailChannel: VERIFIED,
@@ -85,6 +86,23 @@ describe("utskickskontrakt", () => {
   it("lämnar aldrig ut credentials i spärrorsaken", () => {
     const result = evaluateSendContract({ ...base, mailChannel: EMPTY_MAIL_CHANNEL });
     expect(result.reason).not.toMatch(/password|token|key/i);
+  });
+
+  it("spärrar utskick utan explicit launch-godkännande (fail closed)", () => {
+    for (const launchApproved of [false, undefined, null] as (boolean | null | undefined)[]) {
+      const result = evaluateSendContract({ ...base, launchApproved: launchApproved as boolean });
+      expect(result.ok).toBe(false);
+      expect(result.code).toBe("launch_not_approved");
+      expect(result.reason).not.toMatch(/password|token|key/i);
+    }
+  });
+
+  it("släpper igenom när launch är godkänd och övrigt kontrakt är grönt", () => {
+    expect(evaluateSendContract({ ...base, launchApproved: true })).toEqual({
+      ok: true,
+      code: "ok",
+      reason: "",
+    });
   });
 });
 

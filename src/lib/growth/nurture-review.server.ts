@@ -85,9 +85,22 @@ async function checkSendContract(
     ? await readMailChannel(ctx, leadCustomerId)
     : EMPTY_MAIL_CHANNEL;
 
+  // Launch-godkännandet läses ALLTID från den verkliga kunden (leads.customer_id).
+  // Klient/Make kan aldrig styra värdet; saknad kundrad = fail closed.
+  let launchApproved = false;
+  if (leadCustomerId) {
+    const { data: customer } = await ctx.supabase
+      .from("customers")
+      .select("launch_approved")
+      .eq("id", leadCustomerId)
+      .maybeSingle();
+    launchApproved = (customer as Record<string, unknown> | null)?.["launch_approved"] === true;
+  }
+
   const contract = evaluateSendContract({
     reviewCustomerId: input.reviewCustomerId,
     leadCustomerId,
+    launchApproved,
     reviewRecipient: input.reviewRecipient,
     storedLeadRecipient: recipientFromLead((lead as Record<string, unknown> | null)?.["payload"]),
     mailChannel,
