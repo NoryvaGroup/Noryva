@@ -56,14 +56,16 @@ export type BudgetConfig = {
   /** Schablontokens för preflight-reservation innan riktig usage är känd. */
   assumedInputTokens: number;
   assumedOutputTokens: number;
-  /** Normal dagsbudget för SAMTLIGA agentmöten tillsammans. */
+  /** Normal budget PER MÖTE. Ett nytt möte ärver aldrig tidigare mötens kostnad. */
+  boardroomMeetingCapSek: number;
+  /** Defensiv dagsbudget för SAMTLIGA agentmöten tillsammans. */
   boardroomDayCapSek: number;
   /** Defensivt nödstopp per dygn för agentmöten. Kan aldrig höjas via env. */
   boardroomEmergencyDayCapSek: number;
 };
 
 /** Absolut kodtak för boardroomens nödstopp – env kan aldrig höja detta. */
-export const BOARDROOM_EMERGENCY_CEILING_SEK = 15;
+export const BOARDROOM_EMERGENCY_CEILING_SEK = 60;
 
 export const DEFAULT_BUDGET_CONFIG: BudgetConfig = {
   softCapSek: 300,
@@ -76,7 +78,8 @@ export const DEFAULT_BUDGET_CONFIG: BudgetConfig = {
   safetyMargin: 1.25,
   assumedInputTokens: 12_000,
   assumedOutputTokens: 2_000,
-  boardroomDayCapSek: 10,
+  boardroomMeetingCapSek: 10,
+  boardroomDayCapSek: 40,
   boardroomEmergencyDayCapSek: BOARDROOM_EMERGENCY_CEILING_SEK,
 };
 
@@ -112,6 +115,10 @@ export function readBudgetConfig(env: RuntimeEnv = {}): BudgetConfig {
     safetyMargin: Math.max(num(env, "NORYVA_AGENT_COST_SAFETY_MARGIN", d.safetyMargin), 1),
     assumedInputTokens: d.assumedInputTokens,
     assumedOutputTokens: d.assumedOutputTokens,
+    boardroomMeetingCapSek: Math.min(
+      num(env, "NORYVA_BOARDROOM_MEETING_CAP_SEK", d.boardroomMeetingCapSek),
+      boardroomEmergencyDayCapSek,
+    ),
     boardroomDayCapSek: Math.min(
       num(env, "NORYVA_BOARDROOM_DAY_CAP_SEK", d.boardroomDayCapSek),
       boardroomEmergencyDayCapSek,
