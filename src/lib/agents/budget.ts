@@ -115,6 +115,10 @@ export function readBudgetConfig(env: RuntimeEnv = {}): BudgetConfig {
     safetyMargin: Math.max(num(env, "NORYVA_AGENT_COST_SAFETY_MARGIN", d.safetyMargin), 1),
     assumedInputTokens: d.assumedInputTokens,
     assumedOutputTokens: d.assumedOutputTokens,
+    boardroomMeetingCapSek: Math.min(
+      num(env, "NORYVA_BOARDROOM_MEETING_CAP_SEK", d.boardroomMeetingCapSek),
+      boardroomEmergencyDayCapSek,
+    ),
     boardroomDayCapSek: Math.min(
       num(env, "NORYVA_BOARDROOM_DAY_CAP_SEK", d.boardroomDayCapSek),
       boardroomEmergencyDayCapSek,
