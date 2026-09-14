@@ -93,10 +93,8 @@ describe("utskickskontrakt", () => {
       const result = evaluateSendContract({ ...base, launchApproved: launchApproved as boolean });
       expect(result.ok).toBe(false);
       expect(result.code).toBe("launch_not_approved");
-PPTT
-    expect(result.reason).not.toMatch(/password|token|key/i);
-  }
-
+      expect(result.reason).not.toMatch(/password|token|key/i);
+    }
   });
 
   it("släpper igenom när launch är godkänd och övrigt kontrakt är grönt", () => {
