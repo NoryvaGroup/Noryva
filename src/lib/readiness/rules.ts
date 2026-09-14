@@ -92,6 +92,11 @@ export type ReadinessFacts = {
   reminders: { pending: number; failed: number; stuck: number; latestStatus: string } | null;
   replies: { unprocessed: number } | null;
   contacted: { contacted: number; total: number } | null;
+  /**
+   * Uttryckligt launch-godkännande per kund. `null`/saknad = fail closed.
+   * `published` ensamt räcker aldrig för GO.
+   */
+  launchApproval?: { approved: boolean; approvedAt?: string | null } | null;
 };
 
 const TEST_PATTERN = /(test|e2e|router|demo|sandbox)/i;
