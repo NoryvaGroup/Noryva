@@ -123,7 +123,9 @@ async function createOrLoadTurnTask(ctx: BoardroomContext, input: {
       priority: "normal",
       status: "queued",
       instructions: taskInstructions(input.role, input.agenda, input.messageType),
-      requires_approval: true,
+      // Internt mötessteg: valideras av boardroom-schemat och Manager, inte av användaren.
+      // Endast mötets slutliga syntes går till meeting-level approval.
+      requires_approval: false,
       approval_status: "pending",
       source_event: "boardroom_turn",
       idempotency_key: key,
