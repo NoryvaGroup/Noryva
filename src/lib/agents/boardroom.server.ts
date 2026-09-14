@@ -358,7 +358,7 @@ export async function advanceMeetingCore(ctx: BoardroomContext, meetingId: strin
     update["selected_roles"] = selectedRoles;
     update["needs_cross_review"] = parsed["needsCrossReview"];
   }
-  if (turn.messageType === "synthesis") {
+  if (turn.messageType === "synthesis" && !isRevisionRequest) {
     update["final_summary"] = parsed["summary"];
     update["recommendation"] = parsed["recommendation"];
     update["alternatives"] = parsed["alternatives"];
