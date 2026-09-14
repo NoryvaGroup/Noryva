@@ -185,8 +185,6 @@ export function AgentBoardroom() {
             return;
           }
         }
-        stoppedRef.current.add(meetingId);
-        setNotice("Mötet stoppades efter för många interna steg.");
       } catch (error) {
         stoppedRef.current.add(meetingId);
         setNotice((error as Error).message);
