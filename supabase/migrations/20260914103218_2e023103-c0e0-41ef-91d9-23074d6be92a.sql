@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.get_public_landing(text) FROM anon, authenticated;
