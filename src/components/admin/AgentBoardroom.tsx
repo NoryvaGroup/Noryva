@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ExternalLink, Loader2, Play, Plus, Users } from "lucide-react";
+import { Check, ExternalLink, Loader2, Play, Plus, Users } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -85,6 +85,75 @@ const WORKING_LABEL: Partial<Record<MeetingStatus, string>> = {
   qa_review: "QA/Risk granskar",
   manager_synthesis: "Manager sammanställer",
 };
+
+const BOARDROOM_AGENTS: AgentName[] = [
+  "noryva_manager",
+  "product_tech",
+  "growth_sales",
+  "customer_success",
+  "qa_risk",
+  "operations_finance",
+];
+
+const SEAT_POSITION = [
+  "left-1/2 top-0 -translate-x-1/2",
+  "right-0 top-[18%]",
+  "right-[4%] bottom-[3%]",
+  "left-1/2 bottom-0 -translate-x-1/2",
+  "left-[4%] bottom-[3%]",
+  "left-0 top-[18%]",
+];
+
+function currentAgent(status: MeetingStatus, transcript: MessageRow[], selectedRoles: string[]) {
+  if (status === "draft" || status === "manager_kickoff" || status === "manager_synthesis") return "noryva_manager";
+  if (status === "qa_review") return "qa_risk";
+  if (status === "round_1") {
+    return selectedRoles.find((role) => !transcript.some((message) => message.role === role && message.message_type === "analysis"));
+  }
+  if (status === "cross_review") {
+    return selectedRoles.find((role) => !transcript.some((message) => message.role === role && message.message_type === "critique"));
+  }
+  return undefined;
+}
+
+function agentStatus(
+  role: AgentName,
+  activeRole: string | undefined,
+  selected: MeetingRow,
+  transcript: MessageRow[],
+  isWorking: boolean,
+) {
+  if (activeRole === role && isWorking) {
+    if (selected.status === "qa_review" || selected.status === "cross_review") return "granskar";
+    if (selected.status === "manager_synthesis") return "sammanställer";
+    return role === "noryva_manager" ? "arbetar" : "analyserar";
+  }
+  if (transcript.some((message) => message.role === role)) return "klar";
+  if (selected.status === "completed" || selected.status === "awaiting_approval") return "klar";
+  return "väntar";
+}
+
+function AgentAvatar({ active, complete }: { active: boolean; complete: boolean }) {
+  return (
+    <div
+      className={`relative grid size-10 place-items-center rounded-full border bg-card shadow-sm sm:size-12 ${
+        active ? "border-primary ring-4 ring-primary/15" : complete ? "border-primary/35" : "border-border"
+      }`}
+      aria-hidden="true"
+    >
+      {active ? <span className="absolute inset-[-5px] rounded-full border border-primary/35 motion-safe:animate-ping" /> : null}
+      <div className="flex flex-col items-center">
+        <span className="size-3 rounded-full bg-muted-foreground/65 sm:size-3.5" />
+        <span className="mt-0.5 h-2.5 w-6 rounded-t-full bg-muted-foreground/45 sm:h-3 sm:w-7" />
+      </div>
+      {complete ? (
+        <span className="absolute -bottom-1 -right-1 grid size-4 place-items-center rounded-full bg-primary text-primary-foreground">
+          <Check className="size-2.5" />
+        </span>
+      ) : null}
+    </div>
+  );
+}
 
 function readableContent(content: string) {
   try {
@@ -229,6 +298,7 @@ export function AgentBoardroom() {
       (selected.status === "paused_budget" || stoppedRef.current.has(selected.id) || Boolean(selected.error)),
   );
   const canDecide = selected && selected.status === "awaiting_approval" && selected.approval_status === "pending";
+  const activeRole = selected ? currentAgent(selected.status, transcript, selected.selected_roles) : undefined;
 
   return (
     <div className="mt-4 border-t border-border pt-4">
@@ -329,7 +399,7 @@ export function AgentBoardroom() {
         </div>
 
         {selected ? (
-          <div className="rounded-md border border-border bg-card p-4">
+          <div className="min-w-0">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -344,44 +414,98 @@ export function AgentBoardroom() {
                   <Play />Återuppta mötet
                 </Button>
               ) : null}
-              {canDecide ? (
-                <div className="flex gap-2">
-                  <Button size="sm" disabled={decideMutation.isPending} onClick={() => decideMutation.mutate("approved")}>Godkänn</Button>
-                  <Button size="sm" variant="outline" disabled={decideMutation.isPending} onClick={() => decideMutation.mutate("rejected")}>Avvisa</Button>
-                </div>
-              ) : null}
             </div>
 
             {selected.error ? <p className="mt-3 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{selected.error}</p> : null}
-            <ol className="mt-4 space-y-3">
-              {transcript.map((message) => (
-                <li key={message.id} className="border-l-2 border-primary/30 pl-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-semibold">{AGENT_LABEL[message.role as AgentName] ?? "System"}</span>
-                    <Badge variant="outline">{MESSAGE_LABEL[message.message_type] ?? message.message_type}</Badge>
-                    <span className="text-xs text-muted-foreground">Runda {message.round} · {message.input_tokens}/{message.output_tokens} tokens</span>
+
+            <section className="mt-5 overflow-hidden rounded-md border border-border bg-surface">
+              <div className="flex flex-wrap items-center justify-between gap-x-5 gap-y-2 border-b border-border bg-card px-3 py-2.5 text-xs sm:px-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant={statusVariant(selected.status)}>{MEETING_STATUS_LABEL[selected.status]}</Badge>
+                  <span className="text-muted-foreground">{transcript.length} interna bidrag</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                  <span><span className="text-muted-foreground">Aktiv:</span> {activeRole ? AGENT_LABEL[activeRole as AgentName] : "–"}</span>
+                  <span><span className="text-muted-foreground">Kostnad:</span> {Number(selected.estimated_cost_sek).toFixed(2)} kr</span>
+                </div>
+              </div>
+
+              <div className="relative mx-auto aspect-[4/3] w-full max-w-3xl min-w-0 px-2 py-3 sm:aspect-[16/9] sm:px-8 sm:py-4">
+                <div className="absolute left-1/2 top-1/2 h-[38%] w-[48%] -translate-x-1/2 -translate-y-1/2 rotate-[-2deg] rounded-[50%] border border-border bg-card shadow-[var(--shadow-elevated)] sm:h-[46%] sm:w-[55%]">
+                  <div className="absolute inset-[9%] rounded-[50%] border border-border/60 bg-surface-2" />
+                  <div className="absolute inset-0 flex rotate-[2deg] flex-col items-center justify-center px-5 text-center">
+                    <span className="text-[10px] font-semibold uppercase text-muted-foreground sm:text-xs">Noryva Boardroom</span>
+                    <span className="mt-1 hidden max-w-56 text-xs font-medium sm:block">{TYPE_LABEL[selected.meeting_type]} · runda {selected.current_round}/2</span>
                   </div>
-                  <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{readableContent(message.content)}</p>
+                </div>
+
+                {BOARDROOM_AGENTS.map((role, index) => {
+                  const status = agentStatus(role, activeRole, selected, transcript, isWorking);
+                  const active = role === activeRole && isWorking;
+                  const complete = status === "klar";
+                  return (
+                    <div key={role} className={`absolute z-10 flex w-[30%] flex-col items-center text-center sm:w-36 ${SEAT_POSITION[index]}`}>
+                      <AgentAvatar active={active} complete={complete} />
+                      <span className="mt-1 max-w-full text-[10px] font-semibold leading-tight sm:text-xs">{AGENT_LABEL[role]}</span>
+                      <span className={`mt-0.5 text-[9px] leading-none sm:text-[10px] ${active ? "font-semibold text-primary" : "text-muted-foreground"}`}>
+                        {status}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            <div className="mt-6 flex items-center justify-between gap-3 border-b border-border pb-3">
+              <div>
+                <h5 className="font-semibold">Live mötesprotokoll</h5>
+                <p className="text-xs text-muted-foreground">Bidragen visas i den ordning de lämnas.</p>
+              </div>
+              {isWorking ? <Loader2 className="size-4 shrink-0 animate-spin text-primary" aria-label="Mötet arbetar" /> : null}
+            </div>
+            <ol className="relative mt-4 space-y-0 before:absolute before:bottom-4 before:left-[15px] before:top-4 before:w-px before:bg-border sm:before:left-[19px]">
+              {transcript.map((message) => (
+                <li key={message.id} className="relative grid grid-cols-[2rem_minmax(0,1fr)] gap-2 pb-5 sm:grid-cols-[2.5rem_minmax(0,1fr)] sm:gap-3">
+                  <div className="z-10 grid size-8 place-items-center rounded-full border border-border bg-background text-xs font-semibold text-muted-foreground sm:size-10">
+                    {message.sequence}
+                  </div>
+                  <article className="min-w-0 rounded-md border border-border bg-card p-3 shadow-sm">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-semibold">{AGENT_LABEL[message.role as AgentName] ?? "System"}</span>
+                      <Badge variant="outline">{MESSAGE_LABEL[message.message_type] ?? message.message_type}</Badge>
+                      <span className="ml-auto text-xs text-muted-foreground">Runda {message.round}</span>
+                    </div>
+                    <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed text-muted-foreground">{readableContent(message.content)}</p>
+                  </article>
                 </li>
               ))}
-              {transcript.length === 0 ? <li className="text-sm text-muted-foreground">Kickoff har inte körts ännu.</li> : null}
+              {transcript.length === 0 ? <li className="pl-10 text-sm text-muted-foreground sm:pl-12">Kickoff har inte körts ännu.</li> : null}
             </ol>
 
             {selected.final_summary ? (
-              <div className="mt-5 rounded-md border border-primary/30 bg-primary/5 p-4">
+              <section className="mt-2 rounded-md border border-primary/30 bg-primary/5 p-4 sm:p-5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h5 className="font-semibold">Manager slutsats</h5>
+                  <div className="flex items-center gap-2">
+                    <AgentAvatar active={false} complete />
+                    <div><p className="text-xs text-muted-foreground">Noryva Manager</p><h5 className="font-semibold">Slutsats</h5></div>
+                  </div>
                   <Badge>{selected.approval_status === "pending" ? "VÄNTAR GODKÄNNANDE" : selected.approval_status.toUpperCase()}</Badge>
                 </div>
-                <p className="mt-2 text-sm">{selected.final_summary}</p>
-                <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
-                  <div><dt className="text-muted-foreground">Rekommendation</dt><dd>{selected.recommendation}</dd></div>
-                  <div><dt className="text-muted-foreground">Förväntad effekt</dt><dd>{selected.expected_effect}</dd></div>
-                  <div><dt className="text-muted-foreground">Risk</dt><dd>{selected.risk_level}</dd></div>
-                  <div><dt className="text-muted-foreground">Insats</dt><dd>{selected.estimated_effort}</dd></div>
-                  <div><dt className="text-muted-foreground">Uppskattad kostnad</dt><dd>{Number(selected.estimated_cost_sek).toFixed(2)} kr</dd></div>
+                <p className="mt-4 text-sm leading-relaxed">{selected.final_summary}</p>
+                <dl className="mt-4 grid gap-x-6 gap-y-3 border-t border-primary/20 pt-4 text-sm sm:grid-cols-2">
+                  <div><dt className="text-xs text-muted-foreground">Rekommendation</dt><dd className="mt-0.5">{selected.recommendation}</dd></div>
+                  <div><dt className="text-xs text-muted-foreground">Förväntad effekt</dt><dd className="mt-0.5">{selected.expected_effect}</dd></div>
+                  <div><dt className="text-xs text-muted-foreground">Risk</dt><dd className="mt-0.5">{selected.risk_level}</dd></div>
+                  <div><dt className="text-xs text-muted-foreground">Insats</dt><dd className="mt-0.5">{selected.estimated_effort}</dd></div>
+                  <div><dt className="text-xs text-muted-foreground">Uppskattad kostnad</dt><dd className="mt-0.5">{Number(selected.estimated_cost_sek).toFixed(2)} kr</dd></div>
                 </dl>
-              </div>
+                {canDecide ? (
+                  <div className="mt-5 flex flex-wrap justify-end gap-2 border-t border-primary/20 pt-4">
+                    <Button size="sm" disabled={decideMutation.isPending} onClick={() => decideMutation.mutate("approved")}>Godkänn</Button>
+                    <Button size="sm" variant="outline" disabled={decideMutation.isPending} onClick={() => decideMutation.mutate("rejected")}>Avvisa</Button>
+                  </div>
+                ) : null}
+              </section>
             ) : null}
           </div>
         ) : null}
