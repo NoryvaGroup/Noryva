@@ -157,11 +157,13 @@ export function classifyExecutionTask(task: {
     return { providerRun: true, finalStatus: "done", blockedReason: "" };
   }
   if (task.actionType === "code_change") {
-    if (REPO_EXECUTOR_AVAILABLE) return { providerRun: true, finalStatus: "done", blockedReason: "" };
+    // Policybeslut, inte en teknisk begränsning: agenter får aldrig applicera kod
+    // i Lovable/repo automatiskt (kostnad + kontroll). Alltid change-set till människa.
     return {
       providerRun: true,
       finalStatus: "ready_for_repo_executor",
-      blockedReason: "Ingen repo-executor finns. Ändringen levereras som change-set och appliceras inte automatiskt.",
+      blockedReason:
+        "Kodändringar appliceras aldrig automatiskt. Levereras som strukturerat change-set för manuell körning.",
     };
   }
   if (task.actionType === "internal_config") {
