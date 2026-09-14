@@ -291,6 +291,20 @@ export function AgentBoardroom() {
     onError: (error: Error) => setNotice(error.message),
   });
 
+  const cancelMutation = useMutation({
+    mutationFn: () => {
+      if (!selected) return Promise.reject(new Error("Inget möte valt."));
+      // Stoppa den interna autoloopen omedelbart.
+      stoppedRef.current.add(selected.id);
+      return cancel({ data: { meetingId: selected.id } });
+    },
+    onSuccess: async () => {
+      setNotice("Mötet avbröts. Inga fler interna steg körs och du kan starta ett nytt möte.");
+      await queryClient.invalidateQueries({ queryKey: ["agent-meetings"] });
+    },
+    onError: (error: Error) => setNotice(error.message),
+  });
+
   const isWorking = Boolean(selected && running && !TERMINAL_STATUSES.includes(selected.status));
   const canResume = Boolean(
     selected &&
