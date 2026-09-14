@@ -261,14 +261,16 @@ export function meetingPrompt(meeting: MeetingLike, turn: TurnPlan, messages: Me
       ...base,
       `Välj 2–${meeting.max_specialists} relevanta specialistroller. Ta med alla roller som ger verkligt värde, men fyll inte platser utan skäl.`,
       "Begränsa inte scopet i onödan: specialister får bredda analysen till närliggande problem. Sätt needsCrossReview till true när debatt/cross-review mellan rollerna troligen höjer kvaliteten.",
-      `Tillåtna rollnycklar (använd exakt dessa strängar): ${SPECIALIST_AGENTS_V1.join(", ")}.`,
+        `Tillåtna rollnycklar (använd exakt dessa strängar): ${SPECIALIST_AGENTS_V1.join(", ")}.`,
+      BREVITY,
       'Svara JSON: {"summary":"kort dekomposition","selectedRoles":["product_tech"],"needsCrossReview":true}',
     ].join("\n");
   const context = compactContext(messages);
   if (turn.messageType === "analysis")
     return [
       ...base,
-      "Analysera självständigt och djupt utifrån din sparade roll. Ta med grundorsaker, alternativ, tydlig rekommendation och konkreta prioriterade actions. Lyft relevanta problem även om de ligger strax utanför agendan.",
+      "Analysera självständigt utifrån din sparade roll: grundorsak, viktigaste alternativ, tydlig rekommendation och konkreta prioriterade actions. Lyft relevanta problem strax utanför agendan när de är viktiga.",
+      BREVITY,
       'Svara JSON: {"summary":"...","findings":["..."],"recommendations":["..."]}',
     ].join("\n");
   if (turn.messageType === "critique")
@@ -276,7 +278,8 @@ export function meetingPrompt(meeting: MeetingLike, turn: TurnPlan, messages: Me
       ...base,
       "Kondenserade relevanta bidrag:",
       context,
-      "Gör en konstruktiv men rak cross-review. Säg uttryckligen emot där du är oenig, jämför alternativ och skärp förslagen.",
+      "Gör en rak cross-review. Säg uttryckligen emot där du är oenig, jämför alternativ och skärp förslagen. Upprepa inte det andra redan sagt – skriv bara det som ändrar bilden.",
+      BREVITY,
       'Svara JSON: {"summary":"...","concerns":["..."],"refinements":["..."]}',
     ].join("\n");
   if (turn.messageType === "qa_review")
@@ -285,6 +288,7 @@ export function meetingPrompt(meeting: MeetingLike, turn: TurnPlan, messages: Me
       "Kondenserat mötesunderlag:",
       context,
       "Gör explicit risk- och kvalitetsgranskning. Du är inte ett kreativt filter: stoppa inte strategiska eller oprövade förslag – märk dem i stället med risk, antagande och vad som behöver valideras. Neka endast det som bryter mot hårda spärrar (externa effekter, kunddata, irreversibelt, spend utan godkännande).",
+      BREVITY,
       'Svara JSON: {"summary":"...","risks":["..."],"verdict":"pass|concerns|fail","riskLevel":"low|medium|high"}',
     ].join("\n");
   return [
@@ -292,6 +296,7 @@ export function meetingPrompt(meeting: MeetingLike, turn: TurnPlan, messages: Me
     "Kondenserat mötesunderlag inklusive QA:",
     context,
     "Gör slutsyntes: tydlig rekommendation, reella alternativ, förväntad effekt, risk, insats och ett konkret nästa steg (gärna en implementationsplan/prompt) som en människa kan godkänna. Föreslå endast – utför inget.",
+    BREVITY,
     "Bedöm först om underlaget räcker. Räcker det inte får du EN gång begära riktad komplettering genom att sätta revisionRoles (rollnycklar) och revisionFocus. Lämna dem tomma när du är redo att slutföra.",
     'Svara JSON: {"summary":"...","recommendation":"...","alternatives":["..."],"expectedEffect":"...","riskLevel":"low|medium|high","estimatedEffort":"...","nextStep":"...","revisionRoles":[],"revisionFocus":""}',
   ].join("\n");
