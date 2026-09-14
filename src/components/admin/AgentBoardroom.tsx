@@ -177,6 +177,7 @@ export function AgentBoardroom() {
   const createMeeting = useServerFn(createAgentMeeting);
   const advance = useServerFn(advanceAgentMeeting);
   const decide = useServerFn(decideAgentMeeting);
+  const cancel = useServerFn(cancelAgentMeeting);
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [agenda, setAgenda] = useState("");
