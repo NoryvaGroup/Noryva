@@ -124,35 +124,47 @@ describe("agent budget", () => {
     ).toMatchObject({ allowed: false, state: "hard_blocked" });
   });
 
-  it("dagsbudget för agentmöten pausar och nödstoppet blockerar", () => {
+  it("mötesbudget, dagsbudget och nödstopp gäller var för sig", () => {
+    // Aktuellt möte pausar vid 10 kr.
     expect(
       evaluateBudgetGate({
         kind: "boardroom",
         role: "noryva_manager",
-        snapshot: snapshot({ boardroomSpentTodaySek: 10 }),
+        snapshot: snapshot({ boardroomMeetingSpentSek: 10, boardroomSpentTodaySek: 10 }),
       }),
     ).toMatchObject({ allowed: false, state: "soft_paused" });
+    // Ett NYTT möte blockeras inte av tidigare mötens kostnad under dagstaket.
     expect(
       evaluateBudgetGate({
         kind: "boardroom",
         role: "noryva_manager",
-        snapshot: snapshot({ boardroomSpentTodaySek: 15 }),
-      }),
-    ).toMatchObject({ allowed: false, state: "hard_blocked" });
-    expect(
-      evaluateBudgetGate({
-        kind: "boardroom",
-        role: "noryva_manager",
-        snapshot: snapshot({ boardroomSpentTodaySek: 3 }),
+        snapshot: snapshot({ boardroomMeetingSpentSek: 0, boardroomSpentTodaySek: 12 }),
       }),
     ).toMatchObject({ allowed: true, state: "ok" });
-    // Env kan aldrig höja nödstoppet över 15 kr.
+    // Dagsbudget 40 kr stoppar.
+    expect(
+      evaluateBudgetGate({
+        kind: "boardroom",
+        role: "noryva_manager",
+        snapshot: snapshot({ boardroomSpentTodaySek: 40 }),
+      }),
+    ).toMatchObject({ allowed: false, state: "soft_paused" });
+    // Nödstopp 60 kr blockerar hårt.
+    expect(
+      evaluateBudgetGate({
+        kind: "boardroom",
+        role: "noryva_manager",
+        snapshot: snapshot({ boardroomSpentTodaySek: 60 }),
+      }),
+    ).toMatchObject({ allowed: false, state: "hard_blocked" });
+    // Env kan aldrig höja nödstoppet över kodtaket 60 kr.
     const cfg = readBudgetConfig({
-      NORYVA_BOARDROOM_DAY_CAP_SEK: "99",
-      NORYVA_BOARDROOM_EMERGENCY_DAY_CAP_SEK: "99",
+      NORYVA_BOARDROOM_DAY_CAP_SEK: "999",
+      NORYVA_BOARDROOM_EMERGENCY_DAY_CAP_SEK: "999",
     });
-    expect(cfg.boardroomEmergencyDayCapSek).toBe(15);
-    expect(cfg.boardroomDayCapSek).toBe(15);
+    expect(cfg.boardroomEmergencyDayCapSek).toBe(60);
+    expect(cfg.boardroomDayCapSek).toBe(60);
+    expect(cfg.boardroomMeetingCapSek).toBe(10);
   });
 
   it("reservationen använder konservativ schablon", () => {
