@@ -76,6 +76,8 @@ export const DEFAULT_BUDGET_CONFIG: BudgetConfig = {
   safetyMargin: 1.25,
   assumedInputTokens: 12_000,
   assumedOutputTokens: 2_000,
+  boardroomDayCapSek: 10,
+  boardroomEmergencyDayCapSek: BOARDROOM_EMERGENCY_CEILING_SEK,
 };
 
 function num(env: RuntimeEnv, key: string, fallback: number): number {
@@ -105,6 +107,11 @@ export function readBudgetConfig(env: RuntimeEnv = {}): BudgetConfig {
     safetyMargin: Math.max(num(env, "NORYVA_AGENT_COST_SAFETY_MARGIN", d.safetyMargin), 1),
     assumedInputTokens: d.assumedInputTokens,
     assumedOutputTokens: d.assumedOutputTokens,
+    boardroomDayCapSek: Math.min(
+      num(env, "NORYVA_BOARDROOM_DAY_CAP_SEK", d.boardroomDayCapSek),
+      boardroomEmergencyDayCapSek,
+    ),
+    boardroomEmergencyDayCapSek,
   };
 }
 
