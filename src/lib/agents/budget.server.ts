@@ -105,7 +105,9 @@ export async function recordAgentRunUsage(
   if (!input.runId) return 0;
   const cfg = input.config ?? readBudgetConfig();
   const hasUsage = Number(input.inputTokens ?? 0) > 0 || Number(input.outputTokens ?? 0) > 0;
-  // Utan rapporterad usage behålls schablonen (konservativt), även vid fel.
+  // Misslyckade körningar utan rapporterad usage har inte kostat något hos
+  // providern och bokförs som 0 kr – raden finns kvar för spårbarhet.
+  // Lyckade körningar utan usage behåller schablonen (konservativt).
   const cost = hasUsage
     ? Math.max(
         estimateRunCostSek({
@@ -116,7 +118,9 @@ export async function recordAgentRunUsage(
         }),
         0,
       )
-    : reservationCostSek(input.role, cfg);
+    : input.status === "failed"
+      ? 0
+      : reservationCostSek(input.role, cfg);
 
   const patch = {
     // 'failed' räknas inte mot taket, men behålls i loggen för spårbarhet.
