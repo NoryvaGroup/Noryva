@@ -4,9 +4,12 @@ import { recordAgentRunUsage, reserveAgentRun } from "./budget.server";
 import {
   compactContext,
   budgetPause,
+  managerRevisionMessage,
   meetingPrompt,
+  normalizeRoleKey,
   parseMeetingOutput,
   planNextTurn,
+  revisionRoles,
   type MeetingLike,
   type MeetingMessage,
   type MeetingStatus,
@@ -95,8 +98,12 @@ function derivePausedStatus(meeting: MeetingLike, messages: MeetingMessage[]): M
   const selected = meeting.selected_roles;
   const analysed = new Set(messages.filter((m) => m.message_type === "analysis").map((m) => m.role));
   if (selected.some((role) => !analysed.has(role as MeetingMessage["role"]))) return "round_1";
-  if (meeting.needs_cross_review) {
-    const critiqued = new Set(messages.filter((m) => m.message_type === "critique").map((m) => m.role));
+  const critiqued = new Set(messages.filter((m) => m.message_type === "critique").map((m) => m.role));
+  const requested = revisionRoles(messages);
+  if (requested.length && requested.some((role) => !critiqued.has(role as MeetingMessage["role"]))) {
+    return "cross_review";
+  }
+  if (meeting.needs_cross_review && !requested.length) {
     if (selected.some((role) => !critiqued.has(role as MeetingMessage["role"]))) return "cross_review";
   }
   if (!messages.some((m) => m.message_type === "qa_review")) return "qa_review";
