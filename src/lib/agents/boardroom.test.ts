@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { ACTIVE_MEETING_STATUSES, MAX_ROUNDS, MEETING_STATUSES, budgetPause, hasLikelyPii, isActiveMeetingStatus, parseMeetingOutput, planNextTurn, validateMeetingInput, type MeetingLike, type MeetingMessage } from "./boardroom";
+import { buildContextPack, MAX_CONTEXT_PACK_CHARS } from "./context-pack";
+import { ACTIVE_MEETING_STATUSES, MAX_ROUNDS, MEETING_STATUSES, budgetPause, hasLikelyPii, isActiveMeetingStatus, meetingPrompt, parseMeetingOutput, planNextTurn, validateMeetingInput, type MeetingLike, type MeetingMessage } from "./boardroom";
+
 
 const meeting = (patch: Partial<MeetingLike> = {}): MeetingLike => ({
   agenda: "Bedöm nästa säkra produktprioritering",
@@ -82,3 +84,44 @@ describe("Kritikrundans omfattning", () => {
     expect(third).toBeNull();
   });
 });
+
+describe("Robust JSON-tolkning och kontextpaket", () => {
+  const ok = { summary: "En tillräckligt tydlig analys", findings: ["Alfa"], recommendations: ["Beta"] };
+
+  it("tolkar JSON i code fence och med text runtom", () => {
+    expect(parseMeetingOutput("analysis", "```json\n" + JSON.stringify(ok) + "\n```")).toMatchObject(ok);
+    expect(parseMeetingOutput("analysis", `Här kommer svaret:\n${JSON.stringify(ok)}\nTack!`)).toMatchObject(ok);
+  });
+
+  it("reparerar avslutande kommatecken utan nytt provider-anrop", () => {
+    const almost = '{"summary":"En tillräckligt tydlig analys","findings":["Alfa",],"recommendations":["Beta"],}';
+    expect(parseMeetingOutput("analysis", almost)).toMatchObject(ok);
+  });
+
+  it("skiljer tomt svar, text utan JSON och schemafel åt", () => {
+    expect(() => parseMeetingOutput("analysis", "")).toThrow(/tomt svar/);
+    expect(() => parseMeetingOutput("analysis", "Jag hittade inget i workspace.")).toThrow(/endast text utan JSON/);
+    expect(() => parseMeetingOutput("analysis", JSON.stringify({ summary: "kort" }))).toThrow(/summary/);
+  });
+
+  it("ger varje roll ett kompakt kontextpaket som säger att sandboxen är tom", () => {
+    for (const role of ["noryva_manager", "product_tech", "qa_risk", "operations_finance"]) {
+      const pack = buildContextPack(role);
+      expect(pack).toContain("NORYVA KONTEXTPAKET");
+      expect(pack).toMatch(/TOM by design/);
+      expect(pack.length).toBeLessThanOrEqual(MAX_CONTEXT_PACK_CHARS);
+    }
+    expect(buildContextPack("product_tech")).toContain("router.ts");
+  });
+
+  it("skickar kontextpaketet med i varje mötessteg", () => {
+    const prompt = meetingPrompt(
+      meeting({ status: "round_1", selected_roles: ["product_tech"] }),
+      { role: "product_tech", messageType: "analysis", round: 1, nextStatus: "qa_review" },
+      [],
+    );
+    expect(prompt).toContain("NORYVA KONTEXTPAKET");
+    expect(prompt).toContain("Ingen markdown");
+  });
+});
+

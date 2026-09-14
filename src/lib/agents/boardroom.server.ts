@@ -221,9 +221,20 @@ export async function advanceMeetingCore(ctx: BoardroomContext, meetingId: strin
   let usage = (task["usage"] ?? {}) as { inputTokens?: number; outputTokens?: number };
   let ledgerId = "";
   let costSek = 0;
+  const savedRawOutput = String((task["result"] as Record<string, unknown> | null)?.["rawOutput"] ?? "");
   if (task["status"] === "awaiting_review" && task["result"]?.boardroomOutput) {
     parsed = task["result"].boardroomOutput as Record<string, unknown>;
+  } else if (savedRawOutput) {
+    // Redan betald provider-output finns sparad. Tolka om lokalt – aldrig ett
+    // nytt anrop bara för att en tidigare parsning misslyckades.
+    parsed = parseMeetingOutput(turn.messageType, savedRawOutput) as Record<string, unknown>;
+    providerRunId = String(task["provider_run_id"] ?? "");
+    await ctx.supabase
+      .from("agent_tasks")
+      .update({ status: "awaiting_review", run_status: "completed", result: { boardroomOutput: parsed, externalEffect: false } })
+      .eq("id", task["id"]);
   } else {
+
     const budgetConfig = readBudgetConfig(runtimeEnvFromRequest(ctx.harness?.request));
     // Mötesbudget per dygn (normal 10 kr, nödstopp 15 kr) utöver månadstaken.
     const boardroomSpentTodaySek = await readBoardroomSpentTodaySek(ctx, budgetConfig);
@@ -292,7 +303,15 @@ export async function advanceMeetingCore(ctx: BoardroomContext, meetingId: strin
     try {
       parsed = parseMeetingOutput(turn.messageType, run.outputText) as Record<string, unknown>;
     } catch (parseError) {
-      await ctx.supabase.from("agent_tasks").update({ status: "failed", run_status: "failed", provider_run_id: providerRunId, usage }).eq("id", task["id"]);
+      // Spara rå output så steget kan tolkas om utan att betala igen.
+      await ctx.supabase.from("agent_tasks").update({
+        status: "failed",
+        run_status: "failed",
+        provider_run_id: providerRunId,
+        usage,
+        result: { rawOutput: String(run.outputText ?? "").slice(0, 20_000), externalEffect: false },
+      }).eq("id", task["id"]);
+
       await recordAgentRunUsage(ctx, { runId: reservation.runId, role: turn.role, status: "failed", inputTokens: usage.inputTokens ?? 0, outputTokens: usage.outputTokens ?? 0, config: budgetConfig });
       await releaseClaim(ctx, meetingId, String(token), { status: "failed", error: (parseError as Error).message });
       throw parseError;
