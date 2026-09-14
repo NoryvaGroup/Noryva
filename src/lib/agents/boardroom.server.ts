@@ -230,7 +230,11 @@ export async function advanceMeetingCore(ctx: BoardroomContext, meetingId: strin
     const dayGate = evaluateBudgetGate({
       kind: "boardroom",
       role: turn.role,
-      snapshot: { ...EMPTY_SNAPSHOT, boardroomSpentTodaySek },
+      snapshot: {
+        ...EMPTY_SNAPSHOT,
+        boardroomSpentTodaySek,
+        boardroomMeetingSpentSek: Number(rawMeeting.estimated_cost_sek ?? 0) || 0,
+      },
       config: budgetConfig,
     });
     if (!dayGate.allowed) {

@@ -147,9 +147,12 @@ export function planNextTurn(meeting: MeetingLike, messages: MeetingMessage[]): 
     const done = completedRoles(messages, "critique");
     // Har Manager begärt en riktad komplettering körs bara de rollerna.
     const requested = revisionRoles(messages);
-    const pool = requested.length
-      ? selected.filter((candidate) => requested.includes(candidate))
-      : selected;
+    // Kritikrundan körs av högst 2 reviewers – kvalitet utan redundanta körningar.
+    const pool = (
+      requested.length
+        ? selected.filter((candidate) => requested.includes(candidate))
+        : selected
+    ).slice(0, MAX_CROSS_REVIEWERS);
     const role = pool.find((candidate) => !done.has(candidate));
     if (role) {
       const isLast = pool.every((candidate) => candidate === role || done.has(candidate));
