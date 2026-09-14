@@ -115,6 +115,7 @@ export function AgentBoardroom() {
   const [maxSpecialists, setMaxSpecialists] = useState("3");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
+  const [createError, setCreateError] = useState("");
   const [running, setRunning] = useState(false);
   const runningRef = useRef(false);
   const stoppedRef = useRef<Set<string>>(new Set());
@@ -133,15 +134,23 @@ export function AgentBoardroom() {
   );
 
   const createMutation = useMutation({
-    mutationFn: () => createMeeting({ data: { agenda, meetingType, maxSpecialists: Number(maxSpecialists) } }),
+    mutationFn: () => {
+      setCreateError("");
+      return createMeeting({ data: { agenda, meetingType, maxSpecialists: Number(maxSpecialists) } });
+    },
     onSuccess: async (result) => {
       setOpen(false);
       setAgenda("");
+      setCreateError("");
       setSelectedId(result.meetingId);
       setNotice("Mötet skapades i REVIEW. Agenterna börjar arbeta internt.");
       await queryClient.invalidateQueries({ queryKey: ["agent-meetings"] });
     },
-    onError: (error: Error) => setNotice(error.message),
+    // Felet måste synas i dialogen – annars ser knappen död ut.
+    onError: (error: Error) => {
+      setCreateError(error.message || "Mötet kunde inte skapas.");
+      setNotice(error.message);
+    },
   });
 
   /** Kör mötet sekventiellt, ett internt steg i taget, tills det når ett slutläge. */
