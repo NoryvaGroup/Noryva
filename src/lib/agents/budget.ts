@@ -56,7 +56,14 @@ export type BudgetConfig = {
   /** Schablontokens för preflight-reservation innan riktig usage är känd. */
   assumedInputTokens: number;
   assumedOutputTokens: number;
+  /** Normal dagsbudget för SAMTLIGA agentmöten tillsammans. */
+  boardroomDayCapSek: number;
+  /** Defensivt nödstopp per dygn för agentmöten. Kan aldrig höjas via env. */
+  boardroomEmergencyDayCapSek: number;
 };
+
+/** Absolut kodtak för boardroomens nödstopp – env kan aldrig höja detta. */
+export const BOARDROOM_EMERGENCY_CEILING_SEK = 15;
 
 export const DEFAULT_BUDGET_CONFIG: BudgetConfig = {
   softCapSek: 300,
