@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { advanceAgentMeeting, cancelAgentMeeting, createAgentMeeting, decideAgentMeeting, listAgentMeetings } from "@/lib/agents.functions";
-import { MEETING_STATUS_LABEL, type MeetingStatus, type MeetingType } from "@/lib/agents/boardroom";
+import { ACTIVE_MEETING_STATUSES, MEETING_STATUS_LABEL, type MeetingStatus, type MeetingType } from "@/lib/agents/boardroom";
 import { AGENT_LABEL, type AgentName } from "@/lib/agents/tasks";
 
 type MeetingRow = {
