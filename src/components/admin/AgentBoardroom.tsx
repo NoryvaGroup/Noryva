@@ -309,9 +309,9 @@ export function AgentBoardroom() {
                 <h4 className="mt-2 font-semibold">{selected.agenda}</h4>
                 {selected.selected_roles.length ? <p className="mt-1 text-xs text-muted-foreground">{selected.selected_roles.map((role) => AGENT_LABEL[role as AgentName] ?? role).join(" · ")}</p> : null}
               </div>
-              {canAdvance ? (
-                <Button size="sm" disabled={advanceMutation.isPending} onClick={() => advanceMutation.mutate(selected.id)}>
-                  <Play />{selected.status === "draft" ? "Starta kickoff" : selected.status === "paused_budget" ? "Försök igen" : "Kör nästa steg"}
+              {canResume ? (
+                <Button size="sm" onClick={() => void runMeeting(selected.id)}>
+                  <Play />Återuppta mötet
                 </Button>
               ) : null}
               {canDecide ? (
