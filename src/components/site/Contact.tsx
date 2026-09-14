@@ -165,8 +165,14 @@ export function Contact() {
                 </div>
 
                 <div className="sm:col-span-2">
-                  <CtaButton type="submit" className="w-full py-4">
-                    Skicka förfrågan <ArrowRight size={17} />
+                  {sendError && (
+                    <p className="mb-3 text-sm text-destructive">
+                      Något gick fel när förfrågan skulle skickas. Försök igen eller maila
+                      info@noryva.se.
+                    </p>
+                  )}
+                  <CtaButton type="submit" disabled={sending} className="w-full py-4">
+                    {sending ? "Skickar …" : "Skicka förfrågan"} <ArrowRight size={17} />
                   </CtaButton>
                   <p className="mt-4 text-xs text-muted-foreground">
                     Vi använder dina uppgifter endast för att kontakta dig om din förfrågan.
