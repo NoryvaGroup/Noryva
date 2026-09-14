@@ -321,8 +321,11 @@ export function meetingPrompt(meeting: MeetingLike, turn: TurnPlan, messages: Me
   const base = [
     BOARDROOM_MANDATE,
     "Internt Noryva Boardroom. REVIEW-only: inga externa åtgärder, inga delegationer och inga nya möten.",
+    buildContextPack(turn.role),
     `Typ: ${meeting.meeting_type}. Agenda: ${meeting.agenda}`,
+    JSON_RULE,
   ];
+
   if (turn.messageType === "kickoff")
     return [
       ...base,
