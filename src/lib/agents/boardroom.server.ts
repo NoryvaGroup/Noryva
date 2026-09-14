@@ -221,9 +221,20 @@ export async function advanceMeetingCore(ctx: BoardroomContext, meetingId: strin
   let usage = (task["usage"] ?? {}) as { inputTokens?: number; outputTokens?: number };
   let ledgerId = "";
   let costSek = 0;
+  const savedRawOutput = String((task["result"] as Record<string, unknown> | null)?.["rawOutput"] ?? "");
   if (task["status"] === "awaiting_review" && task["result"]?.boardroomOutput) {
     parsed = task["result"].boardroomOutput as Record<string, unknown>;
+  } else if (savedRawOutput) {
+    // Redan betald provider-output finns sparad. Tolka om lokalt – aldrig ett
+    // nytt anrop bara för att en tidigare parsning misslyckades.
+    parsed = parseMeetingOutput(turn.messageType, savedRawOutput) as Record<string, unknown>;
+    providerRunId = String(task["provider_run_id"] ?? "");
+    await ctx.supabase
+      .from("agent_tasks")
+      .update({ status: "awaiting_review", run_status: "completed", result: { boardroomOutput: parsed, externalEffect: false } })
+      .eq("id", task["id"]);
   } else {
+
     const budgetConfig = readBudgetConfig(runtimeEnvFromRequest(ctx.harness?.request));
     // Mötesbudget per dygn (normal 10 kr, nödstopp 15 kr) utöver månadstaken.
     const boardroomSpentTodaySek = await readBoardroomSpentTodaySek(ctx, budgetConfig);
