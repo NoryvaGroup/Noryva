@@ -75,6 +75,17 @@ const MESSAGE_LABEL: Record<string, string> = {
   system: "System",
 };
 
+const TERMINAL_STATUSES: MeetingStatus[] = ["awaiting_approval", "completed", "failed", "paused_budget"];
+
+const WORKING_LABEL: Partial<Record<MeetingStatus, string>> = {
+  draft: "Mötet startar – Manager gör kickoff",
+  manager_kickoff: "Manager väljer specialister",
+  round_1: "Mötet arbetar – specialistanalys",
+  cross_review: "Mötet arbetar – specialisterna granskar varandra",
+  qa_review: "QA/Risk granskar",
+  manager_synthesis: "Manager sammanställer",
+};
+
 function readableContent(content: string) {
   try {
     const parsed = JSON.parse(content) as Record<string, unknown>;
