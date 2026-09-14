@@ -105,7 +105,9 @@ export async function recordAgentRunUsage(
   if (!input.runId) return 0;
   const cfg = input.config ?? readBudgetConfig();
   const hasUsage = Number(input.inputTokens ?? 0) > 0 || Number(input.outputTokens ?? 0) > 0;
-  // Utan rapporterad usage behålls schablonen (konservativt), även vid fel.
+  // Misslyckade körningar utan rapporterad usage har inte kostat något hos
+  // providern och bokförs som 0 kr – raden finns kvar för spårbarhet.
+  // Lyckade körningar utan usage behåller schablonen (konservativt).
   const cost = hasUsage
     ? Math.max(
         estimateRunCostSek({
@@ -116,7 +118,9 @@ export async function recordAgentRunUsage(
         }),
         0,
       )
-    : reservationCostSek(input.role, cfg);
+    : input.status === "failed"
+      ? 0
+      : reservationCostSek(input.role, cfg);
 
   const patch = {
     // 'failed' räknas inte mot taket, men behålls i loggen för spårbarhet.
@@ -142,6 +146,27 @@ export async function recordAgentRunUsage(
  * Fail-safe: kan summan inte läsas returneras nödstoppsnivån så nya
  * mötessteg pausas i stället för att köras okontrollerat.
  */
+/** Reservationer äldre än så här räknas som orphaned och blockerar inte dagen. */
+export const STALE_RESERVATION_MS = 15 * 60 * 1000;
+
+/**
+ * Summerar dagens mötesrader: alla completed, men endast FÄRSKA reservationer.
+ * Gamla hängande reservationer (kraschad körning) får inte äta dagsbudgeten.
+ */
+export function sumBoardroomLedgerRows(
+  rows: Array<{ estimated_cost_sek?: unknown; status?: unknown; created_at?: unknown }>,
+  now: number = Date.now(),
+): number {
+  return rows.reduce((sum, row) => {
+    const cost = Number(row?.estimated_cost_sek ?? 0) || 0;
+    if (String(row?.status ?? "") === "reserved") {
+      const created = Date.parse(String(row?.created_at ?? ""));
+      if (!Number.isFinite(created) || now - created > STALE_RESERVATION_MS) return sum;
+    }
+    return sum + cost;
+  }, 0);
+}
+
 export async function readBoardroomSpentTodaySek(ctx: BudgetCtx, config?: BudgetConfig): Promise<number> {
   const cfg = config ?? readBudgetConfig();
   const since = new Date();
@@ -151,12 +176,12 @@ export async function readBoardroomSpentTodaySek(ctx: BudgetCtx, config?: Budget
     const client = admin ?? ctx.supabase;
     const { data, error } = await client
       .from("agent_run_ledger")
-      .select("estimated_cost_sek")
+      .select("estimated_cost_sek, status, created_at")
       .eq("run_kind", "boardroom")
       .in("status", ["reserved", "completed"])
       .gte("created_at", since.toISOString());
     if (error || !Array.isArray(data)) return cfg.boardroomEmergencyDayCapSek;
-    return data.reduce((sum: number, row: any) => sum + (Number(row?.estimated_cost_sek ?? 0) || 0), 0);
+    return sumBoardroomLedgerRows(data);
   } catch {
     return cfg.boardroomEmergencyDayCapSek;
   }

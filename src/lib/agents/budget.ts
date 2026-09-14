@@ -163,6 +163,8 @@ export type BudgetSnapshot = {
   autonomousRunsMonth: number;
   /** Dagens uppskattade kostnad för SAMTLIGA agentmöten tillsammans. */
   boardroomSpentTodaySek?: number;
+  /** Hittills bokförd kostnad för DET AKTUELLA mötet (normalgränsen). */
+  boardroomMeetingSpentSek?: number;
 };
 
 export const EMPTY_SNAPSHOT: BudgetSnapshot = {
@@ -172,6 +174,7 @@ export const EMPTY_SNAPSHOT: BudgetSnapshot = {
   autonomousRunsTodayByRole: {},
   autonomousRunsMonth: 0,
   boardroomSpentTodaySek: 0,
+  boardroomMeetingSpentSek: 0,
 };
 
 /** Dagens autonoma körningar för en specifik roll. */
@@ -220,7 +223,18 @@ export function evaluateBudgetGate(input: {
       return {
         allowed: false,
         state: "soft_paused",
-        reason: `Dagens mötesbudget ${cfg.boardroomDayCapSek} kr är slut. Mötet pausas till i morgon.`,
+        reason: `Dagens totala mötesbudget ${cfg.boardroomDayCapSek} kr är slut. Nya mötessteg pausas till i morgon.`,
+      };
+    }
+    // Normalgränsen är PER MÖTE: ett nytt möte ärver aldrig tidigare mötens kostnad.
+    const projectedMeeting =
+      Math.max(Number(input.snapshot.boardroomMeetingSpentSek ?? 0) || 0, 0) +
+      reservationCostSek(input.role, cfg);
+    if (projectedMeeting > cfg.boardroomMeetingCapSek) {
+      return {
+        allowed: false,
+        state: "soft_paused",
+        reason: `Mötets egen budget ${cfg.boardroomMeetingCapSek} kr är nått. Mötet pausas – starta ett nytt möte om mer analys behövs.`,
       };
     }
   }
