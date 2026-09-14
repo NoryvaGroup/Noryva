@@ -5,8 +5,8 @@
  * som körs internt. Hårda regler som inte kan kringgås av task-typ eller roll:
  * - All kund-/leadkontakt stannar i AWAITING_HUMAN_APPROVAL. Ingen sändning
  *   byggs här; godkännande ändrar endast intern status.
- * - Kodändringar kan inte appliceras utan en verklig repo-executor. Saknas den
- *   produceras ett strukturerat change-set märkt READY_FOR_REPO_EXECUTOR.
+ * - Kodändringar appliceras ALDRIG automatiskt (policy, inte teknikbrist). De
+ *   levereras alltid som change-set märkt READY_FOR_REPO_EXECUTOR.
  * - Interna konfigurationsändringar kräver en explicit whitelist av säkra
  *   write-paths. Tom whitelist = förslag, aldrig utförande.
  */
