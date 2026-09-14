@@ -218,7 +218,8 @@ export function AgentBoardroom() {
         <div>
           <h3 className="text-sm font-semibold">Möten &amp; samarbete</h3>
           <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-            Strukturerade interna möten med ett agentsteg per klick. Allt stannar i REVIEW och kräver mänsklig granskning.
+            Agenterna arbetar autonomt internt steg för steg och Manager sammanställer resultatet. Du godkänner endast
+            mötets slutsats – ingen extern åtgärd sker automatiskt.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
