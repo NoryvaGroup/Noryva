@@ -465,7 +465,7 @@ export const ONBOARDING_STEPS: { key: string; label: string; checks: string[] }[
   { key: "ai", label: "AI-regler", checks: ["ai", "mode"] },
   { key: "mail", label: "Mailkanal", checks: ["mail"] },
   { key: "testlead", label: "Testlead", checks: ["delivery"] },
-  { key: "golive", label: "GO-LIVE", checks: ["published"] },
+  { key: "golive", label: "GO-LIVE", checks: ["published", "launch"] },
 ];
 
 export function stepLevel(checks: ReadinessCheck[], stepKeys: string[]): CheckLevel {
