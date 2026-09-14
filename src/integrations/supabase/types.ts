@@ -636,6 +636,42 @@ export type Database = {
           },
         ]
       }
+      contact_requests: {
+        Row: {
+          created_at: string
+          epost: string
+          forbattra: string
+          foretag: string
+          hemsida: string | null
+          id: string
+          meddelande: string | null
+          namn: string
+          telefon: string
+        }
+        Insert: {
+          created_at?: string
+          epost: string
+          forbattra: string
+          foretag: string
+          hemsida?: string | null
+          id?: string
+          meddelande?: string | null
+          namn: string
+          telefon: string
+        }
+        Update: {
+          created_at?: string
+          epost?: string
+          forbattra?: string
+          foretag?: string
+          hemsida?: string | null
+          id?: string
+          meddelande?: string | null
+          namn?: string
+          telefon?: string
+        }
+        Relationships: []
+      }
       conversation_messages: {
         Row: {
           action_id: string | null
