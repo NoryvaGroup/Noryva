@@ -171,8 +171,8 @@ export function planNextTurn(meeting: MeetingLike, messages: MeetingMessage[]): 
   return null;
 }
 
-const summary = z.string().trim().min(10).max(4000);
-const list = z.array(z.string().trim().min(2).max(1200)).max(8);
+const summary = z.string().trim().min(10).max(1600);
+const list = z.array(z.string().trim().min(2).max(600)).max(5);
 const schemas = {
   kickoff: z.object({
     summary,
