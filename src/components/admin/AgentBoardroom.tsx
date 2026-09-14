@@ -279,9 +279,12 @@ export function AgentBoardroom() {
                   </Select>
                 </label>
               </div>
+              {createError ? (
+                <p className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{createError}</p>
+              ) : null}
               <DialogFooter>
                 <Button disabled={agenda.trim().length < 10 || createMutation.isPending} onClick={() => createMutation.mutate()}>
-                  Starta i REVIEW
+                  {createMutation.isPending ? <><Loader2 className="animate-spin" />Skapar …</> : "Starta i REVIEW"}
                 </Button>
               </DialogFooter>
             </DialogContent>
