@@ -46,4 +46,4 @@
 - [x] Agent HQ: lätt organisationsöversikt med ägare, Manager, specialister och planerad roll
 ## Active
 - [x] Build Agent Boardroom meeting engine and admin UI
-- [ ] Förtydliga Boardroom-slutsats, godkännande, genomförandestatus och komprimerat protokoll
+- [x] Förtydliga Boardroom-slutsats, godkännande, genomförandestatus och komprimerat protokoll
