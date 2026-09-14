@@ -20,6 +20,7 @@ import {
   executionSourceEvent,
   executionTaskKey,
   executionTaskPrompt,
+  legacyFallbackPlan,
   EXECUTION_PLAN_CONTRACT,
   nextExecutionTask,
   normalizeExecutionPlan,
