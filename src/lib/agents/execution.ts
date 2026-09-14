@@ -5,8 +5,8 @@
  * som körs internt. Hårda regler som inte kan kringgås av task-typ eller roll:
  * - All kund-/leadkontakt stannar i AWAITING_HUMAN_APPROVAL. Ingen sändning
  *   byggs här; godkännande ändrar endast intern status.
- * - Kodändringar kan inte appliceras utan en verklig repo-executor. Saknas den
- *   produceras ett strukturerat change-set märkt READY_FOR_REPO_EXECUTOR.
+ * - Kodändringar appliceras ALDRIG automatiskt (policy, inte teknikbrist). De
+ *   levereras alltid som change-set märkt READY_FOR_REPO_EXECUTOR.
  * - Interna konfigurationsändringar kräver en explicit whitelist av säkra
  *   write-paths. Tom whitelist = förslag, aldrig utförande.
  */
@@ -24,8 +24,12 @@ export const EXECUTION_ACTION_TYPES = [
 ] as const;
 export type ExecutionActionType = (typeof EXECUTION_ACTION_TYPES)[number];
 
-/** Ingen repo-executor finns i Noryva-runtime. Sätts aldrig true utan riktig write-path. */
+/**
+ * Policy: agenter får ALDRIG applicera kod i Lovable/repo automatiskt, även om
+ * en executor skulle vara tekniskt möjlig. Konstanten är låst till false.
+ */
 export const REPO_EXECUTOR_AVAILABLE = false;
+export const CODE_CHANGE_ALWAYS_PROPOSAL = true as const;
 
 /** Explicit whitelist av säkra interna writes. Tom = allt internal_config är proposal-only. */
 export const SAFE_INTERNAL_CONFIG_WRITES: readonly string[] = [];
@@ -157,11 +161,13 @@ export function classifyExecutionTask(task: {
     return { providerRun: true, finalStatus: "done", blockedReason: "" };
   }
   if (task.actionType === "code_change") {
-    if (REPO_EXECUTOR_AVAILABLE) return { providerRun: true, finalStatus: "done", blockedReason: "" };
+    // Policybeslut, inte en teknisk begränsning: agenter får aldrig applicera kod
+    // i Lovable/repo automatiskt (kostnad + kontroll). Alltid change-set till människa.
     return {
       providerRun: true,
       finalStatus: "ready_for_repo_executor",
-      blockedReason: "Ingen repo-executor finns. Ändringen levereras som change-set och appliceras inte automatiskt.",
+      blockedReason:
+        "Kodändringar appliceras aldrig automatiskt. Levereras som strukturerat change-set för manuell körning.",
     };
   }
   if (task.actionType === "internal_config") {
@@ -266,7 +272,7 @@ export function executionTaskPrompt(item: {
     item.successCriteria ? `Klart när: ${item.successCriteria}` : "",
     "Du utför ingen extern åtgärd: inga mail, SMS, bokningar, Make-ändringar, deploy eller kunddataändringar.",
     item.actionType === "code_change"
-      ? "Det finns ingen repo-executor. Leverera ett strukturerat change-set som en människa kan applicera."
+      ? "Du applicerar aldrig kod själv. Leverera ett strukturerat change-set (filer + konkreta ändringar) som en människa kan låta en executor applicera."
       : "",
     "Var kort: högst 3–5 punkter. Svara med ETT giltigt JSON-objekt och ingenting annat.",
     `Format: ${shape}`,

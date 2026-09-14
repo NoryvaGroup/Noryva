@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  CODE_CHANGE_ALWAYS_PROPOSAL,
   classifyExecutionTask,
   executionBatchStatus,
   executionTaskKey,
@@ -40,9 +41,13 @@ describe("execution action policy", () => {
     }
   });
 
-  it("markerar kodändring som READY_FOR_REPO_EXECUTOR när ingen executor finns", () => {
+  it("markerar kodändring som READY_FOR_REPO_EXECUTOR – alltid proposal-only", () => {
     expect(REPO_EXECUTOR_AVAILABLE).toBe(false);
+    expect(CODE_CHANGE_ALWAYS_PROPOSAL).toBe(true);
     expect(classifyExecutionTask({ actionType: "code_change" }).finalStatus).toBe("ready_for_repo_executor");
+    expect(
+      classifyExecutionTask({ actionType: "code_change", configWriteKey: "vad_som_helst" }).finalStatus,
+    ).toBe("ready_for_repo_executor");
   });
 
   it("gör intern konfiguration till förslag utan whitelistad write-path", () => {
