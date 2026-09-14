@@ -232,9 +232,13 @@ export function parseMeetingOutput(type: Exclude<MeetingMessage["message_type"],
   return parsed.data;
 }
 
-export function compactContext(messages: MeetingMessage[], maxItems = 8): string {
-  return messages.slice(-maxItems).map((m) => `${m.role}/${m.message_type}: ${m.content.slice(0, 1600)}`).join("\n");
+export function compactContext(messages: MeetingMessage[], maxItems = 6): string {
+  return messages.slice(-maxItems).map((m) => `${m.role}/${m.message_type}: ${m.content.slice(0, 900)}`).join("\n");
 }
+
+/** Gemensam sparsamhetsregel: kort, konkret, inga upprepningar. */
+const BREVITY =
+  "Var kort och tät: högst 3–5 punkter, varje punkt max ett par meningar. Ingen utfyllnad, ingen sammanfattning av tidigare bidrag och ingen upprepning av kontexten. Tillför endast ny information, invändning eller förbättring. Prioritera det viktigaste och utelämna resten.";
 
 /** FRIA HJÄRNOR, HÅRDA HÄNDER: fritt analysmandat, noll exekveringsmandat. */
 export const BOARDROOM_MANDATE = [
