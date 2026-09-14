@@ -3,7 +3,12 @@
   "sdk_version": "2.0.2",
   "path": "/mcp",
   "auth": {
-    "type": "none"
+    "type": "oauth",
+    "issuer": "https://ptfrmjdfjfvrnhhuhulh.supabase.co/auth/v1",
+    "resource_name": "Noryva Growth Engine",
+    "accepted_audiences": [
+      "authenticated"
+    ]
   },
   "mcp": {
     "server": {
