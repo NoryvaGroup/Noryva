@@ -293,13 +293,35 @@ export async function advanceMeetingCore(ctx: BoardroomContext, meetingId: strin
   }
 
   if (!parsed) throw new Error("Mötessteget saknar ett sparat resultat.");
+
+  // Manager får EN gång begära riktad komplettering innan slutsatsen skrivs.
+  // Loop-skydd: bara en revision per möte, och aldrig från en roll som redan
+  // levererat sin komplettering – annars går mötet direkt till slutsats.
+  const critiquedRoles = new Set(messages.filter((m) => m.message_type === "critique").map((m) => m.role));
+  const requestedRevision =
+    turn.messageType === "synthesis" && !managerRevisionMessage(messages)
+      ? (Array.isArray(parsed["revisionRoles"]) ? parsed["revisionRoles"] : [])
+          .map((role) => normalizeRoleKey(role))
+          .filter((role) => meeting.selected_roles.includes(role) && !critiquedRoles.has(role as never))
+      : [];
+  const isRevisionRequest = requestedRevision.length > 0;
+  const messageType = isRevisionRequest ? "critique" : turn.messageType;
+  const nextStatus = isRevisionRequest ? "cross_review" : turn.nextStatus;
+  const content = isRevisionRequest
+    ? JSON.stringify({
+        summary: String(parsed["summary"] ?? "Manager begär riktad komplettering."),
+        revisionRoles: requestedRevision,
+        revisionFocus: String(parsed["revisionFocus"] ?? ""),
+      })
+    : outputContent(parsed);
+
   const messageInsert = {
     meeting_id: meetingId,
     round: turn.round,
     sequence: messages.length + 1,
     role: turn.role,
-    message_type: turn.messageType,
-    content: outputContent(parsed),
+    message_type: messageType,
+    content,
     task_id: task["id"],
     provider_run_id: providerRunId,
     ledger_id: ledgerId || null,
