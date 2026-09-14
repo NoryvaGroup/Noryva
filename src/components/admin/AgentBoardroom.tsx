@@ -20,7 +20,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { advanceAgentMeeting, cancelAgentMeeting, createAgentMeeting, decideAgentMeeting, listAgentMeetings } from "@/lib/agents.functions";
+import {
+  advanceAgentMeeting,
+  advanceMeetingExecution,
+  cancelAgentMeeting,
+  createAgentMeeting,
+  decideAgentMeeting,
+  decideExecutionContact,
+  getMeetingExecution,
+  listAgentMeetings,
+} from "@/lib/agents.functions";
+import {
+  EXECUTION_ACTION_LABEL,
+  EXECUTION_BATCH_LABEL,
+  EXECUTION_STATUS_LABEL,
+  type ExecutionActionType,
+  type ExecutionBatchStatus,
+  type ExecutionStatus,
+} from "@/lib/agents/execution";
 import { ACTIVE_MEETING_STATUSES, MEETING_STATUS_LABEL, type MeetingStatus, type MeetingType } from "@/lib/agents/boardroom";
 import { DEFAULT_BUDGET_CONFIG } from "@/lib/agents/budget";
 import { AGENT_LABEL, type AgentName } from "@/lib/agents/tasks";
