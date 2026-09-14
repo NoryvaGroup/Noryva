@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { ACTIVE_MEETING_STATUSES, MAX_ROUNDS, MEETING_STATUSES, budgetPause, hasLikelyPii, isActiveMeetingStatus, parseMeetingOutput, planNextTurn, validateMeetingInput, type MeetingLike, type MeetingMessage } from "./boardroom";
+import { buildContextPack, MAX_CONTEXT_PACK_CHARS } from "./context-pack";
+import { ACTIVE_MEETING_STATUSES, MAX_ROUNDS, MEETING_STATUSES, budgetPause, hasLikelyPii, isActiveMeetingStatus, meetingPrompt, parseMeetingOutput, planNextTurn, validateMeetingInput, type MeetingLike, type MeetingMessage } from "./boardroom";
+
 
 const meeting = (patch: Partial<MeetingLike> = {}): MeetingLike => ({
   agenda: "Bedöm nästa säkra produktprioritering",
