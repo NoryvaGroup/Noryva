@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { recordAgentRunUsage, sumBoardroomLedgerRows } from "./budget.server";
 import {
   DEFAULT_BUDGET_CONFIG,
   assertPricingCoverage,
@@ -181,5 +182,38 @@ describe("agent budget", () => {
     expect(budgetStatusLabel(snapshot({ spentMonthSek: 500 }), DEFAULT_BUDGET_CONFIG)).toBe(
       "hard_blocked",
     );
+  });
+});
+
+describe("Boardroom-ledgerns kostnadssummering", () => {
+  it("räknar completed men ignorerar gamla hängande reservationer", () => {
+    const now = Date.parse("2026-09-14T12:00:00Z");
+    const sum = sumBoardroomLedgerRows(
+      [
+        { estimated_cost_sek: 1.5, status: "completed", created_at: "2026-09-14T07:00:00Z" },
+        { estimated_cost_sek: 0.5, status: "reserved", created_at: "2026-09-14T11:58:00Z" },
+        { estimated_cost_sek: 0.5, status: "reserved", created_at: "2026-09-14T07:05:00Z" },
+      ],
+      now,
+    );
+    expect(sum).toBeCloseTo(2, 5);
+  });
+
+  it("misslyckad körning utan usage bokförs som 0 kr", async () => {
+    let patched: Record<string, unknown> = {};
+    const ctx = {
+      supabase: {
+        from: () => ({ update: (p: Record<string, unknown>) => ({ eq: async () => ((patched = p), { error: null }) }) }),
+      },
+    } as any;
+    const cost = await recordAgentRunUsage(ctx, {
+      runId: "run-1",
+      role: "product_tech",
+      status: "failed",
+      inputTokens: 0,
+      outputTokens: 0,
+    });
+    expect(cost).toBe(0);
+    expect(patched["estimated_cost_sek"]).toBe(0);
   });
 });

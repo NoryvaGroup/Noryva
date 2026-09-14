@@ -65,3 +65,20 @@ describe("Boardroom state machine", () => {
     }))).toThrow();
   });
 });
+describe("Kritikrundans omfattning", () => {
+  it("kör högst två reviewers även med fem specialister", () => {
+    const roles = ["product_tech", "growth_sales", "customer_success", "qa_risk", "operations_finance"];
+    const active = meeting({ status: "cross_review", selected_roles: roles, needs_cross_review: true });
+    const base = [msg("noryva_manager", "kickoff", 1), ...roles.map((r, i) => msg(r as any, "analysis", i + 2))];
+    const first = planNextTurn(active, base);
+    expect(first?.messageType).toBe("critique");
+    const second = planNextTurn(active, [...base, msg(first!.role as any, "critique", 10)]);
+    expect(second?.messageType).toBe("critique");
+    const third = planNextTurn(active, [
+      ...base,
+      msg(first!.role as any, "critique", 10),
+      msg(second!.role as any, "critique", 11),
+    ]);
+    expect(third).toBeNull();
+  });
+});
