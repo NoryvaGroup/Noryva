@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ExternalLink, Play, Plus, Users } from "lucide-react";
-import { useMemo, useState } from "react";
+import { ExternalLink, Loader2, Play, Plus, Users } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -75,6 +75,17 @@ const MESSAGE_LABEL: Record<string, string> = {
   system: "System",
 };
 
+const TERMINAL_STATUSES: MeetingStatus[] = ["awaiting_approval", "completed", "failed", "paused_budget"];
+
+const WORKING_LABEL: Partial<Record<MeetingStatus, string>> = {
+  draft: "Mötet startar – Manager gör kickoff",
+  manager_kickoff: "Manager väljer specialister",
+  round_1: "Mötet arbetar – specialistanalys",
+  cross_review: "Mötet arbetar – specialisterna granskar varandra",
+  qa_review: "QA/Risk granskar",
+  manager_synthesis: "Manager sammanställer",
+};
+
 function readableContent(content: string) {
   try {
     const parsed = JSON.parse(content) as Record<string, unknown>;
@@ -104,11 +115,14 @@ export function AgentBoardroom() {
   const [maxSpecialists, setMaxSpecialists] = useState("3");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
+  const [running, setRunning] = useState(false);
+  const runningRef = useRef(false);
+  const stoppedRef = useRef<Set<string>>(new Set());
 
   const query = useQuery({
     queryKey: ["agent-meetings"],
     queryFn: () => list(),
-    refetchInterval: 10_000,
+    refetchInterval: running ? 4_000 : 20_000,
   });
   const meetings = (query.data?.meetings ?? []) as MeetingRow[];
   const messages = (query.data?.messages ?? []) as MessageRow[];
@@ -124,23 +138,61 @@ export function AgentBoardroom() {
       setOpen(false);
       setAgenda("");
       setSelectedId(result.meetingId);
-      setNotice("Mötet skapades i REVIEW. Starta kickoff när du är redo.");
+      setNotice("Mötet skapades i REVIEW. Agenterna börjar arbeta internt.");
       await queryClient.invalidateQueries({ queryKey: ["agent-meetings"] });
     },
     onError: (error: Error) => setNotice(error.message),
   });
-  const advanceMutation = useMutation({
-    mutationFn: (meetingId: string) => advance({ data: { meetingId } }),
-    onSuccess: async (result) => {
-      setNotice(result.paused ? String(result.reason) : result.duplicate ? "Steget var redan behandlat." : "Ett mötessteg slutfördes.");
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["agent-meetings"] }),
-        queryClient.invalidateQueries({ queryKey: ["agent-tasks"] }),
-        queryClient.invalidateQueries({ queryKey: ["agent-budget"] }),
-      ]);
+
+  /** Kör mötet sekventiellt, ett internt steg i taget, tills det når ett slutläge. */
+  const runMeeting = useCallback(
+    async (meetingId: string) => {
+      if (runningRef.current) return;
+      runningRef.current = true;
+      setRunning(true);
+      stoppedRef.current.delete(meetingId);
+      try {
+        for (let step = 0; step < 24; step += 1) {
+          const result = await advance({ data: { meetingId } });
+          await Promise.all([
+            queryClient.invalidateQueries({ queryKey: ["agent-meetings"] }),
+            queryClient.invalidateQueries({ queryKey: ["agent-tasks"] }),
+            queryClient.invalidateQueries({ queryKey: ["agent-budget"] }),
+          ]);
+          if (result.paused) {
+            stoppedRef.current.add(meetingId);
+            setNotice(String(result.reason));
+            return;
+          }
+          const status = String(result.status) as MeetingStatus;
+          if (TERMINAL_STATUSES.includes(status)) {
+            setNotice(
+              status === "awaiting_approval"
+                ? "Mötet är klart och väntar på ditt godkännande."
+                : "Mötet avslutades.",
+            );
+            return;
+          }
+        }
+        stoppedRef.current.add(meetingId);
+        setNotice("Mötet stoppades efter för många interna steg.");
+      } catch (error) {
+        stoppedRef.current.add(meetingId);
+        setNotice((error as Error).message);
+      } finally {
+        runningRef.current = false;
+        setRunning(false);
+      }
     },
-    onError: (error: Error) => setNotice(error.message),
-  });
+    [advance, queryClient],
+  );
+
+  useEffect(() => {
+    if (!selected || runningRef.current) return;
+    if (TERMINAL_STATUSES.includes(selected.status)) return;
+    if (stoppedRef.current.has(selected.id)) return;
+    void runMeeting(selected.id);
+  }, [selected, runMeeting]);
   const decideMutation = useMutation({
     mutationFn: (decision: "approved" | "rejected") =>
       selected ? decide({ data: { meetingId: selected.id, decision } }) : Promise.reject(new Error("Inget möte valt.")),
@@ -151,7 +203,13 @@ export function AgentBoardroom() {
     onError: (error: Error) => setNotice(error.message),
   });
 
-  const canAdvance = selected && !["awaiting_approval", "completed", "failed"].includes(selected.status);
+  const isWorking = Boolean(selected && running && !TERMINAL_STATUSES.includes(selected.status));
+  const canResume = Boolean(
+    selected &&
+      !running &&
+      !["awaiting_approval", "completed"].includes(selected.status) &&
+      (selected.status === "paused_budget" || stoppedRef.current.has(selected.id) || Boolean(selected.error)),
+  );
   const canDecide = selected && selected.status === "awaiting_approval" && selected.approval_status === "pending";
 
   return (
@@ -160,7 +218,8 @@ export function AgentBoardroom() {
         <div>
           <h3 className="text-sm font-semibold">Möten &amp; samarbete</h3>
           <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-            Strukturerade interna möten med ett agentsteg per klick. Allt stannar i REVIEW och kräver mänsklig granskning.
+            Agenterna arbetar autonomt internt steg för steg och Manager sammanställer resultatet. Du godkänner endast
+            mötets slutsats – ingen extern åtgärd sker automatiskt.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -217,6 +276,14 @@ export function AgentBoardroom() {
         </div>
       </div>
 
+      {isWorking && selected ? (
+        <div className="mt-3 flex items-center gap-3 rounded-md border border-primary/30 bg-primary/5 p-3 text-sm">
+          <Loader2 className="size-4 animate-spin text-primary" />
+          <span>
+            {WORKING_LABEL[selected.status] ?? "Mötet arbetar"} · {transcript.length} mötesbidrag klara
+          </span>
+        </div>
+      ) : null}
       {notice ? <p className="mt-3 text-sm text-muted-foreground">{notice}</p> : null}
       <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(15rem,0.7fr)_minmax(0,1.3fr)]">
         <div className="space-y-2">
@@ -251,9 +318,9 @@ export function AgentBoardroom() {
                 <h4 className="mt-2 font-semibold">{selected.agenda}</h4>
                 {selected.selected_roles.length ? <p className="mt-1 text-xs text-muted-foreground">{selected.selected_roles.map((role) => AGENT_LABEL[role as AgentName] ?? role).join(" · ")}</p> : null}
               </div>
-              {canAdvance ? (
-                <Button size="sm" disabled={advanceMutation.isPending} onClick={() => advanceMutation.mutate(selected.id)}>
-                  <Play />{selected.status === "draft" ? "Starta kickoff" : selected.status === "paused_budget" ? "Försök igen" : "Kör nästa steg"}
+              {canResume ? (
+                <Button size="sm" onClick={() => void runMeeting(selected.id)}>
+                  <Play />Återuppta mötet
                 </Button>
               ) : null}
               {canDecide ? (
