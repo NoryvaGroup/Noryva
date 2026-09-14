@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from "react";
 import { ArrowRight, CheckCircle2, Mail } from "lucide-react";
 import { z } from "zod";
+import { useServerFn } from "@tanstack/react-start";
+import { submitContactRequest } from "@/lib/contact.functions";
 import { Reveal } from "./Reveal";
 import { CtaButton, CtaLink } from "./Button";
 
