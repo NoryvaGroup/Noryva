@@ -351,17 +351,27 @@ function AgentHqPage() {
               {budget.data?.config.hardCapSek ?? 500} kr
             </p>
             <p>
-              <span className="text-muted-foreground">Autonoma körningar idag:</span>{" "}
+              <span className="text-muted-foreground">Agentmöten idag:</span>{" "}
+              {(budget.data?.snapshot.boardroomSpentTodaySek ?? 0).toFixed(2)} /{" "}
+              {(budget.data?.config.boardroomDayCapSek ?? 10).toFixed(2)} kr
+            </p>
+            <p className="sm:col-span-2">
+              <span className="text-muted-foreground">Nödstopp agentmöten:</span>{" "}
+              {(budget.data?.config.boardroomEmergencyDayCapSek ?? 15).toFixed(2)} kr/dygn
+              {" · "}mötessteg räknas aldrig mot de autonoma run-taken.
+            </p>
+            <p>
+              <span className="text-muted-foreground">Autonoma bakgrundskörningar idag:</span>{" "}
               {budget.data?.snapshot.autonomousRunsToday ?? 0} (tak{" "}
               {budget.data?.config.maxAutonomousRunsPerDay ?? 2} per agent/dygn)
             </p>
             <p>
-              <span className="text-muted-foreground">Autonoma körningar denna månad:</span>{" "}
+              <span className="text-muted-foreground">Autonoma bakgrundskörningar denna månad:</span>{" "}
               {budget.data?.snapshot.autonomousRunsMonth ?? 0} /{" "}
               {budget.data?.config.maxAutonomousRunsPerMonth ?? 360}
             </p>
             <p className="sm:col-span-3">
-              <span className="text-muted-foreground">Idag per agent:</span>{" "}
+              <span className="text-muted-foreground">Autonomt idag per agent:</span>{" "}
               {BUDGET_ROLES.map(
                 (role: BudgetRole) =>
                   `${(AGENT_LABEL as Record<string, string>)[role] ?? role} ${
