@@ -313,6 +313,7 @@ export function AgentBoardroom() {
       (selected.status === "paused_budget" || stoppedRef.current.has(selected.id) || Boolean(selected.error)),
   );
   const canDecide = selected && selected.status === "awaiting_approval" && selected.approval_status === "pending";
+  const canCancel = Boolean(selected && ACTIVE_MEETING_STATUSES.includes(selected.status));
   const activeRole = selected ? currentAgent(selected.status, transcript, selected.selected_roles) : undefined;
 
   return (
