@@ -276,6 +276,14 @@ export function AgentBoardroom() {
         </div>
       </div>
 
+      {isWorking && selected ? (
+        <div className="mt-3 flex items-center gap-3 rounded-md border border-primary/30 bg-primary/5 p-3 text-sm">
+          <Loader2 className="size-4 animate-spin text-primary" />
+          <span>
+            {WORKING_LABEL[selected.status] ?? "Mötet arbetar"} · {transcript.length} mötesbidrag klara
+          </span>
+        </div>
+      ) : null}
       {notice ? <p className="mt-3 text-sm text-muted-foreground">{notice}</p> : null}
       <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(15rem,0.7fr)_minmax(0,1.3fr)]">
         <div className="space-y-2">
