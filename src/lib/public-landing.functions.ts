@@ -10,21 +10,13 @@ import { scoreVaruautomat } from "./landing/scoring";
 
 const slugInput = z.object({ slug: z.string().trim().min(1).max(60) });
 
-function serverPublicClient() {
-  const url = process.env["SUPABASE_URL"]!;
-  const key = process.env["SUPABASE_PUBLISHABLE_KEY"]!;
-  return { url, key };
-}
-
 async function rpcPublicLanding(slug: string): Promise<PublicLanding | null> {
-  const { url, key } = serverPublicClient();
-  const res = await fetch(`${url}/rest/v1/rpc/get_public_landing`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", apikey: key },
-    body: JSON.stringify({ p_slug: slug }),
-  });
-  if (!res.ok) return null;
-  const json = (await res.json()) as PublicLanding | null;
+  // Anropas server-side med admin-klienten så att get_public_landing inte behöver
+  // vara exekverbar för anon/authenticated i det publika API:t.
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data, error } = await supabaseAdmin.rpc("get_public_landing", { p_slug: slug });
+  if (error) return null;
+  const json = data as PublicLanding | null;
   if (!json || !json.slug) return null;
   return json;
 }
