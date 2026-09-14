@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { advanceAgentMeeting, createAgentMeeting, decideAgentMeeting, listAgentMeetings } from "@/lib/agents.functions";
+import { advanceAgentMeeting, cancelAgentMeeting, createAgentMeeting, decideAgentMeeting, listAgentMeetings } from "@/lib/agents.functions";
 import { MEETING_STATUS_LABEL, type MeetingStatus, type MeetingType } from "@/lib/agents/boardroom";
 import { AGENT_LABEL, type AgentName } from "@/lib/agents/tasks";
 
