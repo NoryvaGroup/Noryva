@@ -151,9 +151,20 @@ export function AgentBoardroom() {
       runningRef.current = true;
       setRunning(true);
       stoppedRef.current.delete(meetingId);
+      // Inget godtyckligt stegtak: budgeten styr. Loop-skyddet stoppar bara
+      // faktisk upprepning av exakt samma roll + samma steg.
+      const seen = new Map<string, number>();
       try {
-        for (let step = 0; step < 24; step += 1) {
+        for (;;) {
           const result = await advance({ data: { meetingId } });
+          const signature = `${String(result.role ?? "")}:${String(result.messageType ?? "")}`;
+          const repeats = (seen.get(signature) ?? 0) + 1;
+          seen.set(signature, repeats);
+          if (repeats > 2) {
+            stoppedRef.current.add(meetingId);
+            setNotice("Mötet stoppades: samma steg upprepades utan framsteg.");
+            return;
+          }
           await Promise.all([
             queryClient.invalidateQueries({ queryKey: ["agent-meetings"] }),
             queryClient.invalidateQueries({ queryKey: ["agent-tasks"] }),
