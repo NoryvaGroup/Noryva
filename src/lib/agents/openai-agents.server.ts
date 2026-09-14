@@ -80,6 +80,7 @@ export type HarnessDeps = {
   request?: Request;
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
+  conflictBackoffMs?: number[];
 };
 
 export type AgentSlot = {
@@ -191,6 +192,8 @@ export type HarnessRunInput = {
   instructions: string;
   /** PII-fri text. Fri kundpayload får aldrig skickas hit. */
   input: string;
+  /** Stabil nyckel för säker återhämtning om session-create svarar 409. */
+  requestKey?: string;
 };
 
 export type HarnessUsage = { inputTokens: number; outputTokens: number; runs: number };
@@ -243,6 +246,51 @@ function collectText(value: unknown, out: string[]): void {
   }
 }
 
+function sessionIdFrom(value: unknown): string {
+  if (!value || typeof value !== "object") return "";
+  const obj = value as Record<string, unknown>;
+  for (const key of ["id", "session_id", "sessionId"]) {
+    const candidate = String(obj[key] ?? "");
+    if (candidate.startsWith("sess_")) return candidate;
+  }
+  for (const key of ["error", "data", "session"]) {
+    const nested = sessionIdFrom(obj[key]);
+    if (nested) return nested;
+  }
+  return "";
+}
+
+async function readJson(response: Response): Promise<Record<string, unknown>> {
+  try {
+    return (await response.json()) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
+}
+
+async function deleteCompletedSession(
+  doFetch: typeof fetch,
+  sessionId: string,
+  headers: Record<string, string>,
+  signal: AbortSignal,
+  backoffMs: number[],
+): Promise<void> {
+  for (let attempt = 0; attempt <= backoffMs.length; attempt += 1) {
+    try {
+      const response = await doFetch(`${AGENTS_SESSIONS_URL}/${sessionId}`, {
+        method: "DELETE",
+        headers,
+        signal,
+      });
+      if (response.ok || response.status === 404) return;
+      if (response.status !== 409 || attempt === backoffMs.length) return;
+    } catch {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, backoffMs[attempt] ?? 0));
+  }
+}
+
 /**
  * Bygger request-bodyn. Med ett återanvändbart agent-id skickas `agent_id` och
  * varken modell eller systeminstruktioner överstyrs – agentens sparade
@@ -291,37 +339,60 @@ export async function runHarnessSession(
   const doFetch = deps.fetchImpl ?? fetch;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), deps.timeoutMs ?? AGENTS_DEFAULT_TIMEOUT_MS);
+  const conflictBackoffMs = deps.conflictBackoffMs ?? [750, 1_500, 3_000];
+  const headers = {
+    Authorization: `Bearer ${key}`,
+    "Content-Type": "application/json",
+    "OpenAI-Beta": AGENTS_BETA_HEADER,
+    "OpenAI-Project": status.projectId,
+    ...(input.requestKey ? { "Idempotency-Key": input.requestKey } : {}),
+  };
+  const requestBody = JSON.stringify(
+    buildSessionRequestBody({
+      agentId,
+      model: status.model,
+      instructions: input.instructions,
+      environmentTemplateId: status.environmentTemplateId,
+      text: input.input,
+    }),
+  );
 
   try {
-    const response = await doFetch(AGENTS_SESSIONS_URL, {
-      method: "POST",
-      signal: controller.signal,
-      headers: {
-        Authorization: `Bearer ${key}`,
-        "Content-Type": "application/json",
-        "OpenAI-Beta": AGENTS_BETA_HEADER,
-        "OpenAI-Project": status.projectId,
-      },
-      body: JSON.stringify(
-        buildSessionRequestBody({
-          agentId,
-          model: status.model,
-          instructions: input.instructions,
-          environmentTemplateId: status.environmentTemplateId,
-          text: input.input,
-        }),
-      ),
-    });
+    let body: Record<string, unknown> = {};
+    let responseStatus = 0;
+    for (let attempt = 0; attempt <= conflictBackoffMs.length; attempt += 1) {
+      const response = await doFetch(AGENTS_SESSIONS_URL, {
+        method: "POST",
+        signal: controller.signal,
+        headers,
+        body: requestBody,
+      });
+      responseStatus = response.status;
+      body = await readJson(response);
+      if (response.ok || sessionIdFrom(body)) break;
+      if (response.status !== 409 || attempt === conflictBackoffMs.length || !input.requestKey) break;
+      await new Promise((resolve) => setTimeout(resolve, conflictBackoffMs[attempt] ?? 0));
+    }
 
-    if (!response.ok) {
+    const sessionId = sessionIdFrom(body);
+    if (responseStatus < 200 || responseStatus >= 300) {
+      if (responseStatus !== 409 || !sessionId) {
+        const providerMessage = String(
+          (body["error"] as Record<string, unknown> | undefined)?.["message"] ?? body["message"] ?? "",
+        ).trim();
+        const detail = providerMessage ? ` ${providerMessage}` : "";
+        return {
+          ...blocked(`Harnessen svarade med status ${responseStatus}.${detail}`, agentId),
+          runStatus: "failed",
+        };
+      }
+    }
+    if (!sessionId) {
       return {
-        ...blocked(`Harnessen svarade med status ${response.status}.`, agentId),
+        ...blocked("Harnessen returnerade inget sessions-id.", agentId),
         runStatus: "failed",
       };
     }
-
-    const body = (await response.json()) as Record<string, unknown>;
-    const sessionId = String(body["id"] ?? body["session_id"] ?? "");
 
     // Turns körs asynkront. Sessionen returneras direkt, så svaret och usage
     // läses efteråt via read-only GET (ingen extra provider-run, ingen retry
@@ -331,11 +402,6 @@ export async function runHarnessSession(
     collectText(body["output"] ?? body["output_text"] ?? "", parts);
 
     if (sessionId && !parts.length) {
-      const headers = {
-        Authorization: `Bearer ${key}`,
-        "OpenAI-Beta": AGENTS_BETA_HEADER,
-        "OpenAI-Project": status.projectId,
-      };
       const deadline = Date.now() + (deps.timeoutMs ?? AGENTS_DEFAULT_TIMEOUT_MS);
       while (Date.now() < deadline) {
         const itemsRes = await doFetch(
@@ -384,6 +450,15 @@ export async function runHarnessSession(
         await new Promise((resolve) => setTimeout(resolve, 2000));
       }
     }
+
+    if (!parts.length) {
+      return { ...blocked("Harnessen avslutade utan ett färdigt svar.", agentId), providerRunId: sessionId, runStatus: "failed" };
+    }
+
+    // Varje Boardroom-steg använder en isolerad hosted-session. När svaret är
+    // sparat behövs dess sandbox inte längre; städning förhindrar 409 när
+    // providerns samtidighetsgräns annars fylls av idle sessioner.
+    await deleteCompletedSession(doFetch, sessionId, headers, controller.signal, conflictBackoffMs);
 
     return {
       ok: true,

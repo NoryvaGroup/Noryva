@@ -32,8 +32,13 @@ const ENABLED_ENV = {
 function okResponse() {
   return {
     ok: true,
+    status: 200,
     json: async () => ({ id: "sess_1", output: [{ text: "{}" }], usage: {} }),
   } as unknown as Response;
+}
+
+function deletedResponse() {
+  return { ok: true, status: 200, json: async () => ({ deleted: true }) } as unknown as Response;
 }
 
 describe("sex aktiva roller", () => {
@@ -145,12 +150,13 @@ describe("session request-format", () => {
   });
 
   it("överstyr inte modell eller instruktioner när agent-id finns", async () => {
-    const fetchImpl = vi.fn(async () => okResponse());
+    const fetchImpl = vi.fn(async (_url: string, init?: RequestInit) =>
+      init?.method === "DELETE" ? deletedResponse() : okResponse());
     await runHarnessSession(
       { role: "operations_finance", instructions: "server-policy", input: "telemetri" },
       { env: ENABLED_ENV, fetchImpl: fetchImpl as unknown as typeof fetch },
     );
-    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
     const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe(AGENTS_SESSIONS_URL);
     const sent = JSON.parse(String(init.body));
@@ -202,11 +208,15 @@ describe("asynkron turn hämtas read-only", () => {
     const fetchImpl = vi.fn(async (url: string) => {
       calls.push(url);
       if (url === AGENTS_SESSIONS_URL) {
-        return { ok: true, json: async () => ({ id: "sess_x" }) } as unknown as Response;
+        return { ok: true, status: 200, json: async () => ({ id: "sess_x" }) } as unknown as Response;
+      }
+      if (url === `${AGENTS_SESSIONS_URL}/sess_x`) {
+        return { ok: true, status: 200, json: async () => ({ usage: { input_tokens: 10, output_tokens: 5 } }) } as unknown as Response;
       }
       if (url.includes("/items")) {
         return {
           ok: true,
+          status: 200,
           json: async () => ({
             data: [
               {
@@ -221,6 +231,7 @@ describe("asynkron turn hämtas read-only", () => {
       }
       return {
         ok: true,
+        status: 200,
         json: async () => ({ usage: { input_tokens: 10, output_tokens: 5 } }),
       } as unknown as Response;
     });
@@ -234,6 +245,45 @@ describe("asynkron turn hämtas read-only", () => {
     expect(result.outputText).toBe('{"ok":true}');
     expect(result.usage).toEqual({ inputTokens: 10, outputTokens: 5, runs: 1 });
     expect(result.runStatus).toBe("completed");
+    expect(result.externalEffect).toBe(false);
+  });
+
+  it("återupptar säkert efter 409 med samma idempotensnyckel", async () => {
+    const createHeaders: string[] = [];
+    let createAttempts = 0;
+    const fetchImpl = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url === AGENTS_SESSIONS_URL) {
+        createAttempts += 1;
+        createHeaders.push(new Headers(init?.headers).get("Idempotency-Key") ?? "");
+        if (createAttempts === 1) {
+          return {
+            ok: false,
+            status: 409,
+            json: async () => ({ error: { message: "Session setup is still in progress." } }),
+          } as unknown as Response;
+        }
+        return { ok: true, status: 200, json: async () => ({ id: "sess_resumed" }) } as unknown as Response;
+      }
+      if (url.includes("/items")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ data: [{ type: "message", role: "assistant", status: "completed", content: [{ text: '{"ok":true}' }] }] }),
+        } as unknown as Response;
+      }
+      if (init?.method === "DELETE") return deletedResponse();
+      return { ok: true, status: 200, json: async () => ({ usage: { input_tokens: 4, output_tokens: 2 } }) } as unknown as Response;
+    });
+
+    const result = await runHarnessSession(
+      { role: "customer_success", instructions: "", input: "mål", requestKey: "boardroom:meeting:analysis:customer_success" },
+      { env: ENABLED_ENV, fetchImpl: fetchImpl as unknown as typeof fetch, conflictBackoffMs: [0] },
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.providerRunId).toBe("sess_resumed");
+    expect(createAttempts).toBe(2);
+    expect(new Set(createHeaders)).toEqual(new Set(["boardroom:meeting:analysis:customer_success"]));
     expect(result.externalEffect).toBe(false);
   });
 });
