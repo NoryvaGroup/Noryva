@@ -240,6 +240,48 @@ export const decideAgentMeeting = createServerFn({ method: "POST" })
     return { ok: true as const, decision: data.decision, status: "completed" as const, externalEffect: false as const };
   });
 
+/**
+ * Avbryter ett pågående möte. Sätter ett terminalt stoppläge, släpper
+ * arbetslåset och frigör ett-aktivt-möte-spärren. Ingen extern effekt,
+ * ingen agentkörning. Idempotent: redan avbrutet möte ger samma svar.
+ */
+export const cancelAgentMeeting = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ meetingId: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const ctx = context as AdminContext;
+    await assertAdmin(ctx);
+    const { ACTIVE_MEETING_STATUSES } = await import("@/lib/agents/boardroom");
+    const { data: meeting, error: readError } = await ctx.supabase
+      .from("agent_meetings")
+      .select("id, status")
+      .eq("id", data.meetingId)
+      .maybeSingle();
+    if (readError) throw new Error(readError.message);
+    if (!meeting) throw new Error("Mötet hittades inte.");
+    if (!ACTIVE_MEETING_STATUSES.includes(meeting.status)) {
+      if (meeting.status === "failed") {
+        return { ok: true as const, status: "failed" as const, alreadyCancelled: true as const, externalEffect: false as const };
+      }
+      throw new Error("Mötet är redan avslutat och kan inte avbrytas.");
+    }
+    const now = new Date().toISOString();
+    const { error } = await ctx.supabase
+      .from("agent_meetings")
+      .update({
+        status: "failed",
+        error: "Mötet avbröts manuellt av ägaren.",
+        processing_token: null,
+        claimed_at: null,
+        completed_at: now,
+        updated_at: now,
+      })
+      .eq("id", data.meetingId)
+      .in("status", ACTIVE_MEETING_STATUSES);
+    if (error) throw new Error(error.message);
+    return { ok: true as const, status: "failed" as const, alreadyCancelled: false as const, externalEffect: false as const };
+  });
+
 /* ---------------------------------------------- orchestrator (legacy) */
 
 
