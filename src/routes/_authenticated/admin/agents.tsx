@@ -353,11 +353,14 @@ function AgentHqPage() {
             <p>
               <span className="text-muted-foreground">Agentmöten idag:</span>{" "}
               {(budget.data?.snapshot.boardroomSpentTodaySek ?? 0).toFixed(2)} /{" "}
-              {(budget.data?.config.boardroomDayCapSek ?? 10).toFixed(2)} kr
+              {(budget.data?.config.boardroomDayCapSek ?? 40).toFixed(2)} kr
             </p>
             <p className="sm:col-span-2">
-              <span className="text-muted-foreground">Nödstopp agentmöten:</span>{" "}
-              {(budget.data?.config.boardroomEmergencyDayCapSek ?? 15).toFixed(2)} kr/dygn
+              <span className="text-muted-foreground">Budget per möte:</span>{" "}
+              {(budget.data?.config.boardroomMeetingCapSek ?? 10).toFixed(2)} kr
+              {" · "}
+              <span className="text-muted-foreground">nödstopp:</span>{" "}
+              {(budget.data?.config.boardroomEmergencyDayCapSek ?? 60).toFixed(2)} kr/dygn
               {" · "}mötessteg räknas aldrig mot de autonoma run-taken.
             </p>
             <p>

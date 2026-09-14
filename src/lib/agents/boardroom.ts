@@ -32,6 +32,8 @@ export const ACTIVE_MEETING_STATUSES: MeetingStatus[] = [
   "paused_budget",
 ];
 export const MAX_SPECIALISTS = 5;
+/** Kritikrundan begränsas till de mest relevanta reviewerna (kostnadsskydd). */
+export const MAX_CROSS_REVIEWERS = 2;
 export const MAX_ROUNDS = 2;
 
 export function isActiveMeetingStatus(status: MeetingStatus): boolean {
