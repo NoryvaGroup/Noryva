@@ -384,6 +384,36 @@ export function buildChecks(facts: ReadinessFacts): ReadinessCheck[] {
     );
   }
 
+  // --- CORE: uttryckligt launch-godkännande (separat gate från published) ---
+  const launch = facts.launchApproval;
+  if (launch === null || launch === undefined) {
+    checks.push(
+      check(
+        "launch",
+        "Launch godkänd",
+        "core",
+        "unknown",
+        "Kunde inte läsas",
+        "Launch-godkännandet kunde inte hämtas – kunden kan inte gå live.",
+      ),
+    );
+  } else if (launch.approved !== true) {
+    checks.push(
+      check(
+        "launch",
+        "Launch godkänd",
+        "core",
+        "fail",
+        "Ej godkänd",
+        "Godkänn launch uttryckligen för kunden innan den går live.",
+      ),
+    );
+  } else {
+    checks.push(
+      check("launch", "Launch godkänd", "core", "ok", `Godkänd ${launch.approvedAt?.slice(0, 10) ?? ""}`.trim(), ""),
+    );
+  }
+
   return checks;
 }
 
