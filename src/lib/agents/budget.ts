@@ -163,6 +163,8 @@ export type BudgetSnapshot = {
   autonomousRunsMonth: number;
   /** Dagens uppskattade kostnad för SAMTLIGA agentmöten tillsammans. */
   boardroomSpentTodaySek?: number;
+  /** Hittills bokförd kostnad för DET AKTUELLA mötet (normalgränsen). */
+  boardroomMeetingSpentSek?: number;
 };
 
 export const EMPTY_SNAPSHOT: BudgetSnapshot = {
@@ -172,6 +174,7 @@ export const EMPTY_SNAPSHOT: BudgetSnapshot = {
   autonomousRunsTodayByRole: {},
   autonomousRunsMonth: 0,
   boardroomSpentTodaySek: 0,
+  boardroomMeetingSpentSek: 0,
 };
 
 /** Dagens autonoma körningar för en specifik roll. */
