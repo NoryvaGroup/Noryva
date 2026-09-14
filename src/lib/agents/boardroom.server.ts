@@ -303,7 +303,15 @@ export async function advanceMeetingCore(ctx: BoardroomContext, meetingId: strin
     try {
       parsed = parseMeetingOutput(turn.messageType, run.outputText) as Record<string, unknown>;
     } catch (parseError) {
-      await ctx.supabase.from("agent_tasks").update({ status: "failed", run_status: "failed", provider_run_id: providerRunId, usage }).eq("id", task["id"]);
+      // Spara rå output så steget kan tolkas om utan att betala igen.
+      await ctx.supabase.from("agent_tasks").update({
+        status: "failed",
+        run_status: "failed",
+        provider_run_id: providerRunId,
+        usage,
+        result: { rawOutput: String(run.outputText ?? "").slice(0, 20_000), externalEffect: false },
+      }).eq("id", task["id"]);
+
       await recordAgentRunUsage(ctx, { runId: reservation.runId, role: turn.role, status: "failed", inputTokens: usage.inputTokens ?? 0, outputTokens: usage.outputTokens ?? 0, config: budgetConfig });
       await releaseClaim(ctx, meetingId, String(token), { status: "failed", error: (parseError as Error).message });
       throw parseError;
