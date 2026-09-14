@@ -196,8 +196,28 @@ export function evaluateBudgetGate(input: {
       reason: "Månadens hårda kostnadstak är nått. Inga nya agentkörningar startas.",
     };
   }
-  // Run caps och soft cap gäller ENDAST autonoma körningar. Manuella och
-  // manuellt startade boardroom-körningar begränsas av hard cap (500 SEK).
+  // Agentmöten har en egen dagsbudget i stället för ett godtyckligt stegtak.
+  // Run caps för autonoma bakgrundskörningar gäller ALDRIG mötessteg.
+  if (input.kind === "boardroom") {
+    const projectedDay =
+      Math.max(Number(input.snapshot.boardroomSpentTodaySek ?? 0) || 0, 0) +
+      reservationCostSek(input.role, cfg);
+    if (projectedDay > cfg.boardroomEmergencyDayCapSek) {
+      return {
+        allowed: false,
+        state: "hard_blocked",
+        reason: `Nödstopp för agentmöten: dygnets absoluta tak ${cfg.boardroomEmergencyDayCapSek} kr är nått.`,
+      };
+    }
+    if (projectedDay > cfg.boardroomDayCapSek) {
+      return {
+        allowed: false,
+        state: "soft_paused",
+        reason: `Dagens mötesbudget ${cfg.boardroomDayCapSek} kr är slut. Mötet pausas till i morgon.`,
+      };
+    }
+  }
+  // Run caps och soft cap gäller ENDAST autonoma bakgrundskörningar.
   if (input.kind === "autonomous") {
     if (projected > cfg.softCapSek) {
       return {
