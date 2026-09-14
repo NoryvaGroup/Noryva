@@ -187,15 +187,15 @@ const schemas = {
   qa_review: z.object({ summary, risks: list, verdict: z.enum(["pass", "concerns", "fail"]), riskLevel: z.enum(["low", "medium", "high"]) }),
   synthesis: z.object({
     summary,
-    recommendation: z.string().trim().min(5).max(4000),
-    alternatives: list,
-    expectedEffect: z.string().trim().min(3).max(2000),
+    recommendation: z.string().trim().min(5).max(2000),
+    alternatives: z.array(z.string().trim().min(2).max(600)).max(4),
+    expectedEffect: z.string().trim().min(3).max(900),
     riskLevel: z.enum(["low", "medium", "high"]),
-    estimatedEffort: z.string().trim().min(2).max(500),
-    nextStep: z.string().trim().min(3).max(1000),
+    estimatedEffort: z.string().trim().min(2).max(400),
+    nextStep: z.string().trim().min(3).max(800),
     // Manager kan internt begära EN riktad komplettering innan slutsats.
     revisionRoles: z.array(z.string().trim().min(2).max(60)).max(MAX_SPECIALISTS).optional(),
-    revisionFocus: z.string().trim().max(1000).optional(),
+    revisionFocus: z.string().trim().max(600).optional(),
   }),
 };
 
