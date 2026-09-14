@@ -137,13 +137,40 @@ export async function recordAgentRunUsage(
   return cost;
 }
 
+/**
+ * Dagens uppskattade boardroom-kostnad (alla möten tillsammans).
+ * Fail-safe: kan summan inte läsas returneras nödstoppsnivån så nya
+ * mötessteg pausas i stället för att köras okontrollerat.
+ */
+export async function readBoardroomSpentTodaySek(ctx: BudgetCtx, config?: BudgetConfig): Promise<number> {
+  const cfg = config ?? readBudgetConfig();
+  const since = new Date();
+  since.setUTCHours(0, 0, 0, 0);
+  try {
+    const admin = await adminClient();
+    const client = admin ?? ctx.supabase;
+    const { data, error } = await client
+      .from("agent_run_ledger")
+      .select("estimated_cost_sek")
+      .eq("run_kind", "boardroom")
+      .in("status", ["reserved", "completed"])
+      .gte("created_at", since.toISOString());
+    if (error || !Array.isArray(data)) return cfg.boardroomEmergencyDayCapSek;
+    return data.reduce((sum: number, row: any) => sum + (Number(row?.estimated_cost_sek ?? 0) || 0), 0);
+  } catch {
+    return cfg.boardroomEmergencyDayCapSek;
+  }
+}
+
 /** Läser månadens förbrukning. Returnerar nollor om läsningen misslyckas. */
 export async function readBudgetSnapshot(ctx: BudgetCtx): Promise<BudgetSnapshot> {
   try {
     const { data, error } = await ctx.supabase.rpc("agent_budget_snapshot");
-    if (error || !data) return EMPTY_SNAPSHOT;
+    const boardroomSpentTodaySek = await readBoardroomSpentTodaySek(ctx);
+    if (error || !data) return { ...EMPTY_SNAPSHOT, boardroomSpentTodaySek };
     const row = data as Record<string, unknown>;
     return {
+      boardroomSpentTodaySek,
       spentMonthSek: Number(row["spentMonthSek"] ?? 0) || 0,
       spentTodaySek: Number(row["spentTodaySek"] ?? 0) || 0,
       autonomousRunsToday: Number(row["autonomousRunsToday"] ?? 0) || 0,

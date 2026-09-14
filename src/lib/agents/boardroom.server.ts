@@ -1,12 +1,15 @@
 import { runtimeEnvFromRequest } from "@/lib/growth/runtime-env";
-import { readBudgetConfig } from "./budget";
-import { recordAgentRunUsage, reserveAgentRun } from "./budget.server";
+import { EMPTY_SNAPSHOT, evaluateBudgetGate, readBudgetConfig } from "./budget";
+import { readBoardroomSpentTodaySek, recordAgentRunUsage, reserveAgentRun } from "./budget.server";
 import {
   compactContext,
   budgetPause,
+  managerRevisionMessage,
   meetingPrompt,
+  normalizeRoleKey,
   parseMeetingOutput,
   planNextTurn,
+  revisionRoles,
   type MeetingLike,
   type MeetingMessage,
   type MeetingStatus,
@@ -95,8 +98,12 @@ function derivePausedStatus(meeting: MeetingLike, messages: MeetingMessage[]): M
   const selected = meeting.selected_roles;
   const analysed = new Set(messages.filter((m) => m.message_type === "analysis").map((m) => m.role));
   if (selected.some((role) => !analysed.has(role as MeetingMessage["role"]))) return "round_1";
-  if (meeting.needs_cross_review) {
-    const critiqued = new Set(messages.filter((m) => m.message_type === "critique").map((m) => m.role));
+  const critiqued = new Set(messages.filter((m) => m.message_type === "critique").map((m) => m.role));
+  const requested = revisionRoles(messages);
+  if (requested.length && requested.some((role) => !critiqued.has(role as MeetingMessage["role"]))) {
+    return "cross_review";
+  }
+  if (meeting.needs_cross_review && !requested.length) {
     if (selected.some((role) => !critiqued.has(role as MeetingMessage["role"]))) return "cross_review";
   }
   if (!messages.some((m) => m.message_type === "qa_review")) return "qa_review";
@@ -218,6 +225,18 @@ export async function advanceMeetingCore(ctx: BoardroomContext, meetingId: strin
     parsed = task["result"].boardroomOutput as Record<string, unknown>;
   } else {
     const budgetConfig = readBudgetConfig(runtimeEnvFromRequest(ctx.harness?.request));
+    // Mötesbudget per dygn (normal 10 kr, nödstopp 15 kr) utöver månadstaken.
+    const boardroomSpentTodaySek = await readBoardroomSpentTodaySek(ctx, budgetConfig);
+    const dayGate = evaluateBudgetGate({
+      kind: "boardroom",
+      role: turn.role,
+      snapshot: { ...EMPTY_SNAPSHOT, boardroomSpentTodaySek },
+      config: budgetConfig,
+    });
+    if (!dayGate.allowed) {
+      await releaseClaim(ctx, meetingId, String(token), budgetPause(dayGate.reason));
+      return { ok: false as const, paused: true as const, status: "paused_budget" as const, reason: dayGate.reason, externalEffect: false as const };
+    }
     const reservation = await reserveAgentRun(ctx, {
       role: turn.role,
       taskId: String(task["id"]),
@@ -274,13 +293,35 @@ export async function advanceMeetingCore(ctx: BoardroomContext, meetingId: strin
   }
 
   if (!parsed) throw new Error("Mötessteget saknar ett sparat resultat.");
+
+  // Manager får EN gång begära riktad komplettering innan slutsatsen skrivs.
+  // Loop-skydd: bara en revision per möte, och aldrig från en roll som redan
+  // levererat sin komplettering – annars går mötet direkt till slutsats.
+  const critiquedRoles = new Set(messages.filter((m) => m.message_type === "critique").map((m) => m.role));
+  const requestedRevision =
+    turn.messageType === "synthesis" && !managerRevisionMessage(messages)
+      ? (Array.isArray(parsed["revisionRoles"]) ? parsed["revisionRoles"] : [])
+          .map((role) => normalizeRoleKey(role))
+          .filter((role) => meeting.selected_roles.includes(role) && !critiquedRoles.has(role as never))
+      : [];
+  const isRevisionRequest = requestedRevision.length > 0;
+  const messageType = isRevisionRequest ? "critique" : turn.messageType;
+  const nextStatus = isRevisionRequest ? "cross_review" : turn.nextStatus;
+  const content = isRevisionRequest
+    ? JSON.stringify({
+        summary: String(parsed["summary"] ?? "Manager begär riktad komplettering."),
+        revisionRoles: requestedRevision,
+        revisionFocus: String(parsed["revisionFocus"] ?? ""),
+      })
+    : outputContent(parsed);
+
   const messageInsert = {
     meeting_id: meetingId,
     round: turn.round,
     sequence: messages.length + 1,
     role: turn.role,
-    message_type: turn.messageType,
-    content: outputContent(parsed),
+    message_type: messageType,
+    content,
     task_id: task["id"],
     provider_run_id: providerRunId,
     ledger_id: ledgerId || null,
@@ -291,8 +332,16 @@ export async function advanceMeetingCore(ctx: BoardroomContext, meetingId: strin
   const { error: insertError } = await ctx.supabase.from("agent_meeting_messages").insert(messageInsert);
   if (insertError && !/duplicate key|23505/i.test(insertError.message)) throw new Error(insertError.message);
 
+  if (isRevisionRequest) {
+    // Syntessteget ska köras om på det kompletterade underlaget, inte återanvändas.
+    await ctx.supabase
+      .from("agent_tasks")
+      .update({ status: "queued", run_status: "not_started", runs_used: 0, result: {} })
+      .eq("id", task["id"]);
+  }
+
   const update: Record<string, unknown> = {
-    status: turn.nextStatus,
+    status: nextStatus,
     current_round: turn.round,
     error: "",
     estimated_cost_sek: Number(rawMeeting.estimated_cost_sek ?? 0) + costSek,
@@ -309,7 +358,7 @@ export async function advanceMeetingCore(ctx: BoardroomContext, meetingId: strin
     update["selected_roles"] = selectedRoles;
     update["needs_cross_review"] = parsed["needsCrossReview"];
   }
-  if (turn.messageType === "synthesis") {
+  if (turn.messageType === "synthesis" && !isRevisionRequest) {
     update["final_summary"] = parsed["summary"];
     update["recommendation"] = parsed["recommendation"];
     update["alternatives"] = parsed["alternatives"];
@@ -322,9 +371,9 @@ export async function advanceMeetingCore(ctx: BoardroomContext, meetingId: strin
   return {
     ok: true as const,
     duplicate: false as const,
-    status: turn.nextStatus,
+    status: nextStatus,
     role: turn.role,
-    messageType: turn.messageType,
+    messageType,
     providerRuns: task["status"] === "awaiting_review" ? 0 : 1,
     externalEffect: false as const,
   };

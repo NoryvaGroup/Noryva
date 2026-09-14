@@ -99,6 +99,26 @@ function completedRoles(messages: MeetingMessage[], type: "analysis" | "critique
   return new Set(messages.filter((m) => m.message_type === type).map((m) => m.role));
 }
 
+/** Managerns interna begäran om riktad komplettering (lagras som critique från Manager). */
+export function managerRevisionMessage(messages: MeetingMessage[]): MeetingMessage | null {
+  return (
+    messages.find((m) => m.role === "noryva_manager" && m.message_type === "critique") ?? null
+  );
+}
+
+/** Roller som Manager begärt komplettering av. Tom lista = ingen begäran. */
+export function revisionRoles(messages: MeetingMessage[]): string[] {
+  const request = managerRevisionMessage(messages);
+  if (!request) return [];
+  try {
+    const parsed = JSON.parse(request.content) as Record<string, unknown>;
+    const roles = Array.isArray(parsed["revisionRoles"]) ? parsed["revisionRoles"] : [];
+    return roles.map((role) => normalizeRoleKey(role));
+  } catch {
+    return [];
+  }
+}
+
 export function planNextTurn(meeting: MeetingLike, messages: MeetingMessage[]): TurnPlan | null {
   if (meeting.status === "draft" || meeting.status === "manager_kickoff") {
     if (messages.some((m) => m.message_type === "kickoff")) return null;
@@ -125,10 +145,18 @@ export function planNextTurn(meeting: MeetingLike, messages: MeetingMessage[]): 
   }
   if (meeting.status === "cross_review") {
     const done = completedRoles(messages, "critique");
-    const role = selected.find((candidate) => !done.has(candidate));
+    // Har Manager begärt en riktad komplettering körs bara de rollerna.
+    const requested = revisionRoles(messages);
+    const pool = requested.length
+      ? selected.filter((candidate) => requested.includes(candidate))
+      : selected;
+    const role = pool.find((candidate) => !done.has(candidate));
     if (role) {
-      const isLast = selected.every((candidate) => candidate === role || done.has(candidate));
-      return { role, messageType: "critique", round: 2, nextStatus: isLast ? "qa_review" : "cross_review" };
+      const isLast = pool.every((candidate) => candidate === role || done.has(candidate));
+      const after: MeetingStatus = messages.some((m) => m.message_type === "qa_review")
+        ? "manager_synthesis"
+        : "qa_review";
+      return { role, messageType: "critique", round: 2, nextStatus: isLast ? after : "cross_review" };
     }
     return null;
   }
@@ -165,6 +193,9 @@ const schemas = {
     riskLevel: z.enum(["low", "medium", "high"]),
     estimatedEffort: z.string().trim().min(2).max(500),
     nextStep: z.string().trim().min(3).max(1000),
+    // Manager kan internt begära EN riktad komplettering innan slutsats.
+    revisionRoles: z.array(z.string().trim().min(2).max(60)).max(MAX_SPECIALISTS).optional(),
+    revisionFocus: z.string().trim().max(1000).optional(),
   }),
 };
 
@@ -257,6 +288,7 @@ export function meetingPrompt(meeting: MeetingLike, turn: TurnPlan, messages: Me
     "Kondenserat mötesunderlag inklusive QA:",
     context,
     "Gör slutsyntes: tydlig rekommendation, reella alternativ, förväntad effekt, risk, insats och ett konkret nästa steg (gärna en implementationsplan/prompt) som en människa kan godkänna. Föreslå endast – utför inget.",
-    'Svara JSON: {"summary":"...","recommendation":"...","alternatives":["..."],"expectedEffect":"...","riskLevel":"low|medium|high","estimatedEffort":"...","nextStep":"..."}',
+    "Bedöm först om underlaget räcker. Räcker det inte får du EN gång begära riktad komplettering genom att sätta revisionRoles (rollnycklar) och revisionFocus. Lämna dem tomma när du är redo att slutföra.",
+    'Svara JSON: {"summary":"...","recommendation":"...","alternatives":["..."],"expectedEffect":"...","riskLevel":"low|medium|high","estimatedEffort":"...","nextStep":"...","revisionRoles":[],"revisionFocus":""}',
   ].join("\n");
 }

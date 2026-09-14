@@ -56,7 +56,14 @@ export type BudgetConfig = {
   /** Schablontokens för preflight-reservation innan riktig usage är känd. */
   assumedInputTokens: number;
   assumedOutputTokens: number;
+  /** Normal dagsbudget för SAMTLIGA agentmöten tillsammans. */
+  boardroomDayCapSek: number;
+  /** Defensivt nödstopp per dygn för agentmöten. Kan aldrig höjas via env. */
+  boardroomEmergencyDayCapSek: number;
 };
+
+/** Absolut kodtak för boardroomens nödstopp – env kan aldrig höja detta. */
+export const BOARDROOM_EMERGENCY_CEILING_SEK = 15;
 
 export const DEFAULT_BUDGET_CONFIG: BudgetConfig = {
   softCapSek: 300,
@@ -69,6 +76,8 @@ export const DEFAULT_BUDGET_CONFIG: BudgetConfig = {
   safetyMargin: 1.25,
   assumedInputTokens: 12_000,
   assumedOutputTokens: 2_000,
+  boardroomDayCapSek: 10,
+  boardroomEmergencyDayCapSek: BOARDROOM_EMERGENCY_CEILING_SEK,
 };
 
 function num(env: RuntimeEnv, key: string, fallback: number): number {
@@ -83,6 +92,11 @@ export function readBudgetConfig(env: RuntimeEnv = {}): BudgetConfig {
   const d = DEFAULT_BUDGET_CONFIG;
   const hardCapSek = Math.min(num(env, "NORYVA_AGENT_HARD_CAP_SEK", d.hardCapSek), d.hardCapSek);
   const softCapSek = Math.min(num(env, "NORYVA_AGENT_SOFT_CAP_SEK", d.softCapSek), hardCapSek);
+  // Nödstoppet kan sänkas via env men ALDRIG höjas över kodtaket 15 SEK/dygn.
+  const boardroomEmergencyDayCapSek = Math.min(
+    num(env, "NORYVA_BOARDROOM_EMERGENCY_DAY_CAP_SEK", d.boardroomEmergencyDayCapSek),
+    BOARDROOM_EMERGENCY_CEILING_SEK,
+  );
   return {
     softCapSek,
     hardCapSek,
@@ -98,6 +112,11 @@ export function readBudgetConfig(env: RuntimeEnv = {}): BudgetConfig {
     safetyMargin: Math.max(num(env, "NORYVA_AGENT_COST_SAFETY_MARGIN", d.safetyMargin), 1),
     assumedInputTokens: d.assumedInputTokens,
     assumedOutputTokens: d.assumedOutputTokens,
+    boardroomDayCapSek: Math.min(
+      num(env, "NORYVA_BOARDROOM_DAY_CAP_SEK", d.boardroomDayCapSek),
+      boardroomEmergencyDayCapSek,
+    ),
+    boardroomEmergencyDayCapSek,
   };
 }
 
@@ -135,6 +154,8 @@ export type BudgetSnapshot = {
   /** Dagens autonoma körningar per roll – styr dygnstaket. */
   autonomousRunsTodayByRole: Record<string, number>;
   autonomousRunsMonth: number;
+  /** Dagens uppskattade kostnad för SAMTLIGA agentmöten tillsammans. */
+  boardroomSpentTodaySek?: number;
 };
 
 export const EMPTY_SNAPSHOT: BudgetSnapshot = {
@@ -143,6 +164,7 @@ export const EMPTY_SNAPSHOT: BudgetSnapshot = {
   autonomousRunsToday: 0,
   autonomousRunsTodayByRole: {},
   autonomousRunsMonth: 0,
+  boardroomSpentTodaySek: 0,
 };
 
 /** Dagens autonoma körningar för en specifik roll. */
@@ -174,8 +196,28 @@ export function evaluateBudgetGate(input: {
       reason: "Månadens hårda kostnadstak är nått. Inga nya agentkörningar startas.",
     };
   }
-  // Run caps och soft cap gäller ENDAST autonoma körningar. Manuella och
-  // manuellt startade boardroom-körningar begränsas av hard cap (500 SEK).
+  // Agentmöten har en egen dagsbudget i stället för ett godtyckligt stegtak.
+  // Run caps för autonoma bakgrundskörningar gäller ALDRIG mötessteg.
+  if (input.kind === "boardroom") {
+    const projectedDay =
+      Math.max(Number(input.snapshot.boardroomSpentTodaySek ?? 0) || 0, 0) +
+      reservationCostSek(input.role, cfg);
+    if (projectedDay > cfg.boardroomEmergencyDayCapSek) {
+      return {
+        allowed: false,
+        state: "hard_blocked",
+        reason: `Nödstopp för agentmöten: dygnets absoluta tak ${cfg.boardroomEmergencyDayCapSek} kr är nått.`,
+      };
+    }
+    if (projectedDay > cfg.boardroomDayCapSek) {
+      return {
+        allowed: false,
+        state: "soft_paused",
+        reason: `Dagens mötesbudget ${cfg.boardroomDayCapSek} kr är slut. Mötet pausas till i morgon.`,
+      };
+    }
+  }
+  // Run caps och soft cap gäller ENDAST autonoma bakgrundskörningar.
   if (input.kind === "autonomous") {
     if (projected > cfg.softCapSek) {
       return {
