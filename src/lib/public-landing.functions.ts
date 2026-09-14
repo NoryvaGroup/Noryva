@@ -6,6 +6,7 @@ import { z } from "zod";
 import { validateAnswers, type PublicLanding, type PublicQuestion } from "./landing/schema";
 import { buildMakeFields, buildStoredPayload, readStoredPayload } from "./landing/make-adapter";
 import { pickDeliveryFields, resolveClaim } from "./landing/delivery";
+import { isSafeDeliveryUrl } from "./landing/webhook-url";
 import { scoreVaruautomat } from "./landing/scoring";
 
 const slugInput = z.object({ slug: z.string().trim().min(1).max(60) });
@@ -67,7 +68,7 @@ export const submitPublicLead = createServerFn({ method: "POST" })
     if (cErr || !customer || customer.status !== "published") {
       return { ok: false as const, message: "Sidan tar inte emot förfrågningar just nu." };
     }
-    if (!customer.delivery_webhook_url) {
+    if (!customer.delivery_webhook_url || !isSafeDeliveryUrl(customer.delivery_webhook_url)) {
       return {
         ok: false as const,
         message: "Formuläret är inte kopplat till någon mottagare ännu.",

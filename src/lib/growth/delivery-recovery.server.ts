@@ -14,6 +14,7 @@
  */
 import { buildMakeFields, readStoredPayload } from "@/lib/landing/make-adapter";
 import { pickDeliveryFields } from "@/lib/landing/delivery";
+import { isSafeDeliveryUrl } from "@/lib/landing/webhook-url";
 import { scoreVaruautomat } from "@/lib/landing/scoring";
 import { buildContactUrl } from "@/lib/leads/contact-token";
 import type { PublicQuestion } from "@/lib/landing/schema";
@@ -228,6 +229,13 @@ export async function deliveryRecoveryCore(
       candidate.resultDetail = "Kunden saknar leveranswebhook.";
       candidate.needsAlert = true;
       candidate.alertReasons.push("missing_webhook");
+      continue;
+    }
+    if (!isSafeDeliveryUrl(customer["delivery_webhook_url"])) {
+      candidate.result = "skipped";
+      candidate.resultDetail = "Leveranswebhooken är inte en tillåten extern https-adress.";
+      candidate.needsAlert = true;
+      candidate.alertReasons.push("unsafe_webhook");
       continue;
     }
 

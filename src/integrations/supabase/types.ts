@@ -646,6 +646,7 @@ export type Database = {
           id: string
           meddelande: string | null
           namn: string
+          source_ip_hash: string
           telefon: string
         }
         Insert: {
@@ -657,6 +658,7 @@ export type Database = {
           id?: string
           meddelande?: string | null
           namn: string
+          source_ip_hash?: string
           telefon: string
         }
         Update: {
@@ -668,6 +670,7 @@ export type Database = {
           id?: string
           meddelande?: string | null
           namn?: string
+          source_ip_hash?: string
           telefon?: string
         }
         Relationships: []
