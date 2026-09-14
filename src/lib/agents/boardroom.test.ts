@@ -86,7 +86,7 @@ describe("Kritikrundans omfattning", () => {
 });
 
 describe("Robust JSON-tolkning och kontextpaket", () => {
-  const ok = { summary: "En tillräckligt tydlig analys", findings: ["A"], recommendations: ["B"] };
+  const ok = { summary: "En tillräckligt tydlig analys", findings: ["Alfa"], recommendations: ["Beta"] };
 
   it("tolkar JSON i code fence och med text runtom", () => {
     expect(parseMeetingOutput("analysis", "```json\n" + JSON.stringify(ok) + "\n```")).toMatchObject(ok);
@@ -94,7 +94,7 @@ describe("Robust JSON-tolkning och kontextpaket", () => {
   });
 
   it("reparerar avslutande kommatecken utan nytt provider-anrop", () => {
-    const almost = '{"summary":"En tillräckligt tydlig analys","findings":["A",],"recommendations":["B"],}';
+    const almost = '{"summary":"En tillräckligt tydlig analys","findings":["Alfa",],"recommendations":["Beta"],}';
     expect(parseMeetingOutput("analysis", almost)).toMatchObject(ok);
   });
 
