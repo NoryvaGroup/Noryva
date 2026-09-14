@@ -115,11 +115,14 @@ export function AgentBoardroom() {
   const [maxSpecialists, setMaxSpecialists] = useState("3");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
+  const [running, setRunning] = useState(false);
+  const runningRef = useRef(false);
+  const stoppedRef = useRef<Set<string>>(new Set());
 
   const query = useQuery({
     queryKey: ["agent-meetings"],
     queryFn: () => list(),
-    refetchInterval: 10_000,
+    refetchInterval: running ? 4_000 : 20_000,
   });
   const meetings = (query.data?.meetings ?? []) as MeetingRow[];
   const messages = (query.data?.messages ?? []) as MessageRow[];
