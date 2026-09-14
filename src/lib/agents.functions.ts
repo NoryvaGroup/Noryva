@@ -78,6 +78,8 @@ export const listAgentTasks = createServerFn({ method: "GET" })
       // Boardroom-turns är internt mötesunderlag: Manager är intern kontrollnivå
       // och endast mötets slutsyntes går till användarens godkännande.
       .or("source_event.is.null,source_event.neq.boardroom_turn")
+      // Genomförandeuppgifter har egen vy och egen godkännandeväg.
+      .not("source_event", "ilike", "boardroom_execution%")
       .order("created_at", { ascending: false })
       .limit(50);
     if (error) throw new Error(error.message);
@@ -237,7 +239,63 @@ export const decideAgentMeeting = createServerFn({ method: "POST" })
       .eq("status", "awaiting_approval")
       .eq("approval_status", "pending");
     if (error) throw new Error(error.message);
-    return { ok: true as const, decision: data.decision, status: "completed" as const, externalEffect: false as const };
+    // Godkännande startar det interna genomförandet idempotent. Avvisat möte
+    // skapar ingenting. Ingen extern effekt sker här.
+    let execution: { created: number; needsPlanning: boolean } | null = null;
+    if (data.decision === "approved") {
+      const { startMeetingExecutionCore } = await import("@/lib/agents/execution.server");
+      const started = await startMeetingExecutionCore(ctx, data.meetingId);
+      execution = { created: started.created, needsPlanning: Boolean(started.needsPlanning) };
+    }
+    return {
+      ok: true as const,
+      decision: data.decision,
+      status: "completed" as const,
+      execution,
+      externalEffect: false as const,
+    };
+  });
+
+/* --------------------------------------------- genomförande efter godkännande */
+
+const meetingIdInput = z.object({ meetingId: z.string().uuid() });
+
+/** Läser execution-batchen för ett godkänt möte. Ingen körning, ingen extern effekt. */
+export const getMeetingExecution = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => meetingIdInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const ctx = context as AdminContext;
+    await assertAdmin(ctx);
+    const { listExecutionCore } = await import("@/lib/agents/execution.server");
+    return listExecutionCore(ctx, data.meetingId);
+  });
+
+/** Kör nästa genomförandeuppgift. Max ett provider-anrop per anrop. */
+export const advanceMeetingExecution = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => meetingIdInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const ctx = context as AdminContext;
+    await assertAdmin(ctx);
+    const { advanceExecutionCore } = await import("@/lib/agents/execution.server");
+    return advanceExecutionCore({ ...ctx, harness: { request: getRequest() } }, data.meetingId);
+  });
+
+/**
+ * Mänskligt beslut om en kundkontakt-uppgift. Ändrar endast intern status:
+ * ingen mail-, SMS- eller Make-sändning finns i den här versionen.
+ */
+export const decideExecutionContact = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ taskId: z.string().uuid(), decision: z.enum(["approved", "rejected"]) }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const ctx = context as AdminContext;
+    await assertAdmin(ctx);
+    const { decideExecutionContactCore } = await import("@/lib/agents/execution.server");
+    return decideExecutionContactCore(ctx, data);
   });
 
 /**

@@ -20,7 +20,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { advanceAgentMeeting, cancelAgentMeeting, createAgentMeeting, decideAgentMeeting, listAgentMeetings } from "@/lib/agents.functions";
+import {
+  advanceAgentMeeting,
+  advanceMeetingExecution,
+  cancelAgentMeeting,
+  createAgentMeeting,
+  decideAgentMeeting,
+  decideExecutionContact,
+  getMeetingExecution,
+  listAgentMeetings,
+} from "@/lib/agents.functions";
+import {
+  EXECUTION_ACTION_LABEL,
+  EXECUTION_BATCH_LABEL,
+  EXECUTION_STATUS_LABEL,
+  type ExecutionActionType,
+  type ExecutionBatchStatus,
+  type ExecutionStatus,
+} from "@/lib/agents/execution";
 import { ACTIVE_MEETING_STATUSES, MEETING_STATUS_LABEL, type MeetingStatus, type MeetingType } from "@/lib/agents/boardroom";
 import { DEFAULT_BUDGET_CONFIG } from "@/lib/agents/budget";
 import { AGENT_LABEL, type AgentName } from "@/lib/agents/tasks";
@@ -171,6 +188,152 @@ function statusVariant(status: MeetingStatus) {
   if (status === "failed" || status === "paused_budget") return "destructive" as const;
   if (status === "awaiting_approval" || status === "completed") return "secondary" as const;
   return "outline" as const;
+}
+
+type ExecutionTaskRow = {
+  id: string;
+  index: number;
+  role: string;
+  actionType: ExecutionActionType;
+  goal: string;
+  successCriteria: string;
+  executionStatus: ExecutionStatus;
+  blockedReason: string;
+  approvalStatus: string;
+};
+
+/**
+ * Genomförande efter godkänd slutsats. Kör de interna uppgifterna sekventiellt
+ * och stannar alltid vid kundkontakt, som kräver separat mänskligt beslut.
+ */
+function ExecutionPanel({ meetingId }: { meetingId: string }) {
+  const listExecution = useServerFn(getMeetingExecution);
+  const advanceExecution = useServerFn(advanceMeetingExecution);
+  const decideContact = useServerFn(decideExecutionContact);
+  const queryClient = useQueryClient();
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
+  const stoppedRef = useRef(false);
+
+  const query = useQuery({
+    queryKey: ["meeting-execution", meetingId],
+    queryFn: () => listExecution({ data: { meetingId } }),
+    refetchInterval: busy ? 4_000 : false,
+  });
+  const tasks = (query.data?.tasks ?? []) as ExecutionTaskRow[];
+  const batchStatus = (query.data?.batchStatus ?? "not_started") as ExecutionBatchStatus;
+
+  const run = useCallback(async () => {
+    if (busyRef.current || stoppedRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      for (;;) {
+        const result = await advanceExecution({ data: { meetingId } });
+        await queryClient.invalidateQueries({ queryKey: ["meeting-execution", meetingId] });
+        if (!result.ok) {
+          stoppedRef.current = true;
+          setError(String(result.reason ?? "Genomförandet stoppades."));
+          return;
+        }
+        if (result.done) return;
+      }
+    } catch (caught) {
+      stoppedRef.current = true;
+      setError((caught as Error).message);
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  }, [advanceExecution, meetingId, queryClient]);
+
+  useEffect(() => {
+    stoppedRef.current = false;
+  }, [meetingId]);
+
+  useEffect(() => {
+    if (query.isLoading || busyRef.current || stoppedRef.current) return;
+    if (batchStatus === "running" || batchStatus === "not_started") void run();
+  }, [batchStatus, query.isLoading, run]);
+
+  const contactDecision = useMutation({
+    mutationFn: (input: { taskId: string; decision: "approved" | "rejected" }) => decideContact({ data: input }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["meeting-execution", meetingId] });
+    },
+    onError: (caught: Error) => setError(caught.message),
+  });
+
+  const done = tasks.filter((task) => task.executionStatus !== "queued").length;
+
+  return (
+    <section className="mt-4 rounded-md border border-border bg-card p-4 sm:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <h5 className="font-semibold">Genomförande</h5>
+          {busy ? <Loader2 className="size-4 animate-spin text-primary" /> : null}
+        </div>
+        <Badge variant={batchStatus === "completed" ? "secondary" : "outline"}>
+          {EXECUTION_BATCH_LABEL[batchStatus]}
+        </Badge>
+      </div>
+      <p className="mt-1 text-xs text-muted-foreground">
+        {tasks.length ? `${done} av ${tasks.length} uppgifter behandlade.` : "Manager bryter ned slutsatsen i uppgifter."}{" "}
+        Kontakt med kund eller lead kräver alltid ett separat godkännande.
+      </p>
+      {error ? (
+        <p className="mt-3 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</p>
+      ) : null}
+      <ul className="mt-4 space-y-2">
+        {tasks.map((task) => (
+          <li key={task.id} className="rounded-md border border-border bg-surface p-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-semibold">{AGENT_LABEL[task.role as AgentName] ?? task.role}</span>
+              <Badge variant="outline">{EXECUTION_ACTION_LABEL[task.actionType] ?? task.actionType}</Badge>
+              <Badge
+                variant={
+                  task.executionStatus === "done"
+                    ? "secondary"
+                    : task.executionStatus === "blocked"
+                      ? "destructive"
+                      : "outline"
+                }
+                className="ml-auto"
+              >
+                {EXECUTION_STATUS_LABEL[task.executionStatus] ?? task.executionStatus}
+              </Badge>
+            </div>
+            <p className="mt-2 text-sm">{task.goal}</p>
+            {task.blockedReason ? <p className="mt-1 text-xs text-muted-foreground">{task.blockedReason}</p> : null}
+            {task.actionType === "customer_contact" && task.approvalStatus === "pending" ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  disabled={contactDecision.isPending}
+                  onClick={() => contactDecision.mutate({ taskId: task.id, decision: "approved" })}
+                >
+                  Godkänn kundkontakt
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={contactDecision.isPending}
+                  onClick={() => contactDecision.mutate({ taskId: task.id, decision: "rejected" })}
+                >
+                  Avvisa
+                </Button>
+              </div>
+            ) : null}
+          </li>
+        ))}
+        {!query.isLoading && tasks.length === 0 ? (
+          <li className="text-sm text-muted-foreground">Inga genomförandeuppgifter ännu.</li>
+        ) : null}
+      </ul>
+    </section>
+  );
 }
 
 export function AgentBoardroom() {
@@ -541,6 +704,8 @@ export function AgentBoardroom() {
                 ) : null}
               </section>
             ) : null}
+
+            {selected.approval_status === "approved" ? <ExecutionPanel meetingId={selected.id} /> : null}
           </div>
         ) : null}
       </div>
