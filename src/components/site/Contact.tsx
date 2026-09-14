@@ -29,25 +29,14 @@ const goals = [
   "Annat",
 ];
 
-/**
- * ENDA stället där ett inskick skickas vidare.
- * Fältnamnen (namn, foretag, epost, telefon, hemsida, forbattra, meddelande)
- * mappar rakt av mot kolumner i Google Sheets.
- *
- * För att koppla på automationen senare: gör funktionen async och posta
- * `lead` som JSON till din Make-webhook (eller motsvarande) här, t.ex.:
- *   await fetch(MAKE_WEBHOOK_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(lead) });
- * Alternativt kan ett Tally-formulär bäddas in i sektionen istället.
- */
-function submitLead(lead: Lead) {
-  void lead; // webhook-koppling läggs till här
-}
-
 export function Contact() {
   const [errors, setErrors] = useState<Errors>({});
   const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState(false);
+  const submit = useServerFn(submitContactRequest);
 
-  function onSubmit(e: FormEvent<HTMLFormElement>) {
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const data = Object.fromEntries(new FormData(e.currentTarget).entries());
     const result = schema.safeParse(data);
@@ -61,8 +50,20 @@ export function Contact() {
       return;
     }
     setErrors({});
-    submitLead(result.data);
-    setSent(true);
+    setSendError(false);
+    setSending(true);
+    try {
+      const res = await submit({ data: result.data });
+      if (res.ok) {
+        setSent(true);
+      } else {
+        setSendError(true);
+      }
+    } catch {
+      setSendError(true);
+    } finally {
+      setSending(false);
+    }
   }
 
   return (
