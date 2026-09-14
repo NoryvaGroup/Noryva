@@ -218,12 +218,62 @@ export function normalizeRoleKey(raw: unknown): string {
   return slug;
 }
 
+/**
+ * Plockar ut JSON-objektet ur agentens svar även när modellen lindat det i
+ * markdown/code fence eller lagt text före och efter. Ren lokal funktion –
+ * inget nytt provider-anrop.
+ */
+export function extractJsonObject(text: string): string {
+  const raw = String(text ?? "");
+  const fence = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const body = fence?.[1]?.trim() || raw;
+  const start = body.indexOf("{");
+  if (start < 0) return "";
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < body.length; i += 1) {
+    const ch = body[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === "\\") escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') inString = true;
+    else if (ch === "{") depth += 1;
+    else if (ch === "}") {
+      depth -= 1;
+      if (depth === 0) return body.slice(start, i + 1);
+    }
+  }
+  return "";
+}
+
+/** Billig lokal reparation av nästan giltig JSON. Ingen LLM, inga anrop. */
+export function repairJsonText(text: string): string {
+  return text
+    .replace(/[\u201c\u201d]/g, '"')
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/,(\s*[}\]])/g, "$1");
+}
+
 export function parseMeetingOutput(type: Exclude<MeetingMessage["message_type"], "system">, text: string) {
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
-  if (start < 0 || end <= start) throw new Error("Agentens svar innehöll ingen giltig JSON.");
+  const candidate = extractJsonObject(text);
+  if (!candidate) {
+    const kind = String(text ?? "").trim() ? "endast text utan JSON-objekt" : "tomt svar";
+    throw new Error(`Agentens svar innehöll ingen giltig JSON (${kind}).`);
+  }
   let value: unknown;
-  try { value = JSON.parse(text.slice(start, end + 1)); } catch { throw new Error("Agentens svar kunde inte tolkas som JSON."); }
+  try {
+    value = JSON.parse(candidate);
+  } catch {
+    try {
+      value = JSON.parse(repairJsonText(candidate));
+    } catch {
+      throw new Error("Agentens svar innehöll ett ofullständigt eller trasigt JSON-objekt.");
+    }
+  }
   if (type === "kickoff" && value && typeof value === "object") {
     const v = value as Record<string, unknown>;
     if (Array.isArray(v["selectedRoles"])) {
@@ -233,9 +283,16 @@ export function parseMeetingOutput(type: Exclude<MeetingMessage["message_type"],
     if (typeof v["needsCrossReview"] !== "boolean") v["needsCrossReview"] = false;
   }
   const parsed = schemas[type].safeParse(value);
-  if (!parsed.success) throw new Error("Agentens svar matchade inte mötesstegets format.");
+  if (!parsed.success) {
+    const detail = parsed.error.issues
+      .slice(0, 3)
+      .map((issue) => `${issue.path.join(".") || "(rot)"}: ${issue.message}`)
+      .join("; ");
+    throw new Error(`Agentens svar matchade inte mötesstegets format – ${detail}`);
+  }
   return parsed.data;
 }
+
 
 export function compactContext(messages: MeetingMessage[], maxItems = 6): string {
   return messages.slice(-maxItems).map((m) => `${m.role}/${m.message_type}: ${m.content.slice(0, 900)}`).join("\n");
