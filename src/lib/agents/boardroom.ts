@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { buildContextPack } from "./context-pack";
+
 import {
   SPECIALIST_AGENTS_V1,
   type ActiveAgentV1,
