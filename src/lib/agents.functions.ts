@@ -78,6 +78,8 @@ export const listAgentTasks = createServerFn({ method: "GET" })
       // Boardroom-turns är internt mötesunderlag: Manager är intern kontrollnivå
       // och endast mötets slutsyntes går till användarens godkännande.
       .or("source_event.is.null,source_event.neq.boardroom_turn")
+      // Genomförandeuppgifter har egen vy och egen godkännandeväg.
+      .not("source_event", "ilike", "boardroom_execution%")
       .order("created_at", { ascending: false })
       .limit(50);
     if (error) throw new Error(error.message);
