@@ -332,8 +332,16 @@ export async function advanceMeetingCore(ctx: BoardroomContext, meetingId: strin
   const { error: insertError } = await ctx.supabase.from("agent_meeting_messages").insert(messageInsert);
   if (insertError && !/duplicate key|23505/i.test(insertError.message)) throw new Error(insertError.message);
 
+  if (isRevisionRequest) {
+    // Syntessteget ska köras om på det kompletterade underlaget, inte återanvändas.
+    await ctx.supabase
+      .from("agent_tasks")
+      .update({ status: "queued", run_status: "not_started", runs_used: 0, result: {} })
+      .eq("id", task["id"]);
+  }
+
   const update: Record<string, unknown> = {
-    status: turn.nextStatus,
+    status: nextStatus,
     current_round: turn.round,
     error: "",
     estimated_cost_sek: Number(rawMeeting.estimated_cost_sek ?? 0) + costSek,
