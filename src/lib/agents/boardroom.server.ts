@@ -371,9 +371,9 @@ export async function advanceMeetingCore(ctx: BoardroomContext, meetingId: strin
   return {
     ok: true as const,
     duplicate: false as const,
-    status: turn.nextStatus,
+    status: nextStatus,
     role: turn.role,
-    messageType: turn.messageType,
+    messageType,
     providerRuns: task["status"] === "awaiting_review" ? 0 : 1,
     externalEffect: false as const,
   };
