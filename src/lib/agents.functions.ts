@@ -75,6 +75,9 @@ export const listAgentTasks = createServerFn({ method: "GET" })
     const { data: tasks, error } = await ctx.supabase
       .from("agent_tasks")
       .select(TASK_COLUMNS)
+      // Boardroom-turns är internt mötesunderlag: Manager är intern kontrollnivå
+      // och endast mötets slutsyntes går till användarens godkännande.
+      .or("source_event.is.null,source_event.neq.boardroom_turn")
       .order("created_at", { ascending: false })
       .limit(50);
     if (error) throw new Error(error.message);
