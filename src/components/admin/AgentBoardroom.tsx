@@ -20,8 +20,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { advanceAgentMeeting, createAgentMeeting, decideAgentMeeting, listAgentMeetings } from "@/lib/agents.functions";
-import { MEETING_STATUS_LABEL, type MeetingStatus, type MeetingType } from "@/lib/agents/boardroom";
+import { advanceAgentMeeting, cancelAgentMeeting, createAgentMeeting, decideAgentMeeting, listAgentMeetings } from "@/lib/agents.functions";
+import { ACTIVE_MEETING_STATUSES, MEETING_STATUS_LABEL, type MeetingStatus, type MeetingType } from "@/lib/agents/boardroom";
 import { AGENT_LABEL, type AgentName } from "@/lib/agents/tasks";
 
 type MeetingRow = {
@@ -177,6 +177,7 @@ export function AgentBoardroom() {
   const createMeeting = useServerFn(createAgentMeeting);
   const advance = useServerFn(advanceAgentMeeting);
   const decide = useServerFn(decideAgentMeeting);
+  const cancel = useServerFn(cancelAgentMeeting);
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [agenda, setAgenda] = useState("");
@@ -290,6 +291,20 @@ export function AgentBoardroom() {
     onError: (error: Error) => setNotice(error.message),
   });
 
+  const cancelMutation = useMutation({
+    mutationFn: () => {
+      if (!selected) return Promise.reject(new Error("Inget möte valt."));
+      // Stoppa den interna autoloopen omedelbart.
+      stoppedRef.current.add(selected.id);
+      return cancel({ data: { meetingId: selected.id } });
+    },
+    onSuccess: async () => {
+      setNotice("Mötet avbröts. Inga fler interna steg körs och du kan starta ett nytt möte.");
+      await queryClient.invalidateQueries({ queryKey: ["agent-meetings"] });
+    },
+    onError: (error: Error) => setNotice(error.message),
+  });
+
   const isWorking = Boolean(selected && running && !TERMINAL_STATUSES.includes(selected.status));
   const canResume = Boolean(
     selected &&
@@ -298,6 +313,7 @@ export function AgentBoardroom() {
       (selected.status === "paused_budget" || stoppedRef.current.has(selected.id) || Boolean(selected.error)),
   );
   const canDecide = selected && selected.status === "awaiting_approval" && selected.approval_status === "pending";
+  const canCancel = Boolean(selected && ACTIVE_MEETING_STATUSES.includes(selected.status));
   const activeRole = selected ? currentAgent(selected.status, transcript, selected.selected_roles) : undefined;
 
   return (
@@ -409,11 +425,25 @@ export function AgentBoardroom() {
                 <h4 className="mt-2 font-semibold">{selected.agenda}</h4>
                 {selected.selected_roles.length ? <p className="mt-1 text-xs text-muted-foreground">{selected.selected_roles.map((role) => AGENT_LABEL[role as AgentName] ?? role).join(" · ")}</p> : null}
               </div>
-              {canResume ? (
-                <Button size="sm" onClick={() => void runMeeting(selected.id)}>
-                  <Play />Återuppta mötet
-                </Button>
-              ) : null}
+              <div className="flex flex-wrap gap-2">
+                {canResume ? (
+                  <Button size="sm" onClick={() => void runMeeting(selected.id)}>
+                    <Play />Återuppta mötet
+                  </Button>
+                ) : null}
+                {canCancel ? (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    disabled={cancelMutation.isPending}
+                    onClick={() => {
+                      if (window.confirm("Avsluta mötet? Inga fler interna steg körs.")) cancelMutation.mutate();
+                    }}
+                  >
+                    {cancelMutation.isPending ? "Avslutar …" : "Avsluta mötet"}
+                  </Button>
+                ) : null}
+              </div>
             </div>
 
             {selected.error ? <p className="mt-3 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{selected.error}</p> : null}
