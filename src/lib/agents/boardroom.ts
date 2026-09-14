@@ -193,6 +193,9 @@ const schemas = {
     riskLevel: z.enum(["low", "medium", "high"]),
     estimatedEffort: z.string().trim().min(2).max(500),
     nextStep: z.string().trim().min(3).max(1000),
+    // Manager kan internt begära EN riktad komplettering innan slutsats.
+    revisionRoles: z.array(z.string().trim().min(2).max(60)).max(MAX_SPECIALISTS).optional(),
+    revisionFocus: z.string().trim().max(1000).optional(),
   }),
 };
 
@@ -285,6 +288,7 @@ export function meetingPrompt(meeting: MeetingLike, turn: TurnPlan, messages: Me
     "Kondenserat mötesunderlag inklusive QA:",
     context,
     "Gör slutsyntes: tydlig rekommendation, reella alternativ, förväntad effekt, risk, insats och ett konkret nästa steg (gärna en implementationsplan/prompt) som en människa kan godkänna. Föreslå endast – utför inget.",
-    'Svara JSON: {"summary":"...","recommendation":"...","alternatives":["..."],"expectedEffect":"...","riskLevel":"low|medium|high","estimatedEffort":"...","nextStep":"..."}',
+    "Bedöm först om underlaget räcker. Räcker det inte får du EN gång begära riktad komplettering genom att sätta revisionRoles (rollnycklar) och revisionFocus. Lämna dem tomma när du är redo att slutföra.",
+    'Svara JSON: {"summary":"...","recommendation":"...","alternatives":["..."],"expectedEffect":"...","riskLevel":"low|medium|high","estimatedEffort":"...","nextStep":"...","revisionRoles":[],"revisionFocus":""}',
   ].join("\n");
 }
