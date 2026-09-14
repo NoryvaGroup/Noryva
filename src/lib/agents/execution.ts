@@ -24,8 +24,12 @@ export const EXECUTION_ACTION_TYPES = [
 ] as const;
 export type ExecutionActionType = (typeof EXECUTION_ACTION_TYPES)[number];
 
-/** Ingen repo-executor finns i Noryva-runtime. Sätts aldrig true utan riktig write-path. */
+/**
+ * Policy: agenter får ALDRIG applicera kod i Lovable/repo automatiskt, även om
+ * en executor skulle vara tekniskt möjlig. Konstanten är låst till false.
+ */
 export const REPO_EXECUTOR_AVAILABLE = false;
+export const CODE_CHANGE_ALWAYS_PROPOSAL = true as const;
 
 /** Explicit whitelist av säkra interna writes. Tom = allt internal_config är proposal-only. */
 export const SAFE_INTERNAL_CONFIG_WRITES: readonly string[] = [];
