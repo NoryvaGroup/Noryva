@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { advanceAgentMeeting, cancelAgentMeeting, createAgentMeeting, decideAgentMeeting, listAgentMeetings } from "@/lib/agents.functions";
 import { ACTIVE_MEETING_STATUSES, MEETING_STATUS_LABEL, type MeetingStatus, type MeetingType } from "@/lib/agents/boardroom";
+import { DEFAULT_BUDGET_CONFIG } from "@/lib/agents/budget";
 import { AGENT_LABEL, type AgentName } from "@/lib/agents/tasks";
 
 type MeetingRow = {
@@ -456,7 +457,10 @@ export function AgentBoardroom() {
                 </div>
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                   <span><span className="text-muted-foreground">Aktiv:</span> {activeRole ? AGENT_LABEL[activeRole as AgentName] : "–"}</span>
-                  <span><span className="text-muted-foreground">Kostnad:</span> {Number(selected.estimated_cost_sek).toFixed(2)} kr</span>
+                  <span>
+                    <span className="text-muted-foreground">Aktuellt möte (uppskattat):</span>{" "}
+                    {Number(selected.estimated_cost_sek).toFixed(2)} / {DEFAULT_BUDGET_CONFIG.boardroomMeetingCapSek.toFixed(2)} kr
+                  </span>
                 </div>
               </div>
 
