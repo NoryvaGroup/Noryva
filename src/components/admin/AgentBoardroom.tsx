@@ -203,7 +203,13 @@ export function AgentBoardroom() {
     onError: (error: Error) => setNotice(error.message),
   });
 
-  const canAdvance = selected && !["awaiting_approval", "completed", "failed"].includes(selected.status);
+  const isWorking = Boolean(selected && running && !TERMINAL_STATUSES.includes(selected.status));
+  const canResume = Boolean(
+    selected &&
+      !running &&
+      !["awaiting_approval", "completed"].includes(selected.status) &&
+      (selected.status === "paused_budget" || stoppedRef.current.has(selected.id) || Boolean(selected.error)),
+  );
   const canDecide = selected && selected.status === "awaiting_approval" && selected.approval_status === "pending";
 
   return (
