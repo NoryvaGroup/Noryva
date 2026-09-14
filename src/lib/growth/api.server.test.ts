@@ -1348,8 +1348,8 @@ describe("customer-config (read-only)", () => {
 
   it("saknad profil och saknad launch-markör ger defaults utan gissade mottagare", async () => {
     const state = configState([]);
-    state["customers"][0]!["launch_approved"] = false;
-    state["customers"][0]!["launch_approved_at"] = null;
+    (state["customers"][0] as Row)["launch_approved"] = false;
+    (state["customers"][0] as Row)["launch_approved_at"] = null;
     const { res, body } = await call(state, { customerId: CUSTOMER_ID });
     expect(res.status).toBe(200);
     expect(body.profileExists).toBe(false);
