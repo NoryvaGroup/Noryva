@@ -124,6 +124,37 @@ describe("agent budget", () => {
     ).toMatchObject({ allowed: false, state: "hard_blocked" });
   });
 
+  it("dagsbudget för agentmöten pausar och nödstoppet blockerar", () => {
+    expect(
+      evaluateBudgetGate({
+        kind: "boardroom",
+        role: "noryva_manager",
+        snapshot: snapshot({ boardroomSpentTodaySek: 10 }),
+      }),
+    ).toMatchObject({ allowed: false, state: "soft_paused" });
+    expect(
+      evaluateBudgetGate({
+        kind: "boardroom",
+        role: "noryva_manager",
+        snapshot: snapshot({ boardroomSpentTodaySek: 15 }),
+      }),
+    ).toMatchObject({ allowed: false, state: "hard_blocked" });
+    expect(
+      evaluateBudgetGate({
+        kind: "boardroom",
+        role: "noryva_manager",
+        snapshot: snapshot({ boardroomSpentTodaySek: 3 }),
+      }),
+    ).toMatchObject({ allowed: true, state: "ok" });
+    // Env kan aldrig höja nödstoppet över 15 kr.
+    const cfg = readBudgetConfig({
+      NORYVA_BOARDROOM_DAY_CAP_SEK: "99",
+      NORYVA_BOARDROOM_EMERGENCY_DAY_CAP_SEK: "99",
+    });
+    expect(cfg.boardroomEmergencyDayCapSek).toBe(15);
+    expect(cfg.boardroomDayCapSek).toBe(15);
+  });
+
   it("reservationen använder konservativ schablon", () => {
     expect(reservationCostSek("product_tech", DEFAULT_BUDGET_CONFIG)).toBeGreaterThan(
       reservationCostSek("noryva_manager", DEFAULT_BUDGET_CONFIG),
