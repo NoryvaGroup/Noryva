@@ -92,6 +92,11 @@ export function readBudgetConfig(env: RuntimeEnv = {}): BudgetConfig {
   const d = DEFAULT_BUDGET_CONFIG;
   const hardCapSek = Math.min(num(env, "NORYVA_AGENT_HARD_CAP_SEK", d.hardCapSek), d.hardCapSek);
   const softCapSek = Math.min(num(env, "NORYVA_AGENT_SOFT_CAP_SEK", d.softCapSek), hardCapSek);
+  // Nödstoppet kan sänkas via env men ALDRIG höjas över kodtaket 15 SEK/dygn.
+  const boardroomEmergencyDayCapSek = Math.min(
+    num(env, "NORYVA_BOARDROOM_EMERGENCY_DAY_CAP_SEK", d.boardroomEmergencyDayCapSek),
+    BOARDROOM_EMERGENCY_CEILING_SEK,
+  );
   return {
     softCapSek,
     hardCapSek,
