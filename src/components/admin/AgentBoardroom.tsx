@@ -541,6 +541,8 @@ export function AgentBoardroom() {
                 ) : null}
               </section>
             ) : null}
+
+            {selected.approval_status === "approved" ? <ExecutionPanel meetingId={selected.id} /> : null}
           </div>
         ) : null}
       </div>
