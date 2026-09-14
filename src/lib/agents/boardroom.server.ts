@@ -264,6 +264,7 @@ export async function advanceMeetingCore(ctx: BoardroomContext, meetingId: strin
         role: turn.role,
         instructions: taskInstructions(turn.role, meeting.agenda, turn.messageType),
         input: meetingPrompt(meeting, turn, messages),
+        requestKey: String(task["idempotency_key"] ?? taskKey(meetingId, turn.role, turn.messageType)),
       },
       // Boardroom-svar är längre än vanliga tasks; ge polling mer tid.
       { timeoutMs: 180_000, ...(ctx.harness ?? {}) },
@@ -272,9 +273,16 @@ export async function advanceMeetingCore(ctx: BoardroomContext, meetingId: strin
     providerAgentId = run.providerAgentId;
     usage = run.usage;
     if (!run.ok) {
-      await ctx.supabase.from("agent_tasks").update({ status: "failed", run_status: run.runStatus, provider_run_id: providerRunId, usage }).eq("id", task["id"]);
+      const conflict = /status 409/i.test(run.error);
+      await ctx.supabase.from("agent_tasks").update({
+        status: conflict ? "queued" : "failed",
+        run_status: conflict ? "not_started" : run.runStatus,
+        provider_run_id: providerRunId,
+        runs_used: conflict ? 0 : 1,
+        usage,
+      }).eq("id", task["id"]);
       await recordAgentRunUsage(ctx, { runId: reservation.runId, role: turn.role, status: "failed", inputTokens: usage.inputTokens ?? 0, outputTokens: usage.outputTokens ?? 0, config: budgetConfig });
-      await releaseClaim(ctx, meetingId, String(token), { status: "failed", error: run.error });
+      await releaseClaim(ctx, meetingId, String(token), { status: conflict ? effectiveStatus : "failed", error: run.error });
       throw new Error(run.error);
     }
     try {
