@@ -125,10 +125,18 @@ export function planNextTurn(meeting: MeetingLike, messages: MeetingMessage[]): 
   }
   if (meeting.status === "cross_review") {
     const done = completedRoles(messages, "critique");
-    const role = selected.find((candidate) => !done.has(candidate));
+    // Har Manager begärt en riktad komplettering körs bara de rollerna.
+    const requested = revisionRoles(messages);
+    const pool = requested.length
+      ? selected.filter((candidate) => requested.includes(candidate))
+      : selected;
+    const role = pool.find((candidate) => !done.has(candidate));
     if (role) {
-      const isLast = selected.every((candidate) => candidate === role || done.has(candidate));
-      return { role, messageType: "critique", round: 2, nextStatus: isLast ? "qa_review" : "cross_review" };
+      const isLast = pool.every((candidate) => candidate === role || done.has(candidate));
+      const after: MeetingStatus = messages.some((m) => m.message_type === "qa_review")
+        ? "manager_synthesis"
+        : "qa_review";
+      return { role, messageType: "critique", round: 2, nextStatus: isLast ? after : "cross_review" };
     }
     return null;
   }
