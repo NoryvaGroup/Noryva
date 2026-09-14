@@ -317,6 +317,14 @@ async function planWithManager(ctx: ExecutionContext, meetingId: string, meeting
       })
       .eq("id", taskId!);
   }
+  if (plan.length === 0) {
+    // Legacy: godkänt möte utan användbar plan. Bygg lokalt, utan provider-anrop.
+    plan = legacyFallbackPlan({
+      agenda: String(meeting["agenda"] ?? ""),
+      recommendation: String(meeting["recommendation"] ?? ""),
+      finalSummary: String(meeting["final_summary"] ?? ""),
+    });
+  }
   return { plan, paused: false, reason: plan.length ? "" : "Manager kunde inte skapa en genomförandeplan." };
 }
 
