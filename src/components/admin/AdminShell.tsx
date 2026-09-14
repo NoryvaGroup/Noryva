@@ -16,14 +16,14 @@ export function AdminShell({ title, children }: { title: string; children: React
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <header className="border-b border-border">
-        <div className="mx-auto flex w-full max-w-[1600px] items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen min-w-0 overflow-x-clip bg-background text-foreground">
+      <header className="min-w-0 border-b border-border">
+        <div className="mx-auto grid w-full max-w-[1600px] grid-cols-[auto_minmax(0,1fr)] items-center gap-4 px-4 py-4 sm:gap-8 sm:px-6 lg:px-8">
 
-          <Link to="/admin" className="flex items-center gap-3">
+          <Link to="/admin" className="flex shrink-0 items-center gap-3">
             <Logo />
           </Link>
-          <nav className="flex items-center gap-5 text-sm">
+          <nav className="flex min-w-0 items-center gap-5 overflow-x-auto whitespace-nowrap text-sm">
             <Link to="/admin" className="text-muted-foreground hover:text-foreground">
               Kunder
             </Link>
