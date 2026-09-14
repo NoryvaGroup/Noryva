@@ -134,7 +134,7 @@ export function normalizeExecutionPlan(raw: unknown): ExecutionTaskPlan[] {
 }
 
 const CODE_SIGNALS = /(kod|code|patch|repo|implementer|refaktor|migration|endpoint|api|bugg|fix)/i;
-const CONTACT_SIGNALS = /(mail|e-post|epost|sms|ring|kontakta kund|kundkontakt|utskick|följ upp kund)/i;
+const CONTACT_SIGNALS = /(\bmail\b|\be-post\b|\bepost\b|\bsms\b|\bring(a|er)?\b|kontakta kund|kundkontakt|utskick|följ upp kund)/i;
 
 /**
  * Deterministisk legacy-fallback för äldre godkända möten där Manager-planeringen
