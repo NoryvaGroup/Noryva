@@ -69,7 +69,7 @@ export const listPilotReadiness = createServerFn({ method: "GET" })
     const customers = await safeRows(
       ctx.supabase
         .from("customers")
-        .select("id, name, slug, status, industry, recipient_email, delivery_webhook_url")
+        .select("id, name, slug, status, industry, recipient_email, delivery_webhook_url, launch_approved, launch_approved_at")
         .order("name")
         .limit(200),
     );
@@ -236,6 +236,10 @@ export const listPilotReadiness = createServerFn({ method: "GET" })
                 .length,
             }
           : null,
+        launchApproval:
+          "launch_approved" in c
+            ? { approved: c.launch_approved === true, approvedAt: c.launch_approved_at ?? null }
+            : null,
       };
 
       const result = evaluateReadiness(facts);

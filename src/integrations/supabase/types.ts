@@ -935,6 +935,9 @@ export type Database = {
           headline: string
           id: string
           industry: string
+          launch_approved: boolean
+          launch_approved_at: string | null
+          launch_approved_by: string | null
           name: string
           recipient_email: string
           schema_version: number
@@ -953,6 +956,9 @@ export type Database = {
           headline?: string
           id?: string
           industry: string
+          launch_approved?: boolean
+          launch_approved_at?: string | null
+          launch_approved_by?: string | null
           name: string
           recipient_email?: string
           schema_version?: number
@@ -971,6 +977,9 @@ export type Database = {
           headline?: string
           id?: string
           industry?: string
+          launch_approved?: boolean
+          launch_approved_at?: string | null
+          launch_approved_by?: string | null
           name?: string
           recipient_email?: string
           schema_version?: number
