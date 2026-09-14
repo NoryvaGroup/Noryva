@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Check, ExternalLink, Loader2, Play, Plus, Users } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, CircleCheck, ExternalLink, FileCode2, Loader2, Play, Plus, ShieldCheck, Users } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -173,15 +173,87 @@ function AgentAvatar({ active, complete }: { active: boolean; complete: boolean 
   );
 }
 
-function readableContent(content: string) {
+type StructuredContent = {
+  summary: string;
+  details: Array<{ label: string; values: string[] }>;
+  raw: string;
+};
+
+const CONTENT_LABEL: Record<string, string> = {
+  findings: "Iakttagelser",
+  recommendations: "Rekommendationer",
+  checks: "Kontroller",
+  risks: "Risker",
+  alternatives: "Alternativ",
+  proposedChange: "Föreslagna ändringar",
+  changes: "Ändringar",
+  files: "Filer",
+  verdict: "Bedömning",
+};
+
+function structuredContent(content: string): StructuredContent {
   try {
     const parsed = JSON.parse(content) as Record<string, unknown>;
-    return Object.entries(parsed)
-      .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(" · ") : String(value)}`)
-      .join("\n");
+    const summary = typeof parsed["summary"] === "string" ? parsed["summary"] : "Agentens bidrag är klart.";
+    const details = Object.entries(parsed)
+      .filter(([key]) => key !== "summary")
+      .map(([key, value]) => {
+        const nested = value && typeof value === "object" && !Array.isArray(value)
+          ? Object.entries(value as Record<string, unknown>).flatMap(([nestedKey, nestedValue]) =>
+              Array.isArray(nestedValue)
+                ? nestedValue.map((item) => `${CONTENT_LABEL[nestedKey] ?? nestedKey}: ${String(item)}`)
+                : [`${CONTENT_LABEL[nestedKey] ?? nestedKey}: ${String(nestedValue)}`],
+            )
+          : Array.isArray(value)
+            ? value.map(String)
+            : [String(value)];
+        return { label: CONTENT_LABEL[key] ?? key, values: nested };
+      });
+    return { summary, details, raw: content };
   } catch {
-    return content;
+    return { summary: content, details: [], raw: content };
   }
+}
+
+function TranscriptEntry({ message }: { message: MessageRow }) {
+  const [expanded, setExpanded] = useState(false);
+  const content = structuredContent(message.content);
+  const hasMore = content.details.length > 0 || content.summary.length > 220;
+
+  return (
+    <li className="relative grid grid-cols-[2rem_minmax(0,1fr)] gap-2 pb-4 sm:grid-cols-[2.5rem_minmax(0,1fr)] sm:gap-3">
+      <div className="z-10 grid size-8 place-items-center rounded-full border border-border bg-background text-xs font-semibold text-muted-foreground sm:size-10">
+        {message.sequence}
+      </div>
+      <article className="min-w-0 rounded-md border border-border bg-card p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-semibold">{AGENT_LABEL[message.role as AgentName] ?? "System"}</span>
+          <Badge variant="outline">{MESSAGE_LABEL[message.message_type] ?? message.message_type}</Badge>
+          <span className="ml-auto text-xs text-muted-foreground">Runda {message.round}</span>
+        </div>
+        <p className={`mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed text-muted-foreground ${expanded ? "" : "line-clamp-3"}`}>
+          {content.summary}
+        </p>
+        {expanded && content.details.length > 0 ? (
+          <div className="mt-3 space-y-3 border-t border-border pt-3 text-sm">
+            {content.details.map((detail) => (
+              <div key={detail.label}>
+                <p className="text-xs font-semibold text-foreground">{detail.label}</p>
+                <ul className="mt-1 space-y-1 text-muted-foreground">
+                  {detail.values.map((value, index) => <li key={`${detail.label}-${index}`}>• {value}</li>)}
+                </ul>
+              </div>
+            ))}
+          </div>
+        ) : null}
+        {hasMore ? (
+          <Button variant="ghost" size="sm" className="mt-2 h-7 px-2 text-xs" onClick={() => setExpanded((value) => !value)}>
+            {expanded ? <ChevronUp /> : <ChevronDown />}{expanded ? "Visa mindre" : "Läs mer"}
+          </Button>
+        ) : null}
+      </article>
+    </li>
+  );
 }
 
 function statusVariant(status: MeetingStatus) {
@@ -200,7 +272,121 @@ type ExecutionTaskRow = {
   executionStatus: ExecutionStatus;
   blockedReason: string;
   approvalStatus: string;
+  output: Record<string, unknown> | null;
 };
+
+const EXECUTION_STATUS_TEXT: Record<ExecutionStatus, string> = {
+  done: "Klart internt",
+  queued: "Väntar",
+  proposal_only: "Förslag klart – ingen säker automatisk write-path",
+  ready_for_repo_executor: "Kodförslag klart – behöver köras manuellt",
+  awaiting_human_approval: "Väntar på ditt godkännande",
+  blocked: "Blockerat",
+  failed: "Misslyckat",
+};
+
+function executionStatusClass(status: ExecutionStatus) {
+  if (status === "done") return "border-status-success/30 bg-status-success/10 text-status-success";
+  if (status === "awaiting_human_approval" || status === "ready_for_repo_executor") {
+    return "border-status-warning/30 bg-status-warning/10 text-status-warning";
+  }
+  if (status === "blocked" || status === "failed") return "border-destructive/30 bg-destructive/10 text-destructive";
+  if (status === "queued") return "border-status-neutral/25 bg-muted text-muted-foreground";
+  return "border-status-info/30 bg-status-info/10 text-status-info";
+}
+
+function outputSummary(task: ExecutionTaskRow) {
+  return typeof task.output?.["summary"] === "string" ? task.output["summary"] : task.goal;
+}
+
+function nextStepText(task: ExecutionTaskRow) {
+  if (task.executionStatus === "done") return "Ingen åtgärd krävs.";
+  if (task.executionStatus === "queued") return "Agenten tar upp uppgiften automatiskt när tidigare steg är klara.";
+  if (task.executionStatus === "ready_for_repo_executor") return "Granska förslaget och låt Lovable eller en annan executor applicera det manuellt om du vill.";
+  if (task.executionStatus === "proposal_only") return "Granska förslaget. Ingen ändring har gjorts automatiskt.";
+  if (task.executionStatus === "awaiting_human_approval" && task.approvalStatus === "pending") return "Du behöver ta ställning till den föreslagna kundkontakten nedan.";
+  if (task.actionType === "customer_contact" && task.approvalStatus === "approved") return "Godkänt för manuell hantering. Inget meddelande har skickats automatiskt.";
+  if (task.executionStatus === "blocked") return "Ingen åtgärd utförs.";
+  return "Ingen åtgärd krävs.";
+}
+
+function ExecutionTaskCard({
+  task,
+  contactPending,
+  onContactDecision,
+}: {
+  task: ExecutionTaskRow;
+  contactPending: boolean;
+  onContactDecision: (decision: "approved" | "rejected") => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const detail = task.output ? structuredContent(JSON.stringify(task.output)) : null;
+  const hasDetails = Boolean(detail && detail.details.length > 0);
+  const isCodeProposal = task.executionStatus === "ready_for_repo_executor";
+
+  return (
+    <li className="rounded-md border border-border bg-card p-4 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase text-muted-foreground">Vad ska göras</p>
+          <p className="mt-1 text-sm font-semibold">{task.goal}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{AGENT_LABEL[task.role as AgentName] ?? task.role} · {EXECUTION_ACTION_LABEL[task.actionType]}</p>
+        </div>
+        <Badge variant="outline" className={executionStatusClass(task.executionStatus)}>
+          {EXECUTION_STATUS_TEXT[task.executionStatus]}
+        </Badge>
+      </div>
+
+      <div className="mt-4 grid gap-3 border-t border-border pt-4 sm:grid-cols-2">
+        <div>
+          <p className="text-xs font-semibold uppercase text-muted-foreground">Status</p>
+          <p className="mt-1 text-sm">{outputSummary(task)}</p>
+          {isCodeProposal ? (
+            <p className="mt-2 flex items-start gap-2 rounded-md border border-status-warning/25 bg-status-warning/10 p-2.5 text-xs font-medium text-foreground">
+              <FileCode2 className="mt-0.5 size-4 shrink-0 text-status-warning" />
+              Agenten har inte ändrat Lovable-koden. Detta är endast ett manuellt ändringsförslag.
+            </p>
+          ) : null}
+        </div>
+        <div>
+          <p className="text-xs font-semibold uppercase text-muted-foreground">Vad händer nu</p>
+          <p className="mt-1 text-sm text-muted-foreground">{nextStepText(task)}</p>
+        </div>
+      </div>
+
+      {hasDetails ? (
+        <div className="mt-3">
+          <Button variant="outline" size="sm" onClick={() => setExpanded((value) => !value)}>
+            {expanded ? <ChevronUp /> : <ChevronDown />}{expanded ? "Dölj ändringsförslag" : isCodeProposal ? "Visa ändringsförslag" : "Läs mer"}
+          </Button>
+          {expanded ? (
+            <div className="mt-3 space-y-3 rounded-md bg-surface p-3 text-sm">
+              {detail?.details.map((item) => (
+                <div key={item.label}>
+                  <p className="text-xs font-semibold">{item.label}</p>
+                  <ul className="mt-1 space-y-1 text-muted-foreground">
+                    {item.values.map((value, index) => <li key={`${item.label}-${index}`}>• {value}</li>)}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {task.actionType === "customer_contact" && task.approvalStatus === "pending" ? (
+        <div className="mt-4 rounded-md border border-status-warning/30 bg-status-warning/10 p-3">
+          <p className="text-sm font-semibold">Separat godkännande för kundkontakt</p>
+          <p className="mt-1 text-xs text-muted-foreground">Du godkänner att kontakten får hanteras manuellt. Knappen skickar inget mail, SMS eller meddelande.</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button size="sm" disabled={contactPending} onClick={() => onContactDecision("approved")}>Godkänn för manuell kontakt</Button>
+            <Button size="sm" variant="outline" disabled={contactPending} onClick={() => onContactDecision("rejected")}>Avvisa kontakt</Button>
+          </div>
+        </div>
+      ) : null}
+    </li>
+  );
+}
 
 /**
  * Genomförande efter godkänd slutsats. Kör de interna uppgifterna sekventiellt
@@ -269,10 +455,10 @@ function ExecutionPanel({ meetingId }: { meetingId: string }) {
   const done = tasks.filter((task) => task.executionStatus !== "queued").length;
 
   return (
-    <section className="mt-4 rounded-md border border-border bg-card p-4 sm:p-5">
+    <section className="mt-4 rounded-md border border-border bg-surface p-4 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <h5 className="font-semibold">Genomförande</h5>
+          <div><p className="text-xs font-semibold uppercase text-primary">3. Vad som händer efter godkännandet</p><h5 className="mt-1 text-lg font-semibold">Genomförande</h5></div>
           {busy ? <Loader2 className="size-4 animate-spin text-primary" /> : null}
         </div>
         <Badge variant={batchStatus === "completed" ? "secondary" : "outline"}>
@@ -280,54 +466,13 @@ function ExecutionPanel({ meetingId }: { meetingId: string }) {
         </Badge>
       </div>
       <p className="mt-1 text-xs text-muted-foreground">
-        {tasks.length ? `${done} av ${tasks.length} uppgifter behandlade.` : "Manager bryter ned slutsatsen i uppgifter."}{" "}
-        Kontakt med kund eller lead kräver alltid ett separat godkännande.
+        {tasks.length ? `${done} av ${tasks.length} uppgifter behandlade.` : "Manager bryter ned slutsatsen i uppgifter."} Kundkontakt kräver alltid ett separat godkännande och kodförslag körs aldrig automatiskt.
       </p>
       {error ? (
         <p className="mt-3 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</p>
       ) : null}
-      <ul className="mt-4 space-y-2">
-        {tasks.map((task) => (
-          <li key={task.id} className="rounded-md border border-border bg-surface p-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-semibold">{AGENT_LABEL[task.role as AgentName] ?? task.role}</span>
-              <Badge variant="outline">{EXECUTION_ACTION_LABEL[task.actionType] ?? task.actionType}</Badge>
-              <Badge
-                variant={
-                  task.executionStatus === "done"
-                    ? "secondary"
-                    : task.executionStatus === "blocked"
-                      ? "destructive"
-                      : "outline"
-                }
-                className="ml-auto"
-              >
-                {EXECUTION_STATUS_LABEL[task.executionStatus] ?? task.executionStatus}
-              </Badge>
-            </div>
-            <p className="mt-2 text-sm">{task.goal}</p>
-            {task.blockedReason ? <p className="mt-1 text-xs text-muted-foreground">{task.blockedReason}</p> : null}
-            {task.actionType === "customer_contact" && task.approvalStatus === "pending" ? (
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Button
-                  size="sm"
-                  disabled={contactDecision.isPending}
-                  onClick={() => contactDecision.mutate({ taskId: task.id, decision: "approved" })}
-                >
-                  Godkänn kundkontakt
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={contactDecision.isPending}
-                  onClick={() => contactDecision.mutate({ taskId: task.id, decision: "rejected" })}
-                >
-                  Avvisa
-                </Button>
-              </div>
-            ) : null}
-          </li>
-        ))}
+      <ul className="mt-4 space-y-3">
+        {tasks.map((task) => <ExecutionTaskCard key={task.id} task={task} contactPending={contactDecision.isPending} onContactDecision={(decision) => contactDecision.mutate({ taskId: task.id, decision })} />)}
         {!query.isLoading && tasks.length === 0 ? (
           <li className="text-sm text-muted-foreground">Inga genomförandeuppgifter ännu.</li>
         ) : null}
