@@ -1261,6 +1261,8 @@ describe("customer-config (read-only)", () => {
         industry: "varuautomater",
         service_area: "Borås",
         status: "aktiv",
+        launch_approved: true,
+        launch_approved_at: "2026-09-10T10:00:00.000Z",
       },
     ];
     state["customer_profiles"] = profiles;
@@ -1335,6 +1337,8 @@ describe("customer-config (read-only)", () => {
       language: "sv",
       profileExists: true,
       externalEffect: false,
+      launchApproved: true,
+      launchApprovedAt: "2026-09-10T10:00:00.000Z",
     });
     expect(body.followupRules.maxFollowups).toBeTypeOf("number");
     expect(body.bookingRules).toHaveProperty("enabled");
@@ -1342,14 +1346,20 @@ describe("customer-config (read-only)", () => {
     expect(JSON.stringify(body)).not.toMatch(/secret|webhook|password|token|api[_-]?key/i);
   });
 
-  it("saknad profil ger defaults utan gissade mottagare", async () => {
-    const { res, body } = await call(configState([]), { customerId: CUSTOMER_ID });
+  it("saknad profil och saknad launch-markör ger defaults utan gissade mottagare", async () => {
+    const state = configState([]);
+    const baseCustomer = (state["customers"] ?? [])[0] ?? {};
+    state["customers"] = [{ ...baseCustomer, launch_approved: false, launch_approved_at: null }];
+    const { res, body } = await call(state, { customerId: CUSTOMER_ID });
     expect(res.status).toBe(200);
     expect(body.profileExists).toBe(false);
     expect(body.notifyRecipients).toEqual([]);
     expect(body.aiAssistantEnabled).toBe(false);
     expect(body.executionMode).toBe("test");
     expect(body.localPostalPrefix).toBe("");
+    // Saknat/av-stängt godkännande exponeras alltid som false/null, aldrig gissat.
+    expect(body.launchApproved).toBe(false);
+    expect(body.launchApprovedAt).toBeNull();
   });
 
   it("okänd kund ger 404", async () => {
