@@ -99,6 +99,26 @@ function completedRoles(messages: MeetingMessage[], type: "analysis" | "critique
   return new Set(messages.filter((m) => m.message_type === type).map((m) => m.role));
 }
 
+/** Managerns interna begäran om riktad komplettering (lagras som critique från Manager). */
+export function managerRevisionMessage(messages: MeetingMessage[]): MeetingMessage | null {
+  return (
+    messages.find((m) => m.role === "noryva_manager" && m.message_type === "critique") ?? null
+  );
+}
+
+/** Roller som Manager begärt komplettering av. Tom lista = ingen begäran. */
+export function revisionRoles(messages: MeetingMessage[]): string[] {
+  const request = managerRevisionMessage(messages);
+  if (!request) return [];
+  try {
+    const parsed = JSON.parse(request.content) as Record<string, unknown>;
+    const roles = Array.isArray(parsed["revisionRoles"]) ? parsed["revisionRoles"] : [];
+    return roles.map((role) => normalizeRoleKey(role));
+  } catch {
+    return [];
+  }
+}
+
 export function planNextTurn(meeting: MeetingLike, messages: MeetingMessage[]): TurnPlan | null {
   if (meeting.status === "draft" || meeting.status === "manager_kickoff") {
     if (messages.some((m) => m.message_type === "kickoff")) return null;
