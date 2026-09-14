@@ -138,23 +138,61 @@ export function AgentBoardroom() {
       setOpen(false);
       setAgenda("");
       setSelectedId(result.meetingId);
-      setNotice("Mötet skapades i REVIEW. Starta kickoff när du är redo.");
+      setNotice("Mötet skapades i REVIEW. Agenterna börjar arbeta internt.");
       await queryClient.invalidateQueries({ queryKey: ["agent-meetings"] });
     },
     onError: (error: Error) => setNotice(error.message),
   });
-  const advanceMutation = useMutation({
-    mutationFn: (meetingId: string) => advance({ data: { meetingId } }),
-    onSuccess: async (result) => {
-      setNotice(result.paused ? String(result.reason) : result.duplicate ? "Steget var redan behandlat." : "Ett mötessteg slutfördes.");
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["agent-meetings"] }),
-        queryClient.invalidateQueries({ queryKey: ["agent-tasks"] }),
-        queryClient.invalidateQueries({ queryKey: ["agent-budget"] }),
-      ]);
+
+  /** Kör mötet sekventiellt, ett internt steg i taget, tills det når ett slutläge. */
+  const runMeeting = useCallback(
+    async (meetingId: string) => {
+      if (runningRef.current) return;
+      runningRef.current = true;
+      setRunning(true);
+      stoppedRef.current.delete(meetingId);
+      try {
+        for (let step = 0; step < 24; step += 1) {
+          const result = await advance({ data: { meetingId } });
+          await Promise.all([
+            queryClient.invalidateQueries({ queryKey: ["agent-meetings"] }),
+            queryClient.invalidateQueries({ queryKey: ["agent-tasks"] }),
+            queryClient.invalidateQueries({ queryKey: ["agent-budget"] }),
+          ]);
+          if (result.paused) {
+            stoppedRef.current.add(meetingId);
+            setNotice(String(result.reason));
+            return;
+          }
+          const status = String(result.status) as MeetingStatus;
+          if (TERMINAL_STATUSES.includes(status)) {
+            setNotice(
+              status === "awaiting_approval"
+                ? "Mötet är klart och väntar på ditt godkännande."
+                : "Mötet avslutades.",
+            );
+            return;
+          }
+        }
+        stoppedRef.current.add(meetingId);
+        setNotice("Mötet stoppades efter för många interna steg.");
+      } catch (error) {
+        stoppedRef.current.add(meetingId);
+        setNotice((error as Error).message);
+      } finally {
+        runningRef.current = false;
+        setRunning(false);
+      }
     },
-    onError: (error: Error) => setNotice(error.message),
-  });
+    [advance, queryClient],
+  );
+
+  useEffect(() => {
+    if (!selected || runningRef.current) return;
+    if (TERMINAL_STATUSES.includes(selected.status)) return;
+    if (stoppedRef.current.has(selected.id)) return;
+    void runMeeting(selected.id);
+  }, [selected, runMeeting]);
   const decideMutation = useMutation({
     mutationFn: (decision: "approved" | "rejected") =>
       selected ? decide({ data: { meetingId: selected.id, decision } }) : Promise.reject(new Error("Inget möte valt.")),
