@@ -36,9 +36,41 @@ function facts(overrides: Partial<ReadinessFacts> = {}): ReadinessFacts {
     reminders: { pending: 0, failed: 0, stuck: 0, latestStatus: "sent" },
     replies: { unprocessed: 0 },
     contacted: { contacted: 1, total: 3 },
+    launchApproval: { approved: true, approvedAt: "2026-02-01T00:00:00Z" },
     ...overrides,
   };
 }
+
+describe("launch approval-gate", () => {
+  it("blockerar GO när launch inte är godkänd", () => {
+    const r = evaluateReadiness(facts({ launchApproval: { approved: false } }));
+    expect(r.status).toBe("no_go");
+    expect(r.coreReady).toBe(false);
+    expect(r.fullReady).toBe(false);
+    expect(r.blocking.map((c) => c.id)).toContain("launch");
+  });
+
+  it("blockerar även när kunden är publicerad men saknar godkännande", () => {
+    const r = evaluateReadiness(
+      facts({ customer: { ...facts().customer, status: "published" }, launchApproval: { approved: false } }),
+    );
+    expect(r.coreReady).toBe(false);
+  });
+
+  it("fail closed när launch-godkännandet är okänt", () => {
+    for (const value of [null, undefined]) {
+      const r = evaluateReadiness(facts({ launchApproval: value as never }));
+      expect(r.coreReady).toBe(false);
+      expect(r.checks.find((c) => c.id === "launch")?.level).toBe("unknown");
+    }
+  });
+
+  it("blockerar inte när launch är uttryckligen godkänd", () => {
+    const r = evaluateReadiness(facts());
+    expect(r.checks.find((c) => c.id === "launch")?.level).toBe("ok");
+    expect(r.status).toBe("full_ready");
+  });
+});
 
 describe("readiness-status", () => {
   it("ger FULL READY när allt är grönt", () => {
