@@ -171,8 +171,8 @@ export function planNextTurn(meeting: MeetingLike, messages: MeetingMessage[]): 
   return null;
 }
 
-const summary = z.string().trim().min(10).max(4000);
-const list = z.array(z.string().trim().min(2).max(1200)).max(8);
+const summary = z.string().trim().min(10).max(1600);
+const list = z.array(z.string().trim().min(2).max(600)).max(5);
 const schemas = {
   kickoff: z.object({
     summary,
@@ -187,15 +187,15 @@ const schemas = {
   qa_review: z.object({ summary, risks: list, verdict: z.enum(["pass", "concerns", "fail"]), riskLevel: z.enum(["low", "medium", "high"]) }),
   synthesis: z.object({
     summary,
-    recommendation: z.string().trim().min(5).max(4000),
-    alternatives: list,
-    expectedEffect: z.string().trim().min(3).max(2000),
+    recommendation: z.string().trim().min(5).max(2000),
+    alternatives: z.array(z.string().trim().min(2).max(600)).max(4),
+    expectedEffect: z.string().trim().min(3).max(900),
     riskLevel: z.enum(["low", "medium", "high"]),
-    estimatedEffort: z.string().trim().min(2).max(500),
-    nextStep: z.string().trim().min(3).max(1000),
+    estimatedEffort: z.string().trim().min(2).max(400),
+    nextStep: z.string().trim().min(3).max(800),
     // Manager kan internt begära EN riktad komplettering innan slutsats.
     revisionRoles: z.array(z.string().trim().min(2).max(60)).max(MAX_SPECIALISTS).optional(),
-    revisionFocus: z.string().trim().max(1000).optional(),
+    revisionFocus: z.string().trim().max(600).optional(),
   }),
 };
 
@@ -232,9 +232,13 @@ export function parseMeetingOutput(type: Exclude<MeetingMessage["message_type"],
   return parsed.data;
 }
 
-export function compactContext(messages: MeetingMessage[], maxItems = 8): string {
-  return messages.slice(-maxItems).map((m) => `${m.role}/${m.message_type}: ${m.content.slice(0, 1600)}`).join("\n");
+export function compactContext(messages: MeetingMessage[], maxItems = 6): string {
+  return messages.slice(-maxItems).map((m) => `${m.role}/${m.message_type}: ${m.content.slice(0, 900)}`).join("\n");
 }
+
+/** Gemensam sparsamhetsregel: kort, konkret, inga upprepningar. */
+const BREVITY =
+  "Var kort och tät: högst 3–5 punkter, varje punkt max ett par meningar. Ingen utfyllnad, ingen sammanfattning av tidigare bidrag och ingen upprepning av kontexten. Tillför endast ny information, invändning eller förbättring. Prioritera det viktigaste och utelämna resten.";
 
 /** FRIA HJÄRNOR, HÅRDA HÄNDER: fritt analysmandat, noll exekveringsmandat. */
 export const BOARDROOM_MANDATE = [
@@ -257,14 +261,16 @@ export function meetingPrompt(meeting: MeetingLike, turn: TurnPlan, messages: Me
       ...base,
       `Välj 2–${meeting.max_specialists} relevanta specialistroller. Ta med alla roller som ger verkligt värde, men fyll inte platser utan skäl.`,
       "Begränsa inte scopet i onödan: specialister får bredda analysen till närliggande problem. Sätt needsCrossReview till true när debatt/cross-review mellan rollerna troligen höjer kvaliteten.",
-      `Tillåtna rollnycklar (använd exakt dessa strängar): ${SPECIALIST_AGENTS_V1.join(", ")}.`,
+        `Tillåtna rollnycklar (använd exakt dessa strängar): ${SPECIALIST_AGENTS_V1.join(", ")}.`,
+      BREVITY,
       'Svara JSON: {"summary":"kort dekomposition","selectedRoles":["product_tech"],"needsCrossReview":true}',
     ].join("\n");
   const context = compactContext(messages);
   if (turn.messageType === "analysis")
     return [
       ...base,
-      "Analysera självständigt och djupt utifrån din sparade roll. Ta med grundorsaker, alternativ, tydlig rekommendation och konkreta prioriterade actions. Lyft relevanta problem även om de ligger strax utanför agendan.",
+      "Analysera självständigt utifrån din sparade roll: grundorsak, viktigaste alternativ, tydlig rekommendation och konkreta prioriterade actions. Lyft relevanta problem strax utanför agendan när de är viktiga.",
+      BREVITY,
       'Svara JSON: {"summary":"...","findings":["..."],"recommendations":["..."]}',
     ].join("\n");
   if (turn.messageType === "critique")
@@ -272,7 +278,8 @@ export function meetingPrompt(meeting: MeetingLike, turn: TurnPlan, messages: Me
       ...base,
       "Kondenserade relevanta bidrag:",
       context,
-      "Gör en konstruktiv men rak cross-review. Säg uttryckligen emot där du är oenig, jämför alternativ och skärp förslagen.",
+      "Gör en rak cross-review. Säg uttryckligen emot där du är oenig, jämför alternativ och skärp förslagen. Upprepa inte det andra redan sagt – skriv bara det som ändrar bilden.",
+      BREVITY,
       'Svara JSON: {"summary":"...","concerns":["..."],"refinements":["..."]}',
     ].join("\n");
   if (turn.messageType === "qa_review")
@@ -281,6 +288,7 @@ export function meetingPrompt(meeting: MeetingLike, turn: TurnPlan, messages: Me
       "Kondenserat mötesunderlag:",
       context,
       "Gör explicit risk- och kvalitetsgranskning. Du är inte ett kreativt filter: stoppa inte strategiska eller oprövade förslag – märk dem i stället med risk, antagande och vad som behöver valideras. Neka endast det som bryter mot hårda spärrar (externa effekter, kunddata, irreversibelt, spend utan godkännande).",
+      BREVITY,
       'Svara JSON: {"summary":"...","risks":["..."],"verdict":"pass|concerns|fail","riskLevel":"low|medium|high"}',
     ].join("\n");
   return [
@@ -288,6 +296,7 @@ export function meetingPrompt(meeting: MeetingLike, turn: TurnPlan, messages: Me
     "Kondenserat mötesunderlag inklusive QA:",
     context,
     "Gör slutsyntes: tydlig rekommendation, reella alternativ, förväntad effekt, risk, insats och ett konkret nästa steg (gärna en implementationsplan/prompt) som en människa kan godkänna. Föreslå endast – utför inget.",
+    BREVITY,
     "Bedöm först om underlaget räcker. Räcker det inte får du EN gång begära riktad komplettering genom att sätta revisionRoles (rollnycklar) och revisionFocus. Lämna dem tomma när du är redo att slutföra.",
     'Svara JSON: {"summary":"...","recommendation":"...","alternatives":["..."],"expectedEffect":"...","riskLevel":"low|medium|high","estimatedEffort":"...","nextStep":"...","revisionRoles":[],"revisionFocus":""}',
   ].join("\n");
