@@ -95,7 +95,9 @@ function asActionType(raw: string, requiresCustomerContact: boolean): ExecutionA
   const direct = EXECUTION_ACTION_TYPES.find((type) => type === slug);
   if (direct) return direct;
   if (slug.includes("customer") || slug.includes("contact") || slug.includes("kund")) return "customer_contact";
-  if (slug.includes("code") || slug.includes("patch") || slug.includes("repo")) return "code_change";
+  if (slug.includes("code") || slug.includes("kod") || slug.includes("patch") || slug.includes("repo")) {
+    return "code_change";
+  }
   if (slug.includes("qa") || slug.includes("verif") || slug.includes("test")) return "qa_verification";
   if (slug.includes("config") || slug.includes("setting")) return "internal_config";
   if (slug.includes("external") || slug.includes("mail") || slug.includes("sms") || slug.includes("make")) {
