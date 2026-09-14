@@ -33,7 +33,6 @@ import {
 import {
   EXECUTION_ACTION_LABEL,
   EXECUTION_BATCH_LABEL,
-  EXECUTION_STATUS_LABEL,
   type ExecutionActionType,
   type ExecutionBatchStatus,
   type ExecutionStatus,
@@ -455,7 +454,7 @@ function ExecutionPanel({ meetingId }: { meetingId: string }) {
   const done = tasks.filter((task) => task.executionStatus !== "queued").length;
 
   return (
-    <section className="mt-4 rounded-md border border-border bg-surface p-4 sm:p-5">
+    <section className="order-2 mt-4 rounded-md border border-border bg-surface p-4 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <div><p className="text-xs font-semibold uppercase text-primary">3. Vad som händer efter godkännandet</p><h5 className="mt-1 text-lg font-semibold">Genomförande</h5></div>
@@ -724,7 +723,7 @@ export function AgentBoardroom() {
         </div>
 
         {selected ? (
-          <div className="min-w-0">
+          <div className="flex min-w-0 flex-col">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -757,7 +756,7 @@ export function AgentBoardroom() {
 
             {selected.error ? <p className="mt-3 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{selected.error}</p> : null}
 
-            <section className="mt-5 overflow-hidden rounded-md border border-border bg-surface">
+            <section className={`order-3 mt-5 overflow-hidden rounded-md border border-border bg-surface ${TERMINAL_STATUSES.includes(selected.status) ? "opacity-75" : ""}`}>
               <div className="flex flex-wrap items-center justify-between gap-x-5 gap-y-2 border-b border-border bg-card px-3 py-2.5 text-xs sm:px-4">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant={statusVariant(selected.status)}>{MEETING_STATUS_LABEL[selected.status]}</Badge>
@@ -798,40 +797,36 @@ export function AgentBoardroom() {
               </div>
             </section>
 
-            <div className="mt-6 flex items-center justify-between gap-3 border-b border-border pb-3">
-              <div>
-                <h5 className="font-semibold">Live mötesprotokoll</h5>
-                <p className="text-xs text-muted-foreground">Bidragen visas i den ordning de lämnas.</p>
-              </div>
-              {isWorking ? <Loader2 className="size-4 shrink-0 animate-spin text-primary" aria-label="Mötet arbetar" /> : null}
-            </div>
-            <ol className="relative mt-4 space-y-0 before:absolute before:bottom-4 before:left-[15px] before:top-4 before:w-px before:bg-border sm:before:left-[19px]">
-              {transcript.map((message) => (
-                <li key={message.id} className="relative grid grid-cols-[2rem_minmax(0,1fr)] gap-2 pb-5 sm:grid-cols-[2.5rem_minmax(0,1fr)] sm:gap-3">
-                  <div className="z-10 grid size-8 place-items-center rounded-full border border-border bg-background text-xs font-semibold text-muted-foreground sm:size-10">
-                    {message.sequence}
-                  </div>
-                  <article className="min-w-0 rounded-md border border-border bg-card p-3 shadow-sm">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-semibold">{AGENT_LABEL[message.role as AgentName] ?? "System"}</span>
-                      <Badge variant="outline">{MESSAGE_LABEL[message.message_type] ?? message.message_type}</Badge>
-                      <span className="ml-auto text-xs text-muted-foreground">Runda {message.round}</span>
-                    </div>
-                    <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed text-muted-foreground">{readableContent(message.content)}</p>
-                  </article>
-                </li>
-              ))}
-              {transcript.length === 0 ? <li className="pl-10 text-sm text-muted-foreground sm:pl-12">Kickoff har inte körts ännu.</li> : null}
-            </ol>
+            <details className="order-4 mt-6 border-t border-border pt-4" open={isWorking || undefined}>
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-md px-1 py-2 hover:bg-surface-2">
+                <div>
+                  <h5 className="font-semibold">Mötesprotokoll</h5>
+                  <p className="text-xs text-muted-foreground">{transcript.length} bidrag · kort sammanfattning först</p>
+                </div>
+                <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                  {isWorking ? <Loader2 className="size-4 animate-spin text-primary" aria-label="Mötet arbetar" /> : null}
+                  Visa protokoll <ChevronDown className="size-4" />
+                </div>
+              </summary>
+              <ol className="relative mt-4 space-y-0 before:absolute before:bottom-4 before:left-[15px] before:top-4 before:w-px before:bg-border sm:before:left-[19px]">
+                {transcript.map((message) => <TranscriptEntry key={message.id} message={message} />)}
+                {transcript.length === 0 ? <li className="pl-10 text-sm text-muted-foreground sm:pl-12">Kickoff har inte körts ännu.</li> : null}
+              </ol>
+            </details>
 
             {selected.final_summary ? (
-              <section className="mt-2 rounded-md border border-primary/30 bg-primary/5 p-4 sm:p-5">
+              <section className="order-1 mt-5 rounded-md border border-primary/30 bg-card p-4 shadow-[var(--shadow-elevated)] sm:p-5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <AgentAvatar active={false} complete />
-                    <div><p className="text-xs text-muted-foreground">Noryva Manager</p><h5 className="font-semibold">Slutsats</h5></div>
+                    <div><p className="text-xs font-semibold uppercase text-primary">1. Vad teamet kom fram till</p><h5 className="mt-1 text-lg font-semibold">Manager-slutsats</h5></div>
                   </div>
-                  <Badge>{selected.approval_status === "pending" ? "VÄNTAR GODKÄNNANDE" : selected.approval_status.toUpperCase()}</Badge>
+                  <Badge
+                    variant="outline"
+                    className={selected.approval_status === "approved" ? "border-status-success/30 bg-status-success/10 text-status-success" : selected.approval_status === "rejected" ? "border-destructive/30 bg-destructive/10 text-destructive" : "border-status-warning/30 bg-status-warning/10 text-status-warning"}
+                  >
+                    {selected.approval_status === "approved" ? "Godkänd – genomförande startat" : selected.approval_status === "rejected" ? "Avvisad – inget genomförande" : "Väntar på ditt beslut"}
+                  </Badge>
                 </div>
                 <p className="mt-4 text-sm leading-relaxed">{selected.final_summary}</p>
                 <dl className="mt-4 grid gap-x-6 gap-y-3 border-t border-primary/20 pt-4 text-sm sm:grid-cols-2">
@@ -842,9 +837,17 @@ export function AgentBoardroom() {
                   <div><dt className="text-xs text-muted-foreground">Uppskattad kostnad</dt><dd className="mt-0.5">{Number(selected.estimated_cost_sek).toFixed(2)} kr</dd></div>
                 </dl>
                 {canDecide ? (
-                  <div className="mt-5 flex flex-wrap justify-end gap-2 border-t border-primary/20 pt-4">
-                    <Button size="sm" disabled={decideMutation.isPending} onClick={() => decideMutation.mutate("approved")}>Godkänn</Button>
-                    <Button size="sm" variant="outline" disabled={decideMutation.isPending} onClick={() => decideMutation.mutate("rejected")}>Avvisa</Button>
+                  <div className="mt-5 border-t border-border pt-4">
+                    <div className="rounded-md border border-status-info/25 bg-status-info/10 p-3">
+                      <p className="flex items-center gap-2 text-xs font-semibold uppercase text-status-info"><ShieldCheck className="size-4" />2. Vad du godkänner</p>
+                      <p className="mt-2 text-sm">Du godkänner att agenterna börjar arbeta vidare internt på slutsatsen. Ingen kundkontakt, kodändring i Lovable eller publicering sker automatiskt.</p>
+                    </div>
+                    <div className="mt-3 flex flex-wrap justify-end gap-2">
+                      <Button size="sm" disabled={decideMutation.isPending} onClick={() => decideMutation.mutate("approved")}>
+                        <CircleCheck />Godkänn och starta genomförande
+                      </Button>
+                      <Button size="sm" variant="outline" disabled={decideMutation.isPending} onClick={() => decideMutation.mutate("rejected")}>Avvisa och stoppa</Button>
+                    </div>
                   </div>
                 ) : null}
               </section>
