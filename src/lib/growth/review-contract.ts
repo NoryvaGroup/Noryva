@@ -18,6 +18,7 @@ import { normalizeEmail } from "./nurture-review";
 export type SendContractCode =
   | "ok"
   | "customer_mismatch"
+  | "launch_not_approved"
   | "recipient_missing"
   | "recipient_mismatch"
   | "mail_identity_unverified";
@@ -34,6 +35,8 @@ export type SendContractInput = {
   reviewCustomerId: string;
   /** Kund enligt den verkliga förfrågan (leads.customer_id). */
   leadCustomerId: string;
+  /** Explicit launch-godkännande för kunden (läs från databasen, aldrig klient). */
+  launchApproved: boolean;
   /** Mottagare enligt granskningsposten. */
   reviewRecipient: string;
   /** Mottagare härledd ur den lagrade lead-payloaden. */
@@ -51,6 +54,16 @@ export function evaluateSendContract(input: SendContractInput): SendContractResu
       ok: false,
       code: "customer_mismatch",
       reason: "Kundbindningen stämmer inte mellan förfrågan och granskningsposten.",
+    };
+  }
+
+  // Hård runtime-gate: explicit launch-godkännande krävs för riktiga utskick.
+  // Fail closed – allt utom exakt true spärrar.
+  if (input.launchApproved !== true) {
+    return {
+      ok: false,
+      code: "launch_not_approved",
+      reason: "Kunden har inte godkänt launch – utskick är spärrat.",
     };
   }
 
