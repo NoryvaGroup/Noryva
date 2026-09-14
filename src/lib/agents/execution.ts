@@ -133,6 +133,71 @@ export function normalizeExecutionPlan(raw: unknown): ExecutionTaskPlan[] {
   });
 }
 
+const CODE_SIGNALS = /(kod|code|patch|repo|implementer|refaktor|migration|endpoint|api|bugg|fix)/i;
+const CONTACT_SIGNALS = /(\bmail\b|\be-post\b|\bepost\b|\bsms\b|\bring(a|er)?\b|kontakta kund|kundkontakt|utskick|följ upp kund)/i;
+
+/**
+ * Deterministisk legacy-fallback för äldre godkända möten där Manager-planeringen
+ * redan är förbrukad och gav tom plan. Ingen LLM, inget provider-anrop.
+ */
+export function legacyFallbackPlan(input: {
+  agenda?: string;
+  recommendation?: string;
+  finalSummary?: string;
+  riskLevel?: string;
+  nextStep?: string;
+}): ExecutionTaskPlan[] {
+  const text = [input.recommendation, input.finalSummary, input.agenda, input.nextStep]
+    .map((part) => String(part ?? "").trim())
+    .filter(Boolean)
+    .join("\n");
+  if (!text) return [];
+  const focus = text.slice(0, 300);
+  const plan: ExecutionTaskPlan[] = [
+    {
+      index: 0,
+      role: "product_tech",
+      actionType: "internal_analysis",
+      goal: `Verifiera blockerarna i den godkända slutsatsen: ${focus}`.slice(0, 400),
+      successCriteria: "Blockerarna är bekräftade eller avfärdade med källhänvisning till intern data.",
+      requiresCustomerContact: false,
+      dependencies: [],
+    },
+    {
+      index: 1,
+      role: "qa_risk",
+      actionType: "qa_verification",
+      goal: "Granska analysen och lista kvarvarande risker innan något genomförs.",
+      successCriteria: "Riskerna är listade med tydligt utlåtande.",
+      requiresCustomerContact: false,
+      dependencies: [0],
+    },
+  ];
+  if (CODE_SIGNALS.test(text)) {
+    plan.push({
+      index: plan.length,
+      role: "product_tech",
+      actionType: "code_change",
+      goal: "Ta fram ett strukturerat change-set (filer + konkreta ändringar) för slutsatsen. Applicera aldrig kod.",
+      successCriteria: "Change-set med filer, ändringar och risker är levererat för manuell körning.",
+      requiresCustomerContact: false,
+      dependencies: [0],
+    });
+  }
+  if (CONTACT_SIGNALS.test(text)) {
+    plan.push({
+      index: plan.length,
+      role: "growth_sales",
+      actionType: "customer_contact",
+      goal: "Föreslå kundkontakt enligt slutsatsen. Inget utskick sker utan mänskligt godkännande.",
+      successCriteria: "Förslaget ligger för mänskligt godkännande.",
+      requiresCustomerContact: true,
+      dependencies: [0],
+    });
+  }
+  return plan.slice(0, 4);
+}
+
 export type ExecutionPolicy = {
   /** Får uppgiften kosta ett provider-anrop? */
   providerRun: boolean;

@@ -4,6 +4,7 @@ import {
   classifyExecutionTask,
   executionBatchStatus,
   executionTaskKey,
+  legacyFallbackPlan,
   nextExecutionTask,
   normalizeExecutionPlan,
   REPO_EXECUTOR_AVAILABLE,
@@ -112,5 +113,43 @@ describe("execution sekvens", () => {
         item({ index: 1, executionStatus: "awaiting_human_approval" }),
       ]),
     ).toBe("awaiting_human_approval");
+  });
+});
+
+describe("legacy fallback-plan", () => {
+  it("bygger deterministisk plan från sparad slutsats utan LLM", () => {
+    const plan = legacyFallbackPlan({
+      agenda: "Förbättringar inför första kunden",
+      recommendation: "Inför kundisolering och fixa idempotens i koden.",
+      finalSummary: "Blockerare: leveransstatus saknas.",
+    });
+    expect(plan.length).toBeGreaterThanOrEqual(2);
+    expect(plan[0]!.actionType).toBe("internal_analysis");
+    expect(plan[1]!.actionType).toBe("qa_verification");
+    expect(plan.some((task) => task.actionType === "code_change")).toBe(true);
+    expect(plan.some((task) => task.actionType === "customer_contact")).toBe(false);
+    expect(plan.length).toBeLessThanOrEqual(4);
+    expect(classifyExecutionTask(plan.find((t) => t.actionType === "code_change")!).finalStatus).toBe(
+      "ready_for_repo_executor",
+    );
+  });
+
+  it("lägger bara till kundkontakt när slutsatsen uttryckligen kräver det", () => {
+    const plan = legacyFallbackPlan({ recommendation: "Skicka mail till kunden om pilotstart." });
+    const contact = plan.find((task) => task.actionType === "customer_contact");
+    expect(contact).toBeTruthy();
+    expect(classifyExecutionTask(contact!).providerRun).toBe(false);
+    expect(classifyExecutionTask(contact!).finalStatus).toBe("awaiting_human_approval");
+  });
+
+  it("ger tom plan utan innehåll och stabila nycklar vid retry", () => {
+    expect(legacyFallbackPlan({})).toEqual([]);
+    const a = legacyFallbackPlan({ recommendation: "Fixa idempotens i koden." });
+    const b = legacyFallbackPlan({ recommendation: "Fixa idempotens i koden." });
+    expect(a).toEqual(b);
+    expect(a.map((task) => executionTaskKey("m1", task.index))).toEqual(
+      b.map((task) => executionTaskKey("m1", task.index)),
+    );
+    expect(new Set(a.map((task) => executionTaskKey("m1", task.index))).size).toBe(a.length);
   });
 });

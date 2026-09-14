@@ -20,6 +20,7 @@ import {
   executionSourceEvent,
   executionTaskKey,
   executionTaskPrompt,
+  legacyFallbackPlan,
   EXECUTION_PLAN_CONTRACT,
   nextExecutionTask,
   normalizeExecutionPlan,
@@ -241,12 +242,22 @@ async function planWithManager(ctx: ExecutionContext, meetingId: string, meeting
   const key = executionPlanKey(meetingId);
   const { data: existing } = await ctx.supabase
     .from("agent_tasks")
-    .select("id, status, result")
+    .select("id, status, run_status, runs_used, result")
     .eq("idempotency_key", key)
     .maybeSingle();
+  // Planeringen får bara kosta ETT provider-anrop per möte. Är den förbrukad
+  // (oavsett utfall) faller vi tillbaka på en lokal, deterministisk plan.
+  const plannerConsumed = Boolean(
+    existing &&
+      (Number(existing["runs_used"] ?? 0) >= 1 ||
+        ["completed", "failed"].includes(String(existing["run_status"] ?? "")) ||
+        ["done", "failed"].includes(String(existing["status"] ?? ""))),
+  );
   let plan: ExecutionTaskPlan[] = [];
   if (existing?.result?.executionPlan) {
     plan = normalizeExecutionPlan(existing.result.executionPlan);
+  } else if (plannerConsumed) {
+    plan = [];
   } else {
     let taskId = existing?.id as string | undefined;
     if (!taskId) {
@@ -306,6 +317,14 @@ async function planWithManager(ctx: ExecutionContext, meetingId: string, meeting
         result: { externalEffect: false, executionPlan: plan },
       })
       .eq("id", taskId!);
+  }
+  if (plan.length === 0) {
+    // Legacy: godkänt möte utan användbar plan. Bygg lokalt, utan provider-anrop.
+    plan = legacyFallbackPlan({
+      agenda: String(meeting["agenda"] ?? ""),
+      recommendation: String(meeting["recommendation"] ?? ""),
+      finalSummary: String(meeting["final_summary"] ?? ""),
+    });
   }
   return { plan, paused: false, reason: plan.length ? "" : "Manager kunde inte skapa en genomförandeplan." };
 }
