@@ -22,7 +22,7 @@ export async function customerConfigCore(
 ): Promise<CustomerConfigResult> {
   const { data: customer, error } = await ctx.supabase
     .from("customers")
-    .select("id, name, industry, service_area, status")
+    .select("id, name, industry, service_area, status, launch_approved, launch_approved_at")
     .eq("id", customerId)
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -60,6 +60,9 @@ export async function customerConfigCore(
       industry: String(customer["industry"] ?? ""),
       serviceArea: String(customer["service_area"] ?? ""),
       status: String(customer["status"] ?? ""),
+      // Read-only launch-approval-markör (satt i admin, aldrig här).
+      launchApproved: customer["launch_approved"] === true,
+      launchApprovedAt: (customer["launch_approved_at"] as string | null) ?? null,
       profileExists: Boolean(profileRow),
       notifyRecipients: profile.notifyRecipients,
       executionMode: profile.executionMode,
