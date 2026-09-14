@@ -294,6 +294,19 @@ function executionStatusClass(status: ExecutionStatus) {
   return "border-status-info/30 bg-status-info/10 text-status-info";
 }
 
+function displayedExecutionStatus(task: ExecutionTaskRow) {
+  if (task.actionType === "customer_contact" && task.approvalStatus === "approved") return "Godkänd för manuell kontakt";
+  if (task.actionType === "customer_contact" && task.approvalStatus === "rejected") return "Kundkontakt avvisad";
+  return EXECUTION_STATUS_TEXT[task.executionStatus];
+}
+
+function displayedExecutionStatusClass(task: ExecutionTaskRow) {
+  if (task.actionType === "customer_contact" && task.approvalStatus === "approved") {
+    return "border-status-info/30 bg-status-info/10 text-status-info";
+  }
+  return executionStatusClass(task.executionStatus);
+}
+
 function outputSummary(task: ExecutionTaskRow) {
   return typeof task.output?.["summary"] === "string" ? task.output["summary"] : task.goal;
 }
@@ -331,8 +344,8 @@ function ExecutionTaskCard({
           <p className="mt-1 text-sm font-semibold">{task.goal}</p>
           <p className="mt-1 text-xs text-muted-foreground">{AGENT_LABEL[task.role as AgentName] ?? task.role} · {EXECUTION_ACTION_LABEL[task.actionType]}</p>
         </div>
-        <Badge variant="outline" className={executionStatusClass(task.executionStatus)}>
-          {EXECUTION_STATUS_TEXT[task.executionStatus]}
+        <Badge variant="outline" className={displayedExecutionStatusClass(task)}>
+          {displayedExecutionStatus(task)}
         </Badge>
       </div>
 
@@ -593,7 +606,7 @@ export function AgentBoardroom() {
     mutationFn: (decision: "approved" | "rejected") =>
       selected ? decide({ data: { meetingId: selected.id, decision } }) : Promise.reject(new Error("Inget möte valt.")),
     onSuccess: async (result) => {
-      setNotice(result.decision === "approved" ? "Mötet godkändes." : "Mötet avvisades. Ingen extern åtgärd utförs.");
+      setNotice(result.decision === "approved" ? "Slutsatsen godkändes. Det interna genomförandet startade." : "Mötet avvisades. Ingen extern åtgärd utförs.");
       await queryClient.invalidateQueries({ queryKey: ["agent-meetings"] });
     },
     onError: (error: Error) => setNotice(error.message),
@@ -836,13 +849,13 @@ export function AgentBoardroom() {
                   <div><dt className="text-xs text-muted-foreground">Insats</dt><dd className="mt-0.5">{selected.estimated_effort}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Uppskattad kostnad</dt><dd className="mt-0.5">{Number(selected.estimated_cost_sek).toFixed(2)} kr</dd></div>
                 </dl>
+                <div className="mt-5 rounded-md border border-status-info/25 bg-status-info/10 p-3">
+                  <p className="flex items-center gap-2 text-xs font-semibold uppercase text-status-info"><ShieldCheck className="size-4" />2. Vad du {selected.approval_status === "approved" ? "har godkänt" : "godkänner"}</p>
+                  <p className="mt-2 text-sm">Du {selected.approval_status === "approved" ? "har godkänt" : "godkänner"} att agenterna börjar arbeta vidare internt på slutsatsen. Ingen kundkontakt, kodändring i Lovable eller publicering sker automatiskt.</p>
+                </div>
                 {canDecide ? (
                   <div className="mt-5 border-t border-border pt-4">
-                    <div className="rounded-md border border-status-info/25 bg-status-info/10 p-3">
-                      <p className="flex items-center gap-2 text-xs font-semibold uppercase text-status-info"><ShieldCheck className="size-4" />2. Vad du godkänner</p>
-                      <p className="mt-2 text-sm">Du godkänner att agenterna börjar arbeta vidare internt på slutsatsen. Ingen kundkontakt, kodändring i Lovable eller publicering sker automatiskt.</p>
-                    </div>
-                    <div className="mt-3 flex flex-wrap justify-end gap-2">
+                    <div className="flex flex-wrap justify-end gap-2">
                       <Button size="sm" disabled={decideMutation.isPending} onClick={() => decideMutation.mutate("approved")}>
                         <CircleCheck />Godkänn och starta genomförande
                       </Button>
