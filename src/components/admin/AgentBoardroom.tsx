@@ -425,11 +425,25 @@ export function AgentBoardroom() {
                 <h4 className="mt-2 font-semibold">{selected.agenda}</h4>
                 {selected.selected_roles.length ? <p className="mt-1 text-xs text-muted-foreground">{selected.selected_roles.map((role) => AGENT_LABEL[role as AgentName] ?? role).join(" · ")}</p> : null}
               </div>
-              {canResume ? (
-                <Button size="sm" onClick={() => void runMeeting(selected.id)}>
-                  <Play />Återuppta mötet
-                </Button>
-              ) : null}
+              <div className="flex flex-wrap gap-2">
+                {canResume ? (
+                  <Button size="sm" onClick={() => void runMeeting(selected.id)}>
+                    <Play />Återuppta mötet
+                  </Button>
+                ) : null}
+                {canCancel ? (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    disabled={cancelMutation.isPending}
+                    onClick={() => {
+                      if (window.confirm("Avsluta mötet? Inga fler interna steg körs.")) cancelMutation.mutate();
+                    }}
+                  >
+                    {cancelMutation.isPending ? "Avslutar …" : "Avsluta mötet"}
+                  </Button>
+                ) : null}
+              </div>
             </div>
 
             {selected.error ? <p className="mt-3 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{selected.error}</p> : null}
