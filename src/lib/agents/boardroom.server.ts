@@ -1,6 +1,6 @@
 import { runtimeEnvFromRequest } from "@/lib/growth/runtime-env";
-import { readBudgetConfig } from "./budget";
-import { recordAgentRunUsage, reserveAgentRun } from "./budget.server";
+import { EMPTY_SNAPSHOT, evaluateBudgetGate, readBudgetConfig } from "./budget";
+import { readBoardroomSpentTodaySek, recordAgentRunUsage, reserveAgentRun } from "./budget.server";
 import {
   compactContext,
   budgetPause,
@@ -225,6 +225,18 @@ export async function advanceMeetingCore(ctx: BoardroomContext, meetingId: strin
     parsed = task["result"].boardroomOutput as Record<string, unknown>;
   } else {
     const budgetConfig = readBudgetConfig(runtimeEnvFromRequest(ctx.harness?.request));
+    // Mötesbudget per dygn (normal 10 kr, nödstopp 15 kr) utöver månadstaken.
+    const boardroomSpentTodaySek = await readBoardroomSpentTodaySek(ctx, budgetConfig);
+    const dayGate = evaluateBudgetGate({
+      kind: "boardroom",
+      role: turn.role,
+      snapshot: { ...EMPTY_SNAPSHOT, boardroomSpentTodaySek },
+      config: budgetConfig,
+    });
+    if (!dayGate.allowed) {
+      await releaseClaim(ctx, meetingId, String(token), budgetPause(dayGate.reason));
+      return { ok: false as const, paused: true as const, status: "paused_budget" as const, reason: dayGate.reason, externalEffect: false as const };
+    }
     const reservation = await reserveAgentRun(ctx, {
       role: turn.role,
       taskId: String(task["id"]),
