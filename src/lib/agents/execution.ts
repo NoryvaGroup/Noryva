@@ -272,7 +272,7 @@ export function executionTaskPrompt(item: {
     item.successCriteria ? `Klart när: ${item.successCriteria}` : "",
     "Du utför ingen extern åtgärd: inga mail, SMS, bokningar, Make-ändringar, deploy eller kunddataändringar.",
     item.actionType === "code_change"
-      ? "Det finns ingen repo-executor. Leverera ett strukturerat change-set som en människa kan applicera."
+      ? "Du applicerar aldrig kod själv. Leverera ett strukturerat change-set (filer + konkreta ändringar) som en människa kan låta en executor applicera."
       : "",
     "Var kort: högst 3–5 punkter. Svara med ETT giltigt JSON-objekt och ingenting annat.",
     `Format: ${shape}`,
