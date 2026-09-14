@@ -294,9 +294,14 @@ export function parseMeetingOutput(type: Exclude<MeetingMessage["message_type"],
 }
 
 
-export function compactContext(messages: MeetingMessage[], maxItems = 6): string {
-  return messages.slice(-maxItems).map((m) => `${m.role}/${m.message_type}: ${m.content.slice(0, 900)}`).join("\n");
+export function compactContext(messages: MeetingMessage[], maxItems = 5): string {
+  return messages.slice(-maxItems).map((m) => `${m.role}/${m.message_type}: ${m.content.slice(0, 700)}`).join("\n");
 }
+
+/** Hård formatregel: strikt JSON, ingen markdown, inga kommentarer. */
+const JSON_RULE =
+  "Svara med ETT giltigt JSON-objekt och ingenting annat. Ingen markdown, inga code fences, ingen text före eller efter, inga kommentarer och inga avslutande kommatecken.";
+
 
 /** Gemensam sparsamhetsregel: kort, konkret, inga upprepningar. */
 const BREVITY =
