@@ -5,7 +5,7 @@ import getProcess from "./tools/get-process";
 import searchFaq from "./tools/search-faq";
 import checkFit from "./tools/check-fit";
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+const supabaseUrl = import.meta.env["VITE_SUPABASE_URL"] as string;
 
 export default defineMcp({
   name: "noryva-growth-engine",
