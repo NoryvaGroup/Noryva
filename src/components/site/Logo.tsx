@@ -1,11 +1,11 @@
-export function Logo({ className }: { className?: string }) {
+﻿export function Logo({ className }: { className?: string }) {
   return (
     <span
       className={`inline-flex items-center gap-2.5 ${className ?? ""}`}
       aria-label="Noryva"
     >
       <img
-        src="/noryva-mark.png"
+        src="/noryva-mark-96.png"
         alt=""
         width="36"
         height="36"
@@ -17,3 +17,4 @@ export function Logo({ className }: { className?: string }) {
     </span>
   );
 }
+

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { ArrowRight, Menu, X } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { Logo } from "./Logo";
@@ -6,8 +6,8 @@ import { CtaTo } from "./Button";
 import { cn } from "@/lib/utils";
 
 const links = [
-  { href: "/#sa-fungerar", label: "Så fungerar det", route: false },
-  { href: "/#vad-ni-far", label: "Vad ni får", route: false },
+  { href: "/#sa-fungerar", label: "SÃ¥ fungerar det", route: false },
+  { href: "/#vad-ni-far", label: "Vad ni fÃ¥r", route: false },
   { href: "/om", label: "Om Noryva", route: true },
   { href: "/faq", label: "FAQ", route: true },
   { href: "/kontakt", label: "Kontakt", route: true },
@@ -70,13 +70,13 @@ export function Nav() {
 
         <div className="hidden lg:block">
           <CtaTo to="/kontakt" className="px-5 py-2.5">
-            Testa 30 dagar gratis <ArrowRight size={15} />
+            Testa 30 dagar kostnadsfritt <ArrowRight size={15} />
           </CtaTo>
         </div>
 
         <button
           type="button"
-          aria-label={open ? "Stäng meny" : "Öppna meny"}
+          aria-label={open ? "StÃ¤ng meny" : "Ã–ppna meny"}
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
           className="inline-flex size-11 items-center justify-center rounded-full border border-border text-foreground transition-colors hover:bg-surface-2 lg:hidden"
@@ -104,7 +104,7 @@ export function Nav() {
           </ul>
           <div className="container-x pb-6">
             <CtaTo to="/kontakt" onClick={() => setOpen(false)} className="w-full py-4 text-base">
-              Testa 30 dagar gratis <ArrowRight size={17} />
+              Testa 30 dagar kostnadsfritt <ArrowRight size={17} />
             </CtaTo>
           </div>
         </div>
@@ -112,3 +112,5 @@ export function Nav() {
     </header>
   );
 }
+
+
