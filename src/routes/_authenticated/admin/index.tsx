@@ -89,14 +89,6 @@ function AdminHome() {
         >
           {creating ? "Avbryt" : "Ny kund"}
         </button>
-        <a
-          href="/takoffert"
-          target="_blank"
-          rel="noreferrer"
-          className="rounded-full border border-border px-5 py-2.5 text-sm"
-        >
-          Öppna befintlig takoffert-sida
-        </a>
       </div>
 
       {creating && (

@@ -60,7 +60,7 @@ export function Process() {
         <Reveal delay={200}>
           <div className="mt-14">
             <CtaTo to="/kontakt" className="py-4 sm:py-3.5">
-              Boka kostnadsfri genomgång <ArrowRight size={17} />
+              Testa 30 dagar kostnadsfritt <ArrowRight size={17} />
             </CtaTo>
           </div>
         </Reveal>

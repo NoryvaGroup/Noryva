@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowRight, Menu, X } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { Logo } from "./Logo";
@@ -6,8 +6,8 @@ import { CtaTo } from "./Button";
 import { cn } from "@/lib/utils";
 
 const links = [
-  { href: "/#sa-fungerar", label: "SÃ¥ fungerar det", route: false },
-  { href: "/#vad-ni-far", label: "Vad ni fÃ¥r", route: false },
+  { href: "/#sa-fungerar", label: "Så fungerar det", route: false },
+  { href: "/#vad-ni-far", label: "Vad ni får", route: false },
   { href: "/om", label: "Om Noryva", route: true },
   { href: "/faq", label: "FAQ", route: true },
   { href: "/kontakt", label: "Kontakt", route: true },
@@ -76,7 +76,7 @@ export function Nav() {
 
         <button
           type="button"
-          aria-label={open ? "StÃ¤ng meny" : "Ã–ppna meny"}
+          aria-label={open ? "Stäng meny" : "Öppna meny"}
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
           className="inline-flex size-11 items-center justify-center rounded-full border border-border text-foreground transition-colors hover:bg-surface-2 lg:hidden"
@@ -112,5 +112,3 @@ export function Nav() {
     </header>
   );
 }
-
-

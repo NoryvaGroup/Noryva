@@ -134,7 +134,7 @@ export function Hero() {
           <Reveal delay={180}>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
               <CtaTo to="/kontakt" className="py-4 sm:py-3.5">
-                Boka kostnadsfri genomgång <ArrowRight size={17} />
+                Testa 30 dagar kostnadsfritt <ArrowRight size={17} />
               </CtaTo>
               <CtaLink href="/#sa-fungerar" variant="ghost" className="py-4 sm:py-3.5">
                 Se hur det fungerar <ArrowDown size={16} />

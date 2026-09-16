@@ -68,7 +68,7 @@ export function Audience() {
               </p>
             </div>
             <CtaTo to="/kontakt" className="shrink-0 py-3.5">
-              Boka kostnadsfri genomgång <ArrowRight size={16} />
+              Testa 30 dagar kostnadsfritt <ArrowRight size={16} />
             </CtaTo>
           </div>
         </Reveal>
