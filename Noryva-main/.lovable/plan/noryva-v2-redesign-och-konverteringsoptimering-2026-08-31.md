@@ -1,0 +1,66 @@
+# Noryva v2 – redesign och konverteringsoptimering
+
+Ja, det här är i huvudsak bra ändringar. De starkaste förbättringarna: skarpare hero-budskap, tomma kundcase bort, en enda konsekvent CTA, enklare formulär och en ny datadriven dashboard-sektion. Formuläret förbereds för din kommande AI-automation (se avsnittet nedan).
+
+Du kan se resultatet direkt i förhandsvisningen så fort planen är godkänd – ändringarna byggs på befintlig kod, inte från noll.
+
+## Vad som ändras
+
+**Färg och typografi**
+- Vi gör INTE sidan mörkare än idag. Den nuvarande mörka grafitbasen behålls, men justeras något varmare/ljusare och mer inbjudande istället för nära svart. Subtila borders och ljusgrå sekundärtext behålls.
+- Accentfärgen byts från grön-teal till en sofistikerad elektrisk blå/lila, använd sparsamt (CTA, linjer, ikoner, hover, grafik).
+- Behåller Sora/Manrope; ökar hero-rubrikens storlek och luft mellan sektioner.
+
+**Navigation**
+- Länkar: Tjänster, Så fungerar det, Resultat, Om Noryva, FAQ, Kontakt.
+- CTA överallt: "Boka kostnadsfri genomgång →". Mobilmeny med mjuk öppningsanimation och stor CTA.
+
+**Hero**
+- Rubrik: "Fler kunder. Utan att gissa vad som fungerar."
+- Ny underrubrik, primär + sekundär CTA, och en diskret rad: Annonsering → Leads → Bokningar → Kunder.
+- Trust-raden ("ingen bindningstid…") tas bort härifrån.
+- Ny visualisering: ANNONS → BESÖKARE → LEAD → BOKNING → KUND med tunna linjer och en ljuspunkt som rör sig genom flödet (SVG + CSS, pausas vid `prefers-reduced-motion`).
+
+**Sektionsordning** (ny)
+Hero → Problemet → Hur Noryva fungerar → Tjänster → Dashboard → Det vi optimerar → Varför Noryva → Vilka vi hjälper → Om Noryva → Framtida kundcase → FAQ → Stor CTA → Kontaktformulär → Footer.
+
+**Innehåll per sektion**
+- Problem: tre stora kort (För få förfrågningar / Fel typ av leads / Kunder tappas på vägen) + avslutning "Noryva bygger systemet som kopplar ihop allt."
+- Process: fyra steg, steg 04 blir "Vi skalar det som fungerar", elegant linje Analys → Bygg → Optimera → Skala. CTA efter sektionen.
+- Tjänster: fyra kort med nya rubriker/beskrivningar och detaljlistor. "Läs mer"-knappar ersätts av hover/expandera utan knappkänsla.
+- Ny dashboard-sektion "Vi gissar inte. Vi mäter." med CAMPAIGN OVERVIEW (Leads, Cost per lead, Conversion rate, Bookings) och animerade grafer, tydligt märkta som exempeldata.
+- Resultat blir "Det vi optimerar" med fyra KPI-kort + notisen "När vi har data visar vi den. Inga påhittade siffror."
+- Varför Noryva: fyra nya USP-kort.
+- Målgrupp: "Byggt för företag där varje ny kund räknas" med fyra kategorier; "Passar Noryva?"-blocket krymps till en liten CTA-rad efteråt.
+- Om Noryva: ny, mer personlig text.
+- Kundcase: placeholder-korten tas bort; ersätts av kort text + "Ditt företag kan bli vårt nästa case." + CTA.
+- FAQ: nya svar samt ny fråga om annonsbudget kontra arvode.
+- Stor CTA: "Är det dags att få ordning på kundinflödet?" med mycket whitespace.
+- Formulär: Namn, Företag, E-post, Telefon, Hemsida, Vad vill du förbättra. Budgetfrågan tas bort. Bekräftelsetexten behålls.
+- Footer: minimalistisk, e-post hej@noryva.se, ingen "telefonnummer kommer snart".
+
+**SEO**
+- Title: "Noryva | Digital annonsering som ger fler kunder".
+- Ny meta description, uppdaterad Open Graph, JSON-LD (inkl. uppdaterad FAQ). Sitemap/robots/favicon behålls.
+
+## Formuläret och din AI-tjänst
+
+Uppfattat – inskicken ska gå vidare till Tally/Make/Google Sheets och behandlas av din AI-tjänst. Därför bygger vi om formuläret så det är redo för det, utan att låsa in något nu:
+
+- Ett enda ställe i koden där inskicket skickas (en submit-funktion), så du senare bara pekar den mot en Make-webhook eller ett Tally-formulär.
+- Fälten namnges konsekvent (namn, företag, epost, telefon, hemsida, förbättra) så de mappar rakt av till kolumner i Google Sheets.
+- Tills kopplingen finns visas samma tacktext som idag. Alternativt kan vi bädda in Tally-formuläret direkt i sektionen – säg till vilket du föredrar.
+
+## Övrig avvikelse jag föreslår
+
+- **Behåll en kort trust-rad längre ner** (t.ex. vid stora CTA:t) i stället för att ta bort den helt – den gör nytta när besökaren är nära beslut, bara inte i heron.
+
+
+## Tekniskt
+
+- Tokens uppdateras i `src/styles.css` (OKLCH); inga hårdkodade färger i komponenter.
+- Nya komponenter: `Dashboard.tsx`, `FlowVisual` bryts ut ur `Hero.tsx`.
+- Omskrivna: `Nav`, `Hero`, `Problem`, `Process`, `Services`, `Results`, `Why`, `Audience`, `About`, `Cases`, `Faq`, `Contact`, `Footer`, `src/routes/index.tsx` (ordning + metadata).
+- Animationer via befintliga `Reveal` + CSS; inga nya tunga bibliotek.
+- Kontroll av mobil (ingen horisontell scroll, tryckvänliga CTA) och `prefers-reduced-motion`.
+- Inga påhittade kunder, resultat eller garantier någonstans.
