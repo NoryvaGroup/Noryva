@@ -1,15 +1,19 @@
-import noryvaLogo from "@/assets/noryva-hela-logga.png.asset.json";
-
 export function Logo({ className }: { className?: string }) {
   return (
-    <span className={`relative inline-block h-9 w-[90px] ${className ?? ""}`}>
+    <span
+      className={`inline-flex items-center gap-2.5 ${className ?? ""}`}
+      aria-label="Noryva"
+    >
       <img
-        src={noryvaLogo.url}
-        alt="Noryva"
-        width="1983"
-        height="793"
-        className="absolute inset-0 size-full object-contain"
+        src="/noryva-mark.png"
+        alt=""
+        width="36"
+        height="36"
+        className="h-9 w-9 shrink-0 object-contain"
       />
+      <span className="text-[1.35rem] font-semibold tracking-[-0.035em] text-foreground">
+        Noryva
+      </span>
     </span>
   );
 }
