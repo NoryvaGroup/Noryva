@@ -172,16 +172,32 @@ export async function readBoardroomSpentTodaySek(ctx: BudgetCtx, config?: Budget
   const since = new Date();
   since.setUTCHours(0, 0, 0, 0);
   try {
+    const readRows = async (client: any) =>
+      client
+        .from("agent_run_ledger")
+        .select("estimated_cost_sek, status, created_at")
+        .eq("run_kind", "boardroom")
+        .in("status", ["reserved", "completed"])
+        .gte("created_at", since.toISOString());
+
+    // Prefer service-role server-side, but if that credential/runtime path is
+    // unavailable in Preview, fall back to the already authenticated admin
+    // request. RLS still enforces the admin policy on the fallback path.
     const admin = await adminClient();
-    const client = admin ?? ctx.supabase;
-    const { data, error } = await client
-      .from("agent_run_ledger")
-      .select("estimated_cost_sek, status, created_at")
-      .eq("run_kind", "boardroom")
-      .in("status", ["reserved", "completed"])
-      .gte("created_at", since.toISOString());
-    if (error || !Array.isArray(data)) return cfg.boardroomEmergencyDayCapSek;
-    return sumBoardroomLedgerRows(data);
+    if (admin) {
+      const adminResult = await readRows(admin);
+      if (!adminResult.error && Array.isArray(adminResult.data)) {
+        return sumBoardroomLedgerRows(adminResult.data);
+      }
+    }
+
+    const userResult = await readRows(ctx.supabase);
+    if (!userResult.error && Array.isArray(userResult.data)) {
+      return sumBoardroomLedgerRows(userResult.data);
+    }
+
+    // Fail closed: block new boardroom runs if neither trusted read path works.
+    return cfg.boardroomEmergencyDayCapSek;
   } catch {
     return cfg.boardroomEmergencyDayCapSek;
   }
