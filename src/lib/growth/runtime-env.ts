@@ -16,7 +16,7 @@ export function runtimeEnvFromRequest(request?: Request): RuntimeEnv {
   const binding = (request as Request & { env?: Record<string, unknown> })?.env;
   if (binding && typeof binding === "object") {
     for (const [key, value] of Object.entries(binding)) {
-      if (typeof value === "string") base[key] = value;
+      if (typeof value === "string" && !base[key]) base[key] = value;
     }
   }
   return base;
