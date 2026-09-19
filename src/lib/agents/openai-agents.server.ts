@@ -206,6 +206,9 @@ export type HarnessRunInput = {
 
 export type HarnessUsage = { inputTokens: number; outputTokens: number; runs: number };
 
+/** Vilken nätverksfas felet uppstod i. PII-fri diagnostik. */
+export type HarnessPhase = "" | "create" | "poll" | "usage" | "cleanup";
+
 export type HarnessRunResult = {
   ok: boolean;
   providerType: typeof AGENTS_PROVIDER;
@@ -216,6 +219,9 @@ export type HarnessRunResult = {
   /** Rå textoutput från agenten (tom vid fel). */
   outputText: string;
   error: string;
+  /** Sant när ingen provider-session hann startas – uppgiften kan köras om. */
+  retryable: boolean;
+  phase: HarnessPhase;
   externalEffect: false;
 };
 
@@ -229,8 +235,30 @@ function blocked(reason: string, agentId = ""): HarnessRunResult {
     usage: { inputTokens: 0, outputTokens: 0, runs: 0 },
     outputText: "",
     error: reason,
+    retryable: false,
+    phase: "",
     externalEffect: false,
   };
+}
+
+/** Egen AbortController per nätverksfas: faserna delar aldrig deadline. */
+async function fetchPhase(
+  doFetch: typeof fetch,
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await doFetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function isAbort(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
 }
 
 function collectText(value: unknown, out: string[]): void {
