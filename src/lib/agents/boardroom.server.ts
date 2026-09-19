@@ -282,7 +282,8 @@ export async function advanceMeetingCore(ctx: BoardroomContext, meetingId: strin
         requestKey: String(task["idempotency_key"] ?? taskKey(meetingId, turn.role, turn.messageType)),
       },
       // Boardroom-svar är längre än vanliga tasks; ge polling mer tid.
-      { timeoutMs: 180_000, ...(ctx.harness ?? {}) },
+      // Overriden får aldrig tappas av ett harness-objekt utan timeoutMs.
+      { ...(ctx.harness ?? {}), timeoutMs: ctx.harness?.timeoutMs ?? 180_000 },
     );
     providerRunId = run.providerRunId;
     providerAgentId = run.providerAgentId;
