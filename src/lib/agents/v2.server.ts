@@ -423,14 +423,18 @@ export async function runV2TaskCore(
 
   if (!run.ok || !parsed || parsed.ok !== true) {
     const reason = run.ok ? (parsed as { error: string }).error : run.error;
+    // Ingen provider-session startade: återställ uppgiften till körbar utan
+    // att bränna run_budget eller lämna ett falskt provider_run_id.
+    const retryable = run.ok === false && run.retryable === true;
     await ctx.supabase
       .from("agent_tasks")
       .update({
-        status: "failed",
-        run_status: run.runStatus,
+        status: retryable ? "queued" : "failed",
+        run_status: retryable ? "not_started" : run.runStatus,
         provider_run_id: run.providerRunId,
         provider_agent_id: run.providerAgentId,
         usage: run.usage,
+        ...(retryable ? { runs_used: Number(task["runs_used"] ?? 0) } : {}),
       })
       .eq("id", task["id"]);
     await recordAgentRunUsage(ctx, {
