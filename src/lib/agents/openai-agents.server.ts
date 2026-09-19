@@ -26,7 +26,12 @@ export const AGENTS_SESSIONS_URL = "https://api.openai.com/v1/agents/sessions";
 export const AGENTS_BETA_HEADER = "agents=v1";
 /** Endast reserv när ett agent-id saknas. Med agent-id styr OpenAI modellen. */
 export const AGENTS_DEFAULT_MODEL = "gpt-5.4-mini";
+/** Tidsgräns för att VÄNTA IN agentens svar (polling). */
 export const AGENTS_DEFAULT_TIMEOUT_MS = 60_000;
+/** Egen, kortare tidsgräns enbart för att STARTA sessionen (POST). */
+export const AGENTS_CREATE_TIMEOUT_MS = 25_000;
+/** Read-only GET:ar och cleanup får aldrig äta pollingens budget. */
+export const AGENTS_READ_TIMEOUT_MS = 20_000;
 
 /** Alla sex interna roller. Inga av dem har externa verktyg. */
 export const HARNESS_ROLES = [
@@ -79,7 +84,10 @@ export type HarnessDeps = {
   env?: RuntimeEnv;
   request?: Request;
   fetchImpl?: typeof fetch;
+  /** Tidsgräns för polling/väntan på svar. */
   timeoutMs?: number;
+  /** Separat tidsgräns för session-create. */
+  createTimeoutMs?: number;
   conflictBackoffMs?: number[];
 };
 
