@@ -445,8 +445,23 @@ export async function runV2TaskCore(
       outputTokens: run.usage.outputTokens,
       config: budgetConfig,
     });
-    await audit(ctx, task["id"], "run_failed", "agent", { reason, externalEffect: false });
-    return { status: 502, body: { error: reason, runStatus: run.runStatus, externalEffect: false } };
+    await audit(ctx, task["id"], "run_failed", "agent", {
+      reason,
+      phase: run.ok === false ? run.phase : "",
+      retryable,
+      providerRunId: run.providerRunId,
+      externalEffect: false,
+    });
+    return {
+      status: 502,
+      body: {
+        error: reason,
+        runStatus: retryable ? "not_started" : run.runStatus,
+        retryable,
+        phase: run.ok === false ? run.phase : "",
+        externalEffect: false,
+      },
+    };
   }
 
   const result = {
