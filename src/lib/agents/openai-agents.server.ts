@@ -308,16 +308,17 @@ async function deleteCompletedSession(
   doFetch: typeof fetch,
   sessionId: string,
   headers: Record<string, string>,
-  signal: AbortSignal,
   backoffMs: number[],
 ): Promise<void> {
   for (let attempt = 0; attempt <= backoffMs.length; attempt += 1) {
     try {
-      const response = await doFetch(`${AGENTS_SESSIONS_URL}/${sessionId}`, {
-        method: "DELETE",
-        headers,
-        signal,
-      });
+      // Cleanup har egen deadline; den får aldrig fälla en lyckad körning.
+      const response = await fetchPhase(
+        doFetch,
+        `${AGENTS_SESSIONS_URL}/${sessionId}`,
+        { method: "DELETE", headers },
+        AGENTS_READ_TIMEOUT_MS,
+      );
       if (response.ok || response.status === 404) return;
       if (response.status !== 409 || attempt === backoffMs.length) return;
     } catch {
