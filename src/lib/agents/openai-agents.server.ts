@@ -374,8 +374,8 @@ export async function runHarnessSession(
   const env = readEnv(deps);
   const key = str(env, "OPENAI_API_KEY");
   const doFetch = deps.fetchImpl ?? fetch;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), deps.timeoutMs ?? AGENTS_DEFAULT_TIMEOUT_MS);
+  const pollTimeoutMs = deps.timeoutMs ?? AGENTS_DEFAULT_TIMEOUT_MS;
+  const createTimeoutMs = deps.createTimeoutMs ?? AGENTS_CREATE_TIMEOUT_MS;
   const conflictBackoffMs = deps.conflictBackoffMs ?? [750, 1_500, 3_000];
   const headers = {
     Authorization: `Bearer ${key}`,
