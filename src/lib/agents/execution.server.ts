@@ -205,7 +205,7 @@ async function runWithBudget(
   }
   const run = await runHarnessSession(
     { role: input.role, instructions: input.instructions, input: input.prompt, requestKey: input.requestKey },
-    { timeoutMs: 180_000, ...(ctx.harness ?? {}) },
+    { ...(ctx.harness ?? {}), timeoutMs: ctx.harness?.timeoutMs ?? 180_000 },
   );
   if (!run.ok) {
     await recordAgentRunUsage(ctx, {

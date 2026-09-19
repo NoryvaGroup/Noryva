@@ -282,13 +282,16 @@ export async function advanceMeetingCore(ctx: BoardroomContext, meetingId: strin
         requestKey: String(task["idempotency_key"] ?? taskKey(meetingId, turn.role, turn.messageType)),
       },
       // Boardroom-svar är längre än vanliga tasks; ge polling mer tid.
-      { timeoutMs: 180_000, ...(ctx.harness ?? {}) },
+      // Overriden får aldrig tappas av ett harness-objekt utan timeoutMs.
+      { ...(ctx.harness ?? {}), timeoutMs: ctx.harness?.timeoutMs ?? 180_000 },
     );
     providerRunId = run.providerRunId;
     providerAgentId = run.providerAgentId;
     usage = run.usage;
     if (!run.ok) {
-      const conflict = /status 409/i.test(run.error);
+      // Ingen session startade (409 eller create-timeout) => steget är säkert
+      // retrybart: ingen run_budget bränns och inget falskt provider_run_id.
+      const conflict = /status 409/i.test(run.error) || run.retryable === true;
       await ctx.supabase.from("agent_tasks").update({
         status: conflict ? "queued" : "failed",
         run_status: conflict ? "not_started" : run.runStatus,

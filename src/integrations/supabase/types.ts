@@ -411,6 +411,13 @@ export type Database = {
             foreignKeyName: "agent_tasks_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
+            referencedRelation: "customer_onboarding_readiness"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "agent_tasks_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
             referencedRelation: "customers"
             referencedColumns: ["id"]
           },
@@ -467,6 +474,13 @@ export type Database = {
           variant_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "ai_cost_events_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customer_onboarding_readiness"
+            referencedColumns: ["customer_id"]
+          },
           {
             foreignKeyName: "ai_cost_events_customer_id_fkey"
             columns: ["customer_id"]
@@ -556,6 +570,13 @@ export type Database = {
             foreignKeyName: "ai_sales_assistant_runs_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
+            referencedRelation: "customer_onboarding_readiness"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "ai_sales_assistant_runs_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
             referencedRelation: "customers"
             referencedColumns: ["id"]
           },
@@ -612,6 +633,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "sales_actions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_sales_events_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customer_onboarding_readiness"
+            referencedColumns: ["customer_id"]
           },
           {
             foreignKeyName: "ai_sales_events_customer_id_fkey"
@@ -749,6 +777,13 @@ export type Database = {
             foreignKeyName: "conversation_messages_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
+            referencedRelation: "customer_onboarding_readiness"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "conversation_messages_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
             referencedRelation: "customers"
             referencedColumns: ["id"]
           },
@@ -793,6 +828,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "conversations_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customer_onboarding_readiness"
+            referencedColumns: ["customer_id"]
+          },
           {
             foreignKeyName: "conversations_customer_id_fkey"
             columns: ["customer_id"]
@@ -850,6 +892,13 @@ export type Database = {
           verified_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "customer_mail_channels_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: true
+            referencedRelation: "customer_onboarding_readiness"
+            referencedColumns: ["customer_id"]
+          },
           {
             foreignKeyName: "customer_mail_channels_customer_id_fkey"
             columns: ["customer_id"]
@@ -915,6 +964,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "customer_profiles_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: true
+            referencedRelation: "customer_onboarding_readiness"
+            referencedColumns: ["customer_id"]
+          },
           {
             foreignKeyName: "customer_profiles_customer_id_fkey"
             columns: ["customer_id"]
@@ -1032,6 +1088,13 @@ export type Database = {
             foreignKeyName: "form_questions_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
+            referencedRelation: "customer_onboarding_readiness"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "form_questions_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
             referencedRelation: "customers"
             referencedColumns: ["id"]
           },
@@ -1079,6 +1142,13 @@ export type Database = {
             foreignKeyName: "growth_analysis_claims_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
+            referencedRelation: "customer_onboarding_readiness"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "growth_analysis_claims_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
             referencedRelation: "customers"
             referencedColumns: ["id"]
           },
@@ -1120,6 +1190,13 @@ export type Database = {
           variant_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "growth_assignments_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customer_onboarding_readiness"
+            referencedColumns: ["customer_id"]
+          },
           {
             foreignKeyName: "growth_assignments_customer_id_fkey"
             columns: ["customer_id"]
@@ -1198,6 +1275,13 @@ export type Database = {
             foreignKeyName: "growth_experiments_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
+            referencedRelation: "customer_onboarding_readiness"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "growth_experiments_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
             referencedRelation: "customers"
             referencedColumns: ["id"]
           },
@@ -1238,6 +1322,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "growth_lead_state_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customer_onboarding_readiness"
+            referencedColumns: ["customer_id"]
+          },
           {
             foreignKeyName: "growth_lead_state_customer_id_fkey"
             columns: ["customer_id"]
@@ -1311,6 +1402,13 @@ export type Database = {
             foreignKeyName: "growth_nurture_state_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
+            referencedRelation: "customer_onboarding_readiness"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "growth_nurture_state_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
             referencedRelation: "customers"
             referencedColumns: ["id"]
           },
@@ -1364,6 +1462,13 @@ export type Database = {
           variant_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "growth_outcomes_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customer_onboarding_readiness"
+            referencedColumns: ["customer_id"]
+          },
           {
             foreignKeyName: "growth_outcomes_customer_id_fkey"
             columns: ["customer_id"]
@@ -1432,6 +1537,13 @@ export type Database = {
           winner_variant_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "growth_recommendations_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customer_onboarding_readiness"
+            referencedColumns: ["customer_id"]
+          },
           {
             foreignKeyName: "growth_recommendations_customer_id_fkey"
             columns: ["customer_id"]
@@ -1565,6 +1677,13 @@ export type Database = {
             foreignKeyName: "lead_outcomes_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
+            referencedRelation: "customer_onboarding_readiness"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "lead_outcomes_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
             referencedRelation: "customers"
             referencedColumns: ["id"]
           },
@@ -1624,6 +1743,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "lead_reminder_deliveries_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customer_onboarding_readiness"
+            referencedColumns: ["customer_id"]
+          },
           {
             foreignKeyName: "lead_reminder_deliveries_customer_id_fkey"
             columns: ["customer_id"]
@@ -1693,6 +1819,13 @@ export type Database = {
           source_ip_hash?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "leads_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customer_onboarding_readiness"
+            referencedColumns: ["customer_id"]
+          },
           {
             foreignKeyName: "leads_customer_id_fkey"
             columns: ["customer_id"]
@@ -1868,6 +2001,13 @@ export type Database = {
             foreignKeyName: "nurture_reviews_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
+            referencedRelation: "customer_onboarding_readiness"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "nurture_reviews_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
             referencedRelation: "customers"
             referencedColumns: ["id"]
           },
@@ -1955,6 +2095,13 @@ export type Database = {
             foreignKeyName: "sales_actions_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
+            referencedRelation: "customer_onboarding_readiness"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "sales_actions_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
             referencedRelation: "customers"
             referencedColumns: ["id"]
           },
@@ -1997,7 +2144,37 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      customer_onboarding_readiness: {
+        Row: {
+          ai_assistant_enabled: boolean | null
+          blockers: string[] | null
+          customer_id: string | null
+          customer_notifications_ready: boolean | null
+          delivery_webhook_url: string | null
+          execution_mode: string | null
+          geography_ready: boolean | null
+          industry: string | null
+          intake_ready: boolean | null
+          launch_approved: boolean | null
+          lead_facing_ready: boolean | null
+          local_postal_prefix: string | null
+          mail_provider: string | null
+          mail_status: string | null
+          name: string | null
+          notify_recipients: string[] | null
+          qualification_profile: Json | null
+          qualification_ready: boolean | null
+          question_count: number | null
+          regional_postal_prefix: string | null
+          reply_to_email: string | null
+          sender_email: string | null
+          service_area: string | null
+          slug: string | null
+          status: string | null
+          verified_at: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       agent_budget_snapshot: { Args: never; Returns: Json }
