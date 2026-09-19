@@ -289,7 +289,9 @@ export async function advanceMeetingCore(ctx: BoardroomContext, meetingId: strin
     providerAgentId = run.providerAgentId;
     usage = run.usage;
     if (!run.ok) {
-      const conflict = /status 409/i.test(run.error);
+      // Ingen session startade (409 eller create-timeout) => steget är säkert
+      // retrybart: ingen run_budget bränns och inget falskt provider_run_id.
+      const conflict = /status 409/i.test(run.error) || run.retryable === true;
       await ctx.supabase.from("agent_tasks").update({
         status: conflict ? "queued" : "failed",
         run_status: conflict ? "not_started" : run.runStatus,
