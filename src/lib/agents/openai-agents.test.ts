@@ -287,3 +287,140 @@ describe("asynkron turn hämtas read-only", () => {
     expect(result.externalEffect).toBe(false);
   });
 });
+
+describe("faser har egna tidsgränser", () => {
+  function abortError() {
+    const err = new Error("aborted");
+    err.name = "AbortError";
+    return err;
+  }
+
+  it("create-timeout har okänt utfall och får inte startas om automatiskt", async () => {
+    const fetchImpl = vi.fn(async (url: string) => {
+      if (url === AGENTS_SESSIONS_URL) throw abortError();
+      throw new Error("polling ska aldrig nås");
+    });
+    const result = await runHarnessSession(
+      { role: "noryva_manager", instructions: "", input: "mål" },
+      {
+        env: ENABLED_ENV,
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+        createTimeoutMs: 5,
+      },
+    );
+    expect(result.ok).toBe(false);
+    expect(result.retryable).toBe(false);
+    expect(result.phase).toBe("create");
+    expect(result.providerRunId).toBe("");
+    expect(result.usage).toEqual({ inputTokens: 0, outputTokens: 0, runs: 0 });
+    expect(result.error).toContain("Sessionsstarten");
+    expect(result.externalEffect).toBe(false);
+  });
+
+  it("poll-timeout efter sessions-id bevarar sessionen och är inte retrybar", async () => {
+    const fetchImpl = vi.fn(async (url: string) => {
+      if (url === AGENTS_SESSIONS_URL) {
+        return { ok: true, status: 200, json: async () => ({ id: "sess_poll" }) } as unknown as Response;
+      }
+      if (url.includes("/items")) {
+        return { ok: true, status: 200, json: async () => ({ data: [] }) } as unknown as Response;
+      }
+      return { ok: true, status: 200, json: async () => ({}) } as unknown as Response;
+    });
+    const result = await runHarnessSession(
+      { role: "noryva_manager", instructions: "", input: "mål" },
+      { env: ENABLED_ENV, fetchImpl: fetchImpl as unknown as typeof fetch, timeoutMs: 1 },
+    );
+    expect(result.ok).toBe(false);
+    expect(result.retryable).toBe(false);
+    expect(result.phase).toBe("poll");
+    expect(result.providerRunId).toBe("sess_poll");
+    expect(result.error).toContain("phase=poll");
+  });
+
+  it("lyckad körning är oförändrad och rapporterar ingen fas", async () => {
+    const fetchImpl = vi.fn(async (_url: string, init?: RequestInit) =>
+      init?.method === "DELETE" ? deletedResponse() : okResponse());
+    const result = await runHarnessSession(
+      { role: "product_tech", instructions: "", input: "mål" },
+      { env: ENABLED_ENV, fetchImpl: fetchImpl as unknown as typeof fetch },
+    );
+    expect(result.ok).toBe(true);
+    expect(result.retryable).toBe(false);
+    expect(result.phase).toBe("");
+    expect(result.providerRunId).toBe("sess_1");
+  });
+
+  it("boardroom-override för polling gäller fortfarande", async () => {
+    let pollAttempts = 0;
+    const fetchImpl = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url === AGENTS_SESSIONS_URL) {
+        return { ok: true, status: 200, json: async () => ({ id: "sess_long" }) } as unknown as Response;
+      }
+      if (url.includes("/items")) {
+        pollAttempts += 1;
+        if (pollAttempts < 2) {
+          return { ok: true, status: 200, json: async () => ({ data: [] }) } as unknown as Response;
+        }
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: [{ type: "message", role: "assistant", status: "completed", content: [{ text: "{}" }] }],
+          }),
+        } as unknown as Response;
+      }
+      if (init?.method === "DELETE") return deletedResponse();
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ usage: { input_tokens: 1, output_tokens: 1 } }),
+      } as unknown as Response;
+    });
+    const result = await runHarnessSession(
+      { role: "qa_risk", instructions: "", input: "mål" },
+      { env: ENABLED_ENV, fetchImpl: fetchImpl as unknown as typeof fetch, timeoutMs: 180_000 },
+    );
+    expect(result.ok).toBe(true);
+    expect(pollAttempts).toBeGreaterThan(1);
+    expect(result.providerRunId).toBe("sess_long");
+  });
+});
+
+describe("säker återläsning", () => {
+  it("återläser endast GET och startar ingen ersättare för en saknad session", async () => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ error: "missing" }), { status: 404 }));
+    const result = await runHarnessSession(
+      { role: "noryva_manager", instructions: "", input: "", resumeSessionId: "sess_missing" },
+      { env: ENABLED_ENV, fetchImpl: fetchImpl as typeof fetch, timeoutMs: 100 },
+    );
+    expect(result).toMatchObject({ ok: false, providerRunId: "sess_missing", runStatus: "failed", retryable: false });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(fetchImpl).toHaveBeenCalledWith(expect.stringContaining("/sess_missing/items"), expect.objectContaining({ method: "GET" }));
+  });
+
+  it("avvisar ogiltigt sessions-id utan nätverksanrop", async () => {
+    const fetchImpl = vi.fn();
+    const result = await runHarnessSession(
+      { role: "noryva_manager", instructions: "", input: "", resumeSessionId: "../../sessions" },
+      { env: ENABLED_ENV, fetchImpl },
+    );
+    expect(result.ok).toBe(false);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("create-deadline omfattar även en hängande svarskropp", async () => {
+    const fetchImpl = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => ({
+      ok: true, status: 200,
+      json: () => new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+      }),
+    }) as Response);
+    const result = await runHarnessSession(
+      { role: "noryva_manager", instructions: "", input: "mål" },
+      { env: ENABLED_ENV, fetchImpl: fetchImpl as typeof fetch, createTimeoutMs: 5 },
+    );
+    expect(result).toMatchObject({ ok: false, phase: "create", retryable: false });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+});

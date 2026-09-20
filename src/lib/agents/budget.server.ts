@@ -26,7 +26,9 @@ export type BudgetCtx = { supabase: any };
 async function adminClient(): Promise<any | null> {
   try {
     const mod: any = await import("@/integrations/supabase/client.server");
-    return mod?.supabaseAdmin ?? null;
+    const client = mod?.supabaseAdmin;
+    if (typeof client?.from !== "function") return null;
+    return client;
   } catch {
     return null;
   }
@@ -100,6 +102,7 @@ export async function recordAgentRunUsage(
     inputTokens?: number | null;
     outputTokens?: number | null;
     config?: BudgetConfig;
+    strict?: boolean;
   },
 ): Promise<number> {
   if (!input.runId) return 0;
@@ -130,13 +133,19 @@ export async function recordAgentRunUsage(
     estimated_cost_sek: cost,
   };
   try {
-    // Ledgern är skrivskyddad för vanliga roller; admin-klienten används först.
     const admin = await adminClient();
-    const client = admin ?? ctx.supabase;
-    const res: any = await client.from("agent_run_ledger").update(patch).eq("id", input.runId);
-    if (res?.error && admin) await ctx.supabase.from("agent_run_ledger").update(patch).eq("id", input.runId);
-  } catch {
-    /* bokföringen får aldrig kasta vidare i körvägen */
+    const write = async (client: any) => {
+      const query = client.from("agent_run_ledger").update(patch).eq("id", input.runId);
+      if (!input.strict) return await query;
+      const result = await query.select("id");
+      if (!result.error && !result.data?.length) throw new Error("Budgetraden kunde inte uppdateras.");
+      return result;
+    };
+    let res = await write(admin ?? ctx.supabase);
+    if (res?.error && admin) res = await write(ctx.supabase);
+    if (res?.error) throw new Error(res.error.message);
+  } catch (error) {
+    if (input.strict) throw error;
   }
   return cost;
 }

@@ -205,13 +205,13 @@ async function runWithBudget(
   }
   const run = await runHarnessSession(
     { role: input.role, instructions: input.instructions, input: input.prompt, requestKey: input.requestKey },
-    { timeoutMs: 180_000, ...(ctx.harness ?? {}) },
+    { ...(ctx.harness ?? {}), timeoutMs: ctx.harness?.timeoutMs ?? 180_000 },
   );
   if (!run.ok) {
     await recordAgentRunUsage(ctx, {
       runId: reservation.runId,
       role: input.role,
-      status: "failed",
+      status: run.providerRunId || run.phase === "create" ? "completed" : "failed",
       inputTokens: run.usage.inputTokens ?? 0,
       outputTokens: run.usage.outputTokens ?? 0,
       config: budgetConfig,

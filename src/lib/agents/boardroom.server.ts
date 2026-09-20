@@ -111,14 +111,15 @@ function derivePausedStatus(meeting: MeetingLike, messages: MeetingMessage[]): M
 }
 
 async function createOrLoadTurnTask(ctx: BoardroomContext, input: {
-  meetingId: string; role: HarnessRole; messageType: string; agenda: string;
+  meetingId: string; role: HarnessRole; messageType: string; agenda: string; revision?: boolean;
 }) {
-  const key = taskKey(input.meetingId, input.role, input.messageType);
-  const { data: existing } = await ctx.supabase
+  const key = taskKey(input.meetingId, input.role, input.messageType) + (input.revision ? ":revision" : "");
+  const { data: existing, error: existingError } = await ctx.supabase
     .from("agent_tasks")
-    .select("id, status, result, provider_run_id, usage")
+    .select("id, status, result, provider_run_id, provider_agent_id, usage, idempotency_key, runs_used, run_status")
     .eq("idempotency_key", key)
     .maybeSingle();
+  if (existingError) throw new Error(existingError.message);
   if (existing) return existing as Record<string, any>;
   const { data, error } = await ctx.supabase
     .from("agent_tasks")
@@ -142,13 +143,13 @@ async function createOrLoadTurnTask(ctx: BoardroomContext, input: {
       run_budget: 1,
       runs_used: 0,
     })
-    .select("id, status, result, provider_run_id, usage")
+    .select("id, status, result, provider_run_id, provider_agent_id, usage, idempotency_key, runs_used, run_status")
     .single();
   if (error) {
     if (/duplicate key|23505/i.test(String(error.message ?? ""))) {
       const { data: winner, error: winnerError } = await ctx.supabase
         .from("agent_tasks")
-        .select("id, status, result, provider_run_id, usage")
+        .select("id, status, result, provider_run_id, provider_agent_id, usage, idempotency_key, runs_used, run_status")
         .eq("idempotency_key", key)
         .maybeSingle();
       if (winnerError || !winner) throw new Error(winnerError?.message ?? "Mötessteget kunde inte återläsas.");
@@ -208,19 +209,27 @@ export async function advanceMeetingCore(ctx: BoardroomContext, meetingId: strin
   if (claimError) throw new Error(claimError.message);
   if (!token) return { ok: true as const, duplicate: true as const, status: rawMeeting.status, externalEffect: false as const };
 
+  try {
   const task = await createOrLoadTurnTask(ctx, {
     meetingId,
     role: turn.role,
     messageType: turn.messageType,
     agenda: meeting.agenda,
+    revision: turn.messageType === "synthesis" && Boolean(managerRevisionMessage(messages)),
   });
 
   let parsed: Record<string, unknown> | null = null;
   let providerRunId = String(task["provider_run_id"] ?? "");
   let providerAgentId = "";
   let usage = (task["usage"] ?? {}) as { inputTokens?: number; outputTokens?: number };
-  let ledgerId = "";
-  let costSek = 0;
+  const checkpoint = { ...((task["result"] ?? {}) as Record<string, any>) };
+  let ledgerId = String(checkpoint["ledgerId"] ?? "");
+  let costSek = Number(checkpoint["costSek"] ?? 0);
+  let providerRuns = 0;
+  const saveTask = async (patch: Record<string, unknown>) => {
+    const saved = await ctx.supabase.from("agent_tasks").update(patch).eq("id", task["id"]).select("id");
+    if (saved.error || !saved.data?.length) throw new Error(saved.error?.message ?? "Mötessteget kunde inte sparas.");
+  };
   const savedRawOutput = String((task["result"] as Record<string, unknown> | null)?.["rawOutput"] ?? "");
   if (task["status"] === "awaiting_review" && task["result"]?.boardroomOutput) {
     parsed = task["result"].boardroomOutput as Record<string, unknown>;
@@ -229,98 +238,101 @@ export async function advanceMeetingCore(ctx: BoardroomContext, meetingId: strin
     // nytt anrop bara för att en tidigare parsning misslyckades.
     parsed = parseMeetingOutput(turn.messageType, savedRawOutput) as Record<string, unknown>;
     providerRunId = String(task["provider_run_id"] ?? "");
-    await ctx.supabase
-      .from("agent_tasks")
-      .update({ status: "awaiting_review", run_status: "completed", result: { boardroomOutput: parsed, externalEffect: false } })
-      .eq("id", task["id"]);
+    await saveTask({ status: "awaiting_review", run_status: "completed", result: { ...checkpoint, boardroomOutput: parsed, externalEffect: false } });
   } else {
 
-    const budgetConfig = readBudgetConfig(runtimeEnvFromRequest(ctx.harness?.request));
-    // Mötesbudget per dygn (normal 10 kr, nödstopp 15 kr) utöver månadstaken.
-    const boardroomSpentTodaySek = await readBoardroomSpentTodaySek(ctx, budgetConfig);
-    const dayGate = evaluateBudgetGate({
-      kind: "boardroom",
-      role: turn.role,
-      snapshot: {
-        ...EMPTY_SNAPSHOT,
-        boardroomSpentTodaySek,
-        boardroomMeetingSpentSek: Number(rawMeeting.estimated_cost_sek ?? 0) || 0,
-      },
-      config: budgetConfig,
-    });
-    if (!dayGate.allowed) {
-      await releaseClaim(ctx, meetingId, String(token), budgetPause(dayGate.reason));
-      return { ok: false as const, paused: true as const, status: "paused_budget" as const, reason: dayGate.reason, externalEffect: false as const };
+    const budgetConfig = readBudgetConfig(ctx.harness?.env ?? runtimeEnvFromRequest(ctx.harness?.request));
+    if (providerRunId) {
+      // Old versions did not save the ledger id in the task. Reuse its latest
+      // existing reservation; never reserve or start a second provider run.
+      if (!ledgerId) {
+        const ledger = await ctx.supabase.from("agent_run_ledger").select("id")
+          .eq("task_id", task["id"]).order("created_at", { ascending: false }).limit(1).maybeSingle();
+        if (ledger.error || !ledger.data?.id) throw new Error("Sessionens budgetrad saknas; ingen ny körning startades.");
+        ledgerId = String(ledger.data.id);
+      }
+    } else {
+      if (task["status"] !== "queued" || Number(task["runs_used"] ?? 0) > 0) {
+        await releaseClaim(ctx, meetingId, String(token), { status: "failed", error: "Sessionsstartens utfall är okänt. Kräver avstämning innan en ny körning kan startas." });
+        throw new Error("Sessionsstartens utfall är okänt. Ingen ny körning startades.");
+      }
+      const boardroomSpentTodaySek = await readBoardroomSpentTodaySek(ctx, budgetConfig);
+      const dayGate = evaluateBudgetGate({
+        kind: "boardroom", role: turn.role,
+        snapshot: { ...EMPTY_SNAPSHOT, boardroomSpentTodaySek, boardroomMeetingSpentSek: Number(rawMeeting.estimated_cost_sek ?? 0) || 0 },
+        config: budgetConfig,
+      });
+      if (!dayGate.allowed) {
+        await releaseClaim(ctx, meetingId, String(token), budgetPause(dayGate.reason));
+        return { ok: false as const, paused: true as const, status: "paused_budget" as const, reason: dayGate.reason, externalEffect: false as const };
+      }
+      const reservation = await reserveAgentRun(ctx, { role: turn.role, taskId: String(task["id"]), kind: "boardroom", config: budgetConfig });
+      if (!reservation.ok) {
+        await releaseClaim(ctx, meetingId, String(token), budgetPause(reservation.reason));
+        return { ok: false as const, paused: true as const, status: "paused_budget" as const, reason: reservation.reason, externalEffect: false as const };
+      }
+      ledgerId = reservation.runId;
+      const claimed = await ctx.supabase.from("agent_tasks")
+        .update({ status: "in_progress", run_status: "running", runs_used: 1, result: { ledgerId, externalEffect: false } })
+        .eq("id", task["id"]).eq("status", "queued").select("id");
+      if (claimed.error || !claimed.data?.length) {
+        await recordAgentRunUsage(ctx, { runId: ledgerId, role: turn.role, status: "failed", config: budgetConfig, strict: true });
+        if (claimed.error) throw new Error(claimed.error.message);
+        await releaseClaim(ctx, meetingId, String(token), {});
+        return { ok: true as const, duplicate: true as const, status: rawMeeting.status, externalEffect: false as const };
+      }
     }
-    const reservation = await reserveAgentRun(ctx, {
-      role: turn.role,
-      taskId: String(task["id"]),
-      kind: "boardroom",
-      config: budgetConfig,
-    });
-    if (!reservation.ok) {
-      await releaseClaim(ctx, meetingId, String(token), budgetPause(reservation.reason));
-      return { ok: false as const, paused: true as const, status: "paused_budget" as const, reason: reservation.reason, externalEffect: false as const };
-    }
-    ledgerId = reservation.runId;
-    const { data: claimed } = await ctx.supabase
-      .from("agent_tasks")
-      .update({ status: "in_progress", run_status: "running", runs_used: 1 })
-      .eq("id", task["id"])
-      .eq("status", "queued")
-      .select("id");
-    if (!claimed?.length) {
-      await recordAgentRunUsage(ctx, { runId: reservation.runId, role: turn.role, status: "failed", config: budgetConfig });
-      await releaseClaim(ctx, meetingId, String(token), {});
-      return { ok: true as const, duplicate: true as const, status: rawMeeting.status, externalEffect: false as const };
-    }
+    // Charge the conservative estimate before network I/O. A running/unknown
+    // session is not free and must not age out as an orphaned reservation.
+    // Ledger 'completed' represents an accounted charge, not task completion.
+    costSek = await recordAgentRunUsage(ctx, { runId: ledgerId, role: turn.role, status: "completed", inputTokens: usage.inputTokens ?? 0, outputTokens: usage.outputTokens ?? 0, config: budgetConfig, strict: true });
     const run = await runHarnessSession(
       {
         role: turn.role,
         instructions: taskInstructions(turn.role, meeting.agenda, turn.messageType),
         input: meetingPrompt(meeting, turn, messages),
         requestKey: String(task["idempotency_key"] ?? taskKey(meetingId, turn.role, turn.messageType)),
+        ...(providerRunId ? { resumeSessionId: providerRunId } : {}),
       },
-      // Boardroom-svar är längre än vanliga tasks; ge polling mer tid.
-      { timeoutMs: 180_000, ...(ctx.harness ?? {}) },
+      {
+        ...(ctx.harness ?? {}),
+        // Return while the session is still running; the UI continues polling.
+        timeoutMs: ctx.harness?.timeoutMs ?? 15_000,
+        onSession: async (sessionId) => {
+          await saveTask({ provider_run_id: sessionId, status: "in_progress", run_status: "running", result: { ledgerId, costSek, externalEffect: false } });
+        },
+        onCompleted: async (completed) => {
+          costSek = await recordAgentRunUsage(ctx, { runId: ledgerId, role: turn.role, status: "completed", inputTokens: completed.usage.inputTokens, outputTokens: completed.usage.outputTokens, config: budgetConfig, strict: true });
+          // Persist recoverable output BEFORE provider cleanup or parsing.
+          await saveTask({ provider_run_id: completed.providerRunId, provider_agent_id: completed.providerAgentId, usage: completed.usage, run_status: "completed", result: { ledgerId, costSek, rawOutput: completed.outputText, externalEffect: false } });
+        },
+      },
     );
     providerRunId = run.providerRunId;
     providerAgentId = run.providerAgentId;
+    providerRuns = run.usage.runs;
     usage = run.usage;
     if (!run.ok) {
-      const conflict = /status 409/i.test(run.error);
-      await ctx.supabase.from("agent_tasks").update({
-        status: conflict ? "queued" : "failed",
-        run_status: conflict ? "not_started" : run.runStatus,
-        provider_run_id: providerRunId,
-        runs_used: conflict ? 0 : 1,
-        usage,
-      }).eq("id", task["id"]);
-      await recordAgentRunUsage(ctx, { runId: reservation.runId, role: turn.role, status: "failed", inputTokens: usage.inputTokens ?? 0, outputTokens: usage.outputTokens ?? 0, config: budgetConfig });
+      if (run.phase === "poll" && run.runStatus === "running" && providerRunId) {
+        await releaseClaim(ctx, meetingId, String(token), { status: effectiveStatus, error: "" });
+        return { ok: true as const, pending: true as const, status: effectiveStatus, providerRuns, externalEffect: false as const };
+      }
+      // An explicit 409 without a session is the only automatic create retry.
+      const conflict = /status 409\b/i.test(run.error) && !providerRunId;
+      await saveTask({ status: conflict ? "queued" : "failed", run_status: conflict ? "not_started" : run.runStatus, provider_run_id: providerRunId, runs_used: conflict ? 0 : 1, result: { ledgerId, costSek, externalEffect: false }, usage });
+      if (conflict) await recordAgentRunUsage(ctx, { runId: ledgerId, role: turn.role, status: "failed", config: budgetConfig, strict: true });
       await releaseClaim(ctx, meetingId, String(token), { status: conflict ? effectiveStatus : "failed", error: run.error });
+      if (conflict) return { ok: true as const, pending: true as const, status: effectiveStatus, providerRuns: 0, externalEffect: false as const };
       throw new Error(run.error);
     }
     try {
       parsed = parseMeetingOutput(turn.messageType, run.outputText) as Record<string, unknown>;
     } catch (parseError) {
-      // Spara rå output så steget kan tolkas om utan att betala igen.
-      await ctx.supabase.from("agent_tasks").update({
-        status: "failed",
-        run_status: "failed",
-        provider_run_id: providerRunId,
-        usage,
-        result: { rawOutput: String(run.outputText ?? "").slice(0, 20_000), externalEffect: false },
-      }).eq("id", task["id"]);
-
-      await recordAgentRunUsage(ctx, { runId: reservation.runId, role: turn.role, status: "failed", inputTokens: usage.inputTokens ?? 0, outputTokens: usage.outputTokens ?? 0, config: budgetConfig });
+      await saveTask({ status: "failed" });
       await releaseClaim(ctx, meetingId, String(token), { status: "failed", error: (parseError as Error).message });
       throw parseError;
     }
-    costSek = await recordAgentRunUsage(ctx, { runId: reservation.runId, role: turn.role, status: "completed", inputTokens: usage.inputTokens ?? 0, outputTokens: usage.outputTokens ?? 0, config: budgetConfig });
-    await ctx.supabase
-      .from("agent_tasks")
-      .update({ status: "awaiting_review", run_status: "completed", provider_run_id: providerRunId, provider_agent_id: providerAgentId, usage, result: { boardroomOutput: parsed, externalEffect: false } })
-      .eq("id", task["id"]);
+    await saveTask({ status: "awaiting_review", run_status: "completed", provider_run_id: providerRunId, provider_agent_id: providerAgentId, usage, result: { ledgerId, costSek, rawOutput: run.outputText, boardroomOutput: parsed, externalEffect: false } });
   }
 
   if (!parsed) throw new Error("Mötessteget saknar ett sparat resultat.");
@@ -363,14 +375,6 @@ export async function advanceMeetingCore(ctx: BoardroomContext, meetingId: strin
   const { error: insertError } = await ctx.supabase.from("agent_meeting_messages").insert(messageInsert);
   if (insertError && !/duplicate key|23505/i.test(insertError.message)) throw new Error(insertError.message);
 
-  if (isRevisionRequest) {
-    // Syntessteget ska köras om på det kompletterade underlaget, inte återanvändas.
-    await ctx.supabase
-      .from("agent_tasks")
-      .update({ status: "queued", run_status: "not_started", runs_used: 0, result: {} })
-      .eq("id", task["id"]);
-  }
-
   const update: Record<string, unknown> = {
     status: nextStatus,
     current_round: turn.round,
@@ -405,9 +409,14 @@ export async function advanceMeetingCore(ctx: BoardroomContext, meetingId: strin
     status: nextStatus,
     role: turn.role,
     messageType,
-    providerRuns: task["status"] === "awaiting_review" ? 0 : 1,
+    providerRuns,
     externalEffect: false as const,
   };
+  } catch (error) {
+    // Release only our token; never disturb a newer claim or cancellation.
+    await releaseClaim(ctx, meetingId, String(token), {});
+    throw error;
+  }
 }
 
 export { compactContext };

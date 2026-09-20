@@ -26,7 +26,12 @@ export const AGENTS_SESSIONS_URL = "https://api.openai.com/v1/agents/sessions";
 export const AGENTS_BETA_HEADER = "agents=v1";
 /** Endast reserv när ett agent-id saknas. Med agent-id styr OpenAI modellen. */
 export const AGENTS_DEFAULT_MODEL = "gpt-5.4-mini";
+/** Tidsgräns för att VÄNTA IN agentens svar (polling). */
 export const AGENTS_DEFAULT_TIMEOUT_MS = 60_000;
+/** Egen, kortare tidsgräns enbart för att STARTA sessionen (POST). */
+export const AGENTS_CREATE_TIMEOUT_MS = 25_000;
+/** Read-only GET:ar och cleanup får aldrig äta pollingens budget. */
+export const AGENTS_READ_TIMEOUT_MS = 20_000;
 
 /** Alla sex interna roller. Inga av dem har externa verktyg. */
 export const HARNESS_ROLES = [
@@ -79,8 +84,14 @@ export type HarnessDeps = {
   env?: RuntimeEnv;
   request?: Request;
   fetchImpl?: typeof fetch;
+  /** Tidsgräns för polling/väntan på svar. */
   timeoutMs?: number;
+  /** Separat tidsgräns för session-create. */
+  createTimeoutMs?: number;
   conflictBackoffMs?: number[];
+  /** Persist before polling and before deleting provider output. */
+  onSession?: (sessionId: string) => Promise<void>;
+  onCompleted?: (run: HarnessRunResult) => Promise<void>;
 };
 
 export type AgentSlot = {
@@ -194,20 +205,28 @@ export type HarnessRunInput = {
   input: string;
   /** Stabil nyckel för säker återhämtning om session-create svarar 409. */
   requestKey?: string;
+  /** Existing session: GET only, never POST a replacement. */
+  resumeSessionId?: string;
 };
 
 export type HarnessUsage = { inputTokens: number; outputTokens: number; runs: number };
+
+/** Vilken nätverksfas felet uppstod i. PII-fri diagnostik. */
+export type HarnessPhase = "" | "create" | "poll" | "usage" | "cleanup";
 
 export type HarnessRunResult = {
   ok: boolean;
   providerType: typeof AGENTS_PROVIDER;
   providerAgentId: string;
   providerRunId: string;
-  runStatus: "completed" | "failed" | "blocked";
+  runStatus: "completed" | "failed" | "blocked" | "running";
   usage: HarnessUsage;
   /** Rå textoutput från agenten (tom vid fel). */
   outputText: string;
   error: string;
+  /** Sant när ingen provider-session hann startas – uppgiften kan köras om. */
+  retryable: boolean;
+  phase: HarnessPhase;
   externalEffect: false;
 };
 
@@ -221,8 +240,34 @@ function blocked(reason: string, agentId = ""): HarnessRunResult {
     usage: { inputTokens: 0, outputTokens: 0, runs: 0 },
     outputText: "",
     error: reason,
+    retryable: false,
+    phase: "",
     externalEffect: false,
   };
+}
+
+/** Egen AbortController per nätverksfas: faserna delar aldrig deadline. */
+async function fetchPhase(
+  doFetch: typeof fetch,
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await doFetch(url, { ...init, signal: controller.signal });
+    // Keep the deadline alive through body consumption, not only headers.
+    if (init.method === "DELETE") return response;
+    const body = await response.json();
+    return { ok: response.ok, status: response.status, json: async () => body } as Response;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function isAbort(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
 }
 
 function collectText(value: unknown, out: string[]): void {
@@ -272,16 +317,17 @@ async function deleteCompletedSession(
   doFetch: typeof fetch,
   sessionId: string,
   headers: Record<string, string>,
-  signal: AbortSignal,
   backoffMs: number[],
 ): Promise<void> {
   for (let attempt = 0; attempt <= backoffMs.length; attempt += 1) {
     try {
-      const response = await doFetch(`${AGENTS_SESSIONS_URL}/${sessionId}`, {
-        method: "DELETE",
-        headers,
-        signal,
-      });
+      // Cleanup har egen deadline; den får aldrig fälla en lyckad körning.
+      const response = await fetchPhase(
+        doFetch,
+        `${AGENTS_SESSIONS_URL}/${sessionId}`,
+        { method: "DELETE", headers },
+        5_000,
+      );
       if (response.ok || response.status === 404) return;
       if (response.status !== 409 || attempt === backoffMs.length) return;
     } catch {
@@ -337,8 +383,8 @@ export async function runHarnessSession(
   const env = readEnv(deps);
   const key = str(env, "OPENAI_API_KEY");
   const doFetch = deps.fetchImpl ?? fetch;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), deps.timeoutMs ?? AGENTS_DEFAULT_TIMEOUT_MS);
+  const pollTimeoutMs = deps.timeoutMs ?? AGENTS_DEFAULT_TIMEOUT_MS;
+  const createTimeoutMs = deps.createTimeoutMs ?? AGENTS_CREATE_TIMEOUT_MS;
   const conflictBackoffMs = deps.conflictBackoffMs ?? [750, 1_500, 3_000];
   const headers = {
     Authorization: `Bearer ${key}`,
@@ -357,81 +403,111 @@ export async function runHarnessSession(
     }),
   );
 
-  try {
-    let body: Record<string, unknown> = {};
-    let responseStatus = 0;
+  // ---------------------------------------------------- fas 1: create
+  if (input.resumeSessionId && !/^sess_[a-zA-Z0-9_-]+$/.test(input.resumeSessionId)) {
+    return blocked("Ogiltigt sessions-id. Ingen ny körning startades.", agentId);
+  }
+  let body: Record<string, unknown> = input.resumeSessionId ? { id: input.resumeSessionId } : {};
+  let responseStatus = input.resumeSessionId ? 200 : 0;
+  if (!input.resumeSessionId) try {
     for (let attempt = 0; attempt <= conflictBackoffMs.length; attempt += 1) {
-      const response = await doFetch(AGENTS_SESSIONS_URL, {
-        method: "POST",
-        signal: controller.signal,
-        headers,
-        body: requestBody,
-      });
+      const response = await fetchPhase(
+        doFetch,
+        AGENTS_SESSIONS_URL,
+        { method: "POST", headers, body: requestBody },
+        createTimeoutMs,
+      );
       responseStatus = response.status;
       body = await readJson(response);
       if (response.ok || sessionIdFrom(body)) break;
       if (response.status !== 409 || attempt === conflictBackoffMs.length || !input.requestKey) break;
       await new Promise((resolve) => setTimeout(resolve, conflictBackoffMs[attempt] ?? 0));
     }
+  } catch (error) {
+    // POST may have succeeded remotely. Unknown outcome must not trigger a new run.
+    const reason = isAbort(error)
+      ? "Sessionsstarten mot harnessen timeoutade innan sessions-id fanns (phase=create)."
+      : "Kunde inte nå harnessen (phase=create).";
+    return { ...blocked(reason, agentId), runStatus: "failed", retryable: false, phase: "create" };
+  }
 
-    const sessionId = sessionIdFrom(body);
-    if (responseStatus < 200 || responseStatus >= 300) {
-      if (responseStatus !== 409 || !sessionId) {
-        const providerMessage = String(
-          (body["error"] as Record<string, unknown> | undefined)?.["message"] ?? body["message"] ?? "",
-        ).trim();
-        const detail = providerMessage ? ` ${providerMessage}` : "";
-        return {
-          ...blocked(`Harnessen svarade med status ${responseStatus}.${detail}`, agentId),
-          runStatus: "failed",
-        };
-      }
-    }
-    if (!sessionId) {
+  const sessionId = sessionIdFrom(body);
+  if (responseStatus < 200 || responseStatus >= 300) {
+    if (responseStatus !== 409 || !sessionId) {
+      const providerMessage = String(
+        (body["error"] as Record<string, unknown> | undefined)?.["message"] ?? body["message"] ?? "",
+      ).trim();
+      const detail = providerMessage ? ` ${providerMessage}` : "";
       return {
-        ...blocked("Harnessen returnerade inget sessions-id.", agentId),
+        ...blocked(`Harnessen svarade med status ${responseStatus}.${detail} (phase=create)`, agentId),
         runStatus: "failed",
+        phase: "create",
       };
     }
+  }
+  if (!sessionId) {
+    return {
+      ...blocked("Harnessen returnerade inget sessions-id (phase=create).", agentId),
+      runStatus: "failed",
+      retryable: false,
+      phase: "create",
+    };
+  }
 
-    // Turns körs asynkront. Sessionen returneras direkt, så svaret och usage
-    // läses efteråt via read-only GET (ingen extra provider-run, ingen retry
-    // av själva körningen).
-    let usageRaw = (body["usage"] ?? {}) as Record<string, unknown>;
-    const parts: string[] = [];
-    collectText(body["output"] ?? body["output_text"] ?? "", parts);
+  await deps.onSession?.(sessionId);
 
-    if (sessionId && !parts.length) {
-      const deadline = Date.now() + (deps.timeoutMs ?? AGENTS_DEFAULT_TIMEOUT_MS);
-      while (Date.now() < deadline) {
-        const itemsRes = await doFetch(
+  // ------------------------------------------ fas 2: polla in svar/usage
+  // Sessionen finns nu. Polling har EGEN deadline och egen AbortController
+  // per anrop, så create-fasens förbrukade tid påverkar den aldrig.
+  let usageRaw = (body["usage"] ?? {}) as Record<string, unknown>;
+  const parts: string[] = [];
+  collectText(body["output"] ?? body["output_text"] ?? "", parts);
+
+  if (!parts.length) {
+    const deadline = Date.now() + pollTimeoutMs;
+    while (Date.now() < deadline) {
+      let itemsRes: Response;
+      try {
+        itemsRes = await fetchPhase(
+          doFetch,
           `${AGENTS_SESSIONS_URL}/${sessionId}/items?limit=20`,
-          { method: "GET", headers, signal: controller.signal },
+          { method: "GET", headers },
+          Math.min(AGENTS_READ_TIMEOUT_MS, Math.max(1, deadline - Date.now())),
         );
-        if (itemsRes.ok) {
-          const itemsBody = (await itemsRes.json()) as Record<string, unknown>;
-          const data = Array.isArray(itemsBody["data"]) ? itemsBody["data"] : [];
-          const assistant = data.find(
-            (item) =>
-              item &&
-              typeof item === "object" &&
-              (item as Record<string, unknown>)["type"] === "message" &&
-              (item as Record<string, unknown>)["role"] === "assistant" &&
-              (item as Record<string, unknown>)["status"] === "completed",
-          );
-          if (assistant) {
-            collectText((assistant as Record<string, unknown>)["content"], parts);
-            // Usage bokförs strax efter att turen avslutats. Read-only GET,
-            // ingen extra provider-run. Saknas usage används i stället den
-            // konservativa schablonkostnaden i budgetbokföringen.
-            for (let attempt = 0; attempt < 8; attempt += 1) {
-              const sessionRes = await doFetch(`${AGENTS_SESSIONS_URL}/${sessionId}`, {
-                method: "GET",
-                headers,
-                signal: controller.signal,
-              });
+      } catch {
+        // Enstaka läsfel avbryter inte väntan; sessionen lever kvar.
+        await new Promise((resolve) => setTimeout(resolve, Math.max(0, Math.min(2000, deadline - Date.now()))));
+        continue;
+      }
+      if ([401, 403, 404].includes(itemsRes.status)) {
+        return { ...blocked(`Sessionen kunde inte läsas (status ${itemsRes.status}). Ingen ny körning startades.`, agentId), providerRunId: sessionId, runStatus: "failed", phase: "poll" };
+      }
+      if (itemsRes.ok) {
+        const itemsBody = await readJson(itemsRes);
+        const data = Array.isArray(itemsBody["data"]) ? itemsBody["data"] : [];
+        const assistant = data.find(
+          (item) =>
+            item &&
+            typeof item === "object" &&
+            (item as Record<string, unknown>)["type"] === "message" &&
+            (item as Record<string, unknown>)["role"] === "assistant" &&
+            (item as Record<string, unknown>)["status"] === "completed",
+        );
+        if (assistant) {
+          collectText((assistant as Record<string, unknown>)["content"], parts);
+          // Usage bokförs strax efter att turen avslutats. Read-only GET,
+          // ingen extra provider-run. Saknas usage används i stället den
+          // konservativa schablonkostnaden i budgetbokföringen.
+          for (let attempt = 0; attempt < 1; attempt += 1) {
+            try {
+              const sessionRes = await fetchPhase(
+                doFetch,
+                `${AGENTS_SESSIONS_URL}/${sessionId}`,
+                { method: "GET", headers },
+                5_000,
+              );
               if (sessionRes.ok) {
-                const sessionBody = (await sessionRes.json()) as Record<string, unknown>;
+                const sessionBody = await readJson(sessionRes);
                 const found = sessionBody["usage"] as Record<string, unknown> | null | undefined;
                 if (
                   found &&
@@ -441,47 +517,55 @@ export async function runHarnessSession(
                   break;
                 }
               }
-              await new Promise((resolve) => setTimeout(resolve, 2500));
+            } catch {
+              // phase=usage får aldrig fälla ett redan hämtat svar.
+              break;
             }
 
-            break;
           }
+
+          break;
         }
-        await new Promise((resolve) => setTimeout(resolve, 2000));
       }
+      await new Promise((resolve) => setTimeout(resolve, Math.max(0, Math.min(2000, deadline - Date.now()))));
     }
-
-    if (!parts.length) {
-      return { ...blocked("Harnessen avslutade utan ett färdigt svar.", agentId), providerRunId: sessionId, runStatus: "failed" };
-    }
-
-    // Varje Boardroom-steg använder en isolerad hosted-session. När svaret är
-    // sparat behövs dess sandbox inte längre; städning förhindrar 409 när
-    // providerns samtidighetsgräns annars fylls av idle sessioner.
-    await deleteCompletedSession(doFetch, sessionId, headers, controller.signal, conflictBackoffMs);
-
-    return {
-      ok: true,
-      providerType: AGENTS_PROVIDER,
-      providerAgentId: agentId || String(body["agent_id"] ?? ""),
-      providerRunId: sessionId,
-      runStatus: "completed",
-      usage: {
-        inputTokens: Number(usageRaw?.["input_tokens"] ?? 0) || 0,
-        outputTokens: Number(usageRaw?.["output_tokens"] ?? 0) || 0,
-        runs: 1,
-      },
-      outputText: parts.join("\n").trim(),
-      error: "",
-      externalEffect: false,
-    };
-
-  } catch (error) {
-    const reason = error instanceof Error && error.name === "AbortError"
-      ? "Körningen avbröts på grund av tidsgräns."
-      : "Kunde inte nå harnessen.";
-    return { ...blocked(reason, agentId), runStatus: "failed" };
-  } finally {
-    clearTimeout(timer);
   }
+
+  if (!parts.length) {
+    // Sessionen finns kvar hos providern: behåll id:t, starta INTE om blint.
+    return {
+      ...blocked(
+        `Väntan på agentens svar timeoutade (phase=poll, session ${sessionId} kvar hos providern).`,
+        agentId,
+      ),
+      providerRunId: sessionId,
+      runStatus: "running",
+      usage: { inputTokens: 0, outputTokens: 0, runs: input.resumeSessionId ? 0 : 1 },
+      phase: "poll",
+    };
+  }
+
+  // Varje Boardroom-steg använder en isolerad hosted-session. När svaret är
+  // sparat behövs dess sandbox inte längre; städning förhindrar 409 när
+  // providerns samtidighetsgräns annars fylls av idle sessioner.
+  const completed: HarnessRunResult = {
+    ok: true,
+    providerType: AGENTS_PROVIDER,
+    providerAgentId: agentId || String(body["agent_id"] ?? ""),
+    providerRunId: sessionId,
+    runStatus: "completed",
+    usage: {
+      inputTokens: Number(usageRaw?.["input_tokens"] ?? 0) || 0,
+      outputTokens: Number(usageRaw?.["output_tokens"] ?? 0) || 0,
+      runs: input.resumeSessionId ? 0 : 1,
+    },
+    outputText: parts.join("\n").trim(),
+    error: "",
+    retryable: false,
+    phase: "",
+    externalEffect: false,
+  };
+  await deps.onCompleted?.(completed);
+  await deleteCompletedSession(doFetch, sessionId, headers, []);
+  return completed;
 }

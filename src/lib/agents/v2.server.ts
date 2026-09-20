@@ -423,26 +423,45 @@ export async function runV2TaskCore(
 
   if (!run.ok || !parsed || parsed.ok !== true) {
     const reason = run.ok ? (parsed as { error: string }).error : run.error;
+    // Ingen provider-session startade: återställ uppgiften till körbar utan
+    // att bränna run_budget eller lämna ett falskt provider_run_id.
+    const retryable = run.ok === false && run.retryable === true;
     await ctx.supabase
       .from("agent_tasks")
       .update({
-        status: "failed",
-        run_status: run.runStatus,
+        status: retryable ? "queued" : "failed",
+        run_status: retryable ? "not_started" : run.runStatus,
         provider_run_id: run.providerRunId,
         provider_agent_id: run.providerAgentId,
         usage: run.usage,
+        ...(retryable ? { runs_used: Number(task["runs_used"] ?? 0) } : {}),
       })
       .eq("id", task["id"]);
     await recordAgentRunUsage(ctx, {
       runId: reservation.runId,
       role,
-      status: "failed",
+      status: run.providerRunId || run.phase === "create" ? "completed" : "failed",
       inputTokens: run.usage.inputTokens,
       outputTokens: run.usage.outputTokens,
       config: budgetConfig,
     });
-    await audit(ctx, task["id"], "run_failed", "agent", { reason, externalEffect: false });
-    return { status: 502, body: { error: reason, runStatus: run.runStatus, externalEffect: false } };
+    await audit(ctx, task["id"], "run_failed", "agent", {
+      reason,
+      phase: run.ok === false ? run.phase : "",
+      retryable,
+      providerRunId: run.providerRunId,
+      externalEffect: false,
+    });
+    return {
+      status: 502,
+      body: {
+        error: reason,
+        runStatus: retryable ? "not_started" : run.runStatus,
+        retryable,
+        phase: run.ok === false ? run.phase : "",
+        externalEffect: false,
+      },
+    };
   }
 
   const result = {

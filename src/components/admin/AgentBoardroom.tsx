@@ -557,6 +557,12 @@ export function AgentBoardroom() {
       try {
         for (;;) {
           const result = await advance({ data: { meetingId } });
+          if (("pending" in result && result.pending) || ("duplicate" in result && result.duplicate && !TERMINAL_STATUSES.includes(result.status as MeetingStatus))) {
+            setNotice("Mötet väntar på agenten och fortsätter automatiskt.");
+            await queryClient.invalidateQueries({ queryKey: ["agent-meetings"] });
+            await new Promise((resolve) => setTimeout(resolve, 2_000));
+            continue;
+          }
           const signature = `${String(result.role ?? "")}:${String(result.messageType ?? "")}`;
           const repeats = (seen.get(signature) ?? 0) + 1;
           seen.set(signature, repeats);
