@@ -574,20 +574,9 @@ export async function runHarnessSession(
             };
           }
 
-          // Idle utan färdigt assistant-output betyder att providern inte har
-          // någon aktiv turn kvar att vänta på. Fail closed i stället för att
-          // poll-loopen spinner för alltid.
-          if (sessionStatus === "idle" && !parts.length) {
-            return {
-              ...blocked(
-                "Agent-sessionen blev idle utan färdigt assistant-svar. Ingen ny provider-run startades. (phase=poll)",
-                agentId,
-              ),
-              providerRunId: sessionId,
-              runStatus: "failed",
-              phase: "poll",
-            };
-          }
+          // "idle" är inte terminalt här. En hosted session kan vara idle
+          // mellan kontrollanrop innan assistant-output blivit synligt i items.
+          // Fortsätt därför poll-loopens återläsning av samma session.
         }
       } catch {
         // Session-status är extra diagnostik; ett enstaka läsfel ska inte
