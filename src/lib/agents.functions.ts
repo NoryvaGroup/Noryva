@@ -337,6 +337,24 @@ export const cancelAgentMeeting = createServerFn({ method: "POST" })
       .eq("id", data.meetingId)
       .in("status", ACTIVE_MEETING_STATUSES);
     if (error) throw new Error(error.message);
+
+    // Städa alla aktiva interna Boardroom-turns för mötet. Provider-sessionen
+    // kan ha hunnit starta, så behåll runs_used/provider_run_id för audit och
+    // kostnadsredovisning men lämna aldrig tasken som running efter att
+    // parent-mötet blivit terminalt avbrutet.
+    const boardroomKey = `boardroom:${data.meetingId}:%`;
+    const { error: taskCleanupError } = await ctx.supabase
+      .from("agent_tasks")
+      .update({
+        status: "cancelled",
+        run_status: "failed",
+        updated_at: now,
+      })
+      .eq("source_event", "boardroom_turn")
+      .like("idempotency_key", boardroomKey)
+      .in("status", ["queued", "in_progress"]);
+    if (taskCleanupError) throw new Error(taskCleanupError.message);
+
     return { ok: true as const, status: "failed" as const, alreadyCancelled: false as const, externalEffect: false as const };
   });
 
