@@ -355,7 +355,10 @@ export function buildSessionRequestBody(input: {
   };
   const base = {
     environment,
-    input: [{ role: "user", content: [{ type: "input_text", text: input.text }] }],
+    // OpenAI Agents API supports a plain string as shorthand for a single
+    // user message. Prefer that canonical form here; it avoids coupling this
+    // adapter to the structured message schema (including its required type).
+    input: input.text,
     stream: false,
   };
   return input.agentId
