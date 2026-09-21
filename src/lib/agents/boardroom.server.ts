@@ -314,6 +314,15 @@ export async function advanceMeetingCore(ctx: BoardroomContext, meetingId: strin
     usage = run.usage;
     if (!run.ok) {
       if (run.phase === "poll" && run.runStatus === "running" && providerRunId) {
+        await saveTask({
+          result: {
+            ...checkpoint,
+            ledgerId,
+            costSek,
+            providerDiagnostic: run.error,
+            externalEffect: false,
+          },
+        });
         await releaseClaim(ctx, meetingId, String(token), { status: effectiveStatus, error: "" });
         return { ok: true as const, pending: true as const, status: effectiveStatus, providerRuns, externalEffect: false as const };
       }
