@@ -80,7 +80,7 @@ describe("provider session state diagnostics", () => {
     expect(creates).toBe(1);
   });
 
-  it("stoppar på idle session utan assistant-output", async () => {
+  it("behandlar idle som icke-terminalt och behåller sessionen för resume", async () => {
     const fetchImpl = vi.fn(async (url: string) => {
       if (url === AGENTS_SESSIONS_URL) return createResponse("sess_idle");
       if (url.includes("/items")) return itemsResponse();
@@ -96,15 +96,15 @@ describe("provider session state diagnostics", () => {
 
     const result = await runHarnessSession(
       { role: "noryva_manager", instructions: "", input: "mål" },
-      { env: ENABLED_ENV, fetchImpl: fetchImpl as unknown as typeof fetch, timeoutMs: 100 },
+      { env: ENABLED_ENV, fetchImpl: fetchImpl as unknown as typeof fetch, timeoutMs: 5 },
     );
 
     expect(result).toMatchObject({
       ok: false,
       providerRunId: "sess_idle",
-      runStatus: "failed",
+      runStatus: "running",
       phase: "poll",
     });
-    expect(result.error).toContain("idle");
+    expect(result.error).toContain("phase=poll");
   });
 });
