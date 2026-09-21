@@ -468,6 +468,7 @@ export async function runHarnessSession(
 
   if (!parts.length) {
     const deadline = Date.now() + pollTimeoutMs;
+    let lastDiagnostic = "session_status=unknown, turn_status=unknown, turns=unknown, items=unknown";
     while (Date.now() < deadline) {
       let itemsRes: Response;
       try {
@@ -485,9 +486,11 @@ export async function runHarnessSession(
       if ([401, 403, 404].includes(itemsRes.status)) {
         return { ...blocked(`Sessionen kunde inte läsas (status ${itemsRes.status}). Ingen ny körning startades.`, agentId), providerRunId: sessionId, runStatus: "failed", phase: "poll" };
       }
+      let itemCount = -1;
       if (itemsRes.ok) {
         const itemsBody = await readJson(itemsRes);
         const data = Array.isArray(itemsBody["data"]) ? itemsBody["data"] : [];
+        itemCount = data.length;
         const assistant = data.find(
           (item) =>
             item &&
@@ -548,6 +551,42 @@ export async function runHarnessSession(
             ? (sessionBody["required_actions"] as Array<Record<string, unknown>>)
             : [];
 
+          let latestTurnStatus = "none";
+          let latestTurnError = "";
+          let turnCount = -1;
+          try {
+            const turnsRes = await fetchPhase(
+              doFetch,
+              `${AGENTS_SESSIONS_URL}/${sessionId}/turns?limit=20&order=desc`,
+              { method: "GET", headers },
+              Math.min(5_000, Math.max(1, deadline - Date.now())),
+            );
+            if (turnsRes.ok) {
+              const turnsBody = await readJson(turnsRes);
+              const turns = Array.isArray(turnsBody["data"])
+                ? (turnsBody["data"] as Array<Record<string, unknown>>)
+                : [];
+              turnCount = turns.length;
+              const latestTurn = turns[0];
+              if (latestTurn) {
+                latestTurnStatus = String(latestTurn["status"] ?? "unknown");
+                const turnError = latestTurn["error"] as Record<string, unknown> | null | undefined;
+                latestTurnError = String(turnError?.["message"] ?? turnError?.["code"] ?? "").trim();
+              }
+            }
+          } catch {
+            // Read-only diagnostics only.
+          }
+
+          lastDiagnostic = [
+            `session_status=${sessionStatus || "unknown"}`,
+            `turn_status=${latestTurnStatus}`,
+            `turns=${turnCount}`,
+            `items=${itemCount}`,
+            latestTurnError ? `turn_error=${latestTurnError.slice(0, 300)}` : "",
+            sessionError ? `session_error=${sessionError.slice(0, 300)}` : "",
+          ].filter(Boolean).join(", ");
+
           if (sessionStatus === "failed") {
             return {
               ...blocked(
@@ -594,7 +633,7 @@ export async function runHarnessSession(
     // Sessionen finns kvar hos providern: behåll id:t, starta INTE om blint.
     return {
       ...blocked(
-        `Väntan på agentens svar timeoutade (phase=poll, session ${sessionId} kvar hos providern).`,
+        `Väntan på agentens svar timeoutade (phase=poll, session ${sessionId} kvar hos providern; ${lastDiagnostic}).`,
         agentId,
       ),
       providerRunId: sessionId,
