@@ -521,12 +521,79 @@ export async function runHarnessSession(
               // phase=usage får aldrig fälla ett redan hämtat svar.
               break;
             }
-
           }
 
           break;
         }
       }
+
+      // Items kan vara tomma trots att sessionen redan är terminal eller
+      // väntar på en action. Läs därför även sessionens egna kontrollstatus.
+      // Utan detta ser failed/requires_action ut som evig "running" i UI:t.
+      try {
+        const sessionRes = await fetchPhase(
+          doFetch,
+          `${AGENTS_SESSIONS_URL}/${sessionId}`,
+          { method: "GET", headers },
+          Math.min(5_000, Math.max(1, deadline - Date.now())),
+        );
+        if (sessionRes.ok) {
+          const sessionBody = await readJson(sessionRes);
+          const sessionStatus = String(sessionBody["status"] ?? "");
+          const sessionError = String(sessionBody["error"] ?? "").trim();
+          const requiredActions = Array.isArray(sessionBody["required_actions"])
+            ? (sessionBody["required_actions"] as Array<Record<string, unknown>>)
+            : [];
+
+          if (sessionStatus === "failed") {
+            return {
+              ...blocked(
+                `Agent-sessionen misslyckades hos providern${sessionError ? `: ${sessionError}` : "."} (phase=poll)`,
+                agentId,
+              ),
+              providerRunId: sessionId,
+              runStatus: "failed",
+              phase: "poll",
+            };
+          }
+
+          if (sessionStatus === "requires_action") {
+            const actionTypes = requiredActions
+              .map((action) => String(action["type"] ?? "unknown"))
+              .filter(Boolean)
+              .slice(0, 5)
+              .join(", ");
+            return {
+              ...blocked(
+                `Agent-sessionen väntar på en action som Noryvas harness inte hanterar ännu${actionTypes ? ` (${actionTypes})` : ""}. Ingen ny provider-run startades. (phase=poll)`,
+                agentId,
+              ),
+              providerRunId: sessionId,
+              runStatus: "blocked",
+              phase: "poll",
+            };
+          }
+
+          // Idle utan färdigt assistant-output betyder att providern inte har
+          // någon aktiv turn kvar att vänta på. Fail closed i stället för att
+          // poll-loopen spinner för alltid.
+          if (sessionStatus === "idle" && !parts.length) {
+            return {
+              ...blocked(
+                "Agent-sessionen blev idle utan färdigt assistant-svar. Ingen ny provider-run startades. (phase=poll)",
+                agentId,
+              ),
+              providerRunId: sessionId,
+              runStatus: "failed",
+              phase: "poll",
+            };
+          }
+        }
+      } catch {
+        // Session-status är extra diagnostik; ett enstaka läsfel ska inte
+        // avbryta en i övrigt levande polling-loop.
+      }
+
       await new Promise((resolve) => setTimeout(resolve, Math.max(0, Math.min(2000, deadline - Date.now()))));
     }
   }
