@@ -18,7 +18,7 @@ import { isSafeDeliveryUrl } from "@/lib/landing/webhook-url";
 import { scoreVaruautomat } from "@/lib/landing/scoring";
 import { buildContactUrl } from "@/lib/leads/contact-token";
 import type { PublicQuestion } from "@/lib/landing/schema";
-import type { RuntimeEnv } from "./runtime-env";
+import { publicSiteUrlFromEnv, type RuntimeEnv } from "./runtime-env";
 import type { GrowthContext } from "./service.server";
 
 export const DEFAULT_LIMIT = 25;
@@ -276,7 +276,7 @@ export async function deliveryRecoveryCore(
 
     const actionSecret = env["NORYVA_LEAD_ACTION_SECRET"];
     const kontaktadUrl = actionSecret
-      ? buildContactUrl({ secret: actionSecret, leadId: candidate.leadId })
+      ? buildContactUrl({ secret: actionSecret, leadId: candidate.leadId, baseUrl: publicSiteUrlFromEnv(env) })
       : "";
 
     const idempotencyKey = String(lead["idempotency_key"] ?? "");
