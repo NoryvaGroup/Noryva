@@ -13,7 +13,7 @@
  *   Saknas det sätts prioritySource = "unknown" och Make får filtrera.
  */
 import { buildContactUrl } from "@/lib/leads/contact-token";
-import type { RuntimeEnv } from "./runtime-env";
+import { publicSiteUrlFromEnv, type RuntimeEnv } from "./runtime-env";
 import type { GrowthContext } from "./service.server";
 
 /** Statusvärdet som betyder "ingen har hört av sig ännu". */
@@ -177,7 +177,7 @@ export async function dueLeadRemindersCore(
       recipientsMissing: customer.recipients.length === 0,
       // Länken byggs bara när hemligheten finns server-side; annars null.
       contactUrl: actionSecret
-        ? buildContactUrl({ secret: actionSecret, leadId: String(lead["id"]), now })
+        ? buildContactUrl({ secret: actionSecret, leadId: String(lead["id"]), now, baseUrl: publicSiteUrlFromEnv(env) })
         : null,
       reminderStatus,
       claimable: !staleClaim,
@@ -265,7 +265,7 @@ export async function claimLeadReminderCore(
     recipientsMissing: notifyRecipients.length === 0,
     intentLevel: stateRow?.["intent_level"] ? String(stateRow["intent_level"]) : null,
     contactUrl: actionSecret
-      ? buildContactUrl({ secret: actionSecret, leadId: input.leadId, now })
+      ? buildContactUrl({ secret: actionSecret, leadId: input.leadId, now, baseUrl: publicSiteUrlFromEnv(env) })
       : null,
     externalEffect: false as const,
     notificationSent: false as const,
