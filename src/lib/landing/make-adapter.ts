@@ -110,7 +110,7 @@ export function buildMakeFields(input: {
       planerad_tidpunkt: get(values, "tidsram"),
       projektbeskrivning,
       postnummer: get(values, "postnummer"),
-      fullstandigt_namn: get(values, "kontaktperson"),
+      fullstandigt_namn: get(values, "namn") || get(values, "kontaktperson"),
       telefonnummer: get(values, "telefonnummer"),
       epost: get(values, "epost"),
       samtycke: true,
