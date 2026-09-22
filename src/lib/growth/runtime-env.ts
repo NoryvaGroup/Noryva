@@ -21,3 +21,17 @@ export function runtimeEnvFromRequest(request?: Request): RuntimeEnv {
   }
   return base;
 }
+
+
+/**
+ * Publik bas-URL för länkar som lämnar backend. Under Vercel preview används
+ * aktuell deployment-host, efter cutover kan NORYVA_PUBLIC_SITE_URL sättas
+ * explicit. Faller annars tillbaka till noryva.se.
+ */
+export function publicSiteUrlFromEnv(env: RuntimeEnv): string {
+  const explicit = (env["NORYVA_PUBLIC_SITE_URL"] ?? "").trim();
+  if (explicit) return explicit.replace(/\/+$/, "");
+  const vercelHost = (env["VERCEL_URL"] ?? "").trim();
+  if (vercelHost) return `https://${vercelHost.replace(/^https?:\/\//, "").replace(/\/+$/, "")}`;
+  return "https://noryva.se";
+}
