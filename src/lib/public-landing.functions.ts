@@ -196,7 +196,7 @@ export const submitPublicLead = createServerFn({ method: "POST" })
     // Signerad kundlänk för "Markera som kontaktad". Pekar alltid på Noryva.
     const actionSecret = runtimeEnvFromRequest(getRequest())["NORYVA_LEAD_ACTION_SECRET"];
     const kontaktadUrl = actionSecret
-      ? buildContactUrl({ secret: actionSecret, leadId: leadId! })
+      ? buildContactUrl({ secret: actionSecret, leadId: leadId!, baseUrl: new URL(getRequest().url).origin })
       : "";
 
     // Servermetadata sist så att inga dynamiska fältnycklar kan skriva över dem.
