@@ -71,6 +71,15 @@ describe("buildMakeFields", () => {
     expect(out.projektbeskrivning).toContain("Har ni redan en varuautomat?: Vet inte");
   });
 
+  it("mappar även live-formulärets namn-fält för varuautomater", () => {
+    const out = buildMakeFields({
+      industry: "varuautomater",
+      questions: questions("varuautomater"),
+      values: { namn: "Test Person" },
+    });
+    expect(out.fullstandigt_namn).toBe("Test Person");
+  });
+
   it("använder Okänt när befintlig_automat saknas", () => {
     const out = buildMakeFields({
       industry: "varuautomater",
