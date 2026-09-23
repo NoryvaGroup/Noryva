@@ -201,6 +201,7 @@ describe("HMAC-verifiering", () => {
     const body = (await res.json()) as any;
     expect(body.leadId).toBe(LEAD_ID);
     expect(["deterministic", "ai_light", "ai_full", "human"]).toContain(body.route);
+    expect(body.customerConfig?.customerId).toBe(body.normalized.customer_id);
   });
 
   it("route-lead innehåller aktuell intent-data", async () => {

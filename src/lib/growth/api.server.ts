@@ -144,6 +144,10 @@ async function runOperation(
         },
         intent: { score: intent.score, level: intent.level, reason: intent.reason },
         normalized,
+        // Make måste kunna skriva CRM och intern notifiering även när routern
+        // väljer deterministisk eller mänsklig hantering och analyze-lead hoppas över.
+        // Kund-id kommer från det lagrade leadet, aldrig från klientens context.
+        ...(await analyzeCustomerConfig(ctx, normalized.customer_id)),
       };
     }
 
