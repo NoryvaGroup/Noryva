@@ -87,6 +87,8 @@ export function validateAnswers(
       continue;
     }
     if (raw.length > 1000) errors[q.field_key] = "Max 1000 tecken.";
+    else if (q.field_key === "postnummer" && !/^\d{3} ?\d{2}$/.test(raw))
+      errors[q.field_key] = "Ange ett giltigt postnummer med fem siffror.";
     else if (q.field_type === "email" && !emailRe.test(raw))
       errors[q.field_key] = "Ange en giltig e-postadress.";
     else if (q.field_type === "tel" && !phoneRe.test(raw))
