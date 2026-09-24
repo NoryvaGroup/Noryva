@@ -63,7 +63,13 @@ function makeSupabase(state: Record<string, Row[]>) {
           };
           return res;
         },
-        upsert: async () => ({ data: null, error: null }),
+        upsert: async (row: Row) => {
+          const target = (state[table] ??= []);
+          const existing = target.find((item) => item["lead_id"] === row["lead_id"]);
+          if (existing) Object.assign(existing, row);
+          else target.push({ ...row });
+          return { data: null, error: null };
+        },
         update: (patch: Row) => {
           const res: any = {
             eq: (c: string, v: any) => {
@@ -205,15 +211,23 @@ describe("HMAC-verifiering", () => {
   });
 
   it("route-lead innehåller aktuell intent-data", async () => {
+    const state = baseState(COMPLETE_ANSWERS);
     const res = await handleGrowthApi(
       "route-lead",
       signedRequest("route-lead", { leadId: LEAD_ID }),
-      deps(baseState(COMPLETE_ANSWERS)),
+      deps(state),
     );
     const body = (await res.json()) as any;
     expect(typeof body.intent.score).toBe("number");
     expect(["LÅG", "NORMAL", "HÖG", "AKUT"]).toContain(body.intent.level);
     expect(typeof body.intent.reason).toBe("string");
+    expect(state["growth_lead_state"]).toHaveLength(1);
+    expect(state["growth_lead_state"]?.[0]).toMatchObject({
+      lead_id: LEAD_ID,
+      customer_id: CUSTOMER_ID,
+      intent_score: body.intent.score,
+      intent_level: body.intent.level,
+    });
   });
 
 
