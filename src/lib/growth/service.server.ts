@@ -328,7 +328,7 @@ async function completeClaim(
   }
 }
 
-/** 1) Beslut: behöver leadet AI alls? Inga sidoeffekter, inga LLM-anrop. */
+/** 1) Beslut: behöver leadet AI alls? Sparar intent, inga LLM-anrop. */
 export async function routeLeadCore(
   ctx: GrowthContext,
   leadId: string,
@@ -344,6 +344,22 @@ export async function routeLeadCore(
     basePriority: qualification.priority,
     outcomes,
   });
+
+  // Routern är första Growth-steget för varje lead. Spara intent även när
+  // analyze-lead hoppas över för en deterministisk eller mänsklig route.
+  const { error: intentStateError } = await ctx.supabase.from("growth_lead_state").upsert(
+    {
+      lead_id: lead.id,
+      customer_id: lead.customer_id,
+      intent_score: intent.score,
+      intent_level: intent.level,
+      intent_reason: intent.reason,
+      intent_terminal: intent.terminal,
+      intent_updated_at: new Date().toISOString(),
+    },
+    { onConflict: "lead_id" },
+  );
+  if (intentStateError) throw new Error(`Growth intent-state kunde inte sparas: ${intentStateError.message}`);
 
   const decision = decideRoute({
     priority: qualification.priority,
