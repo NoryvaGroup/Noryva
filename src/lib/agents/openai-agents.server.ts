@@ -22,6 +22,8 @@
 import { runtimeEnvFromRequest, type RuntimeEnv } from "@/lib/growth/runtime-env";
 
 export const AGENTS_PROVIDER = "openai_agents" as const;
+/** Emergency cost kill switch: no provider session may start until billing is reconciled. */
+export const AGENTS_COST_KILL_SWITCH = true as const;
 export const AGENTS_SESSIONS_URL = "https://api.openai.com/v1/agents/sessions";
 export const AGENTS_BETA_HEADER = "agents=v1";
 /** Endast reserv när ett agent-id saknas. Med agent-id styr OpenAI modellen. */
@@ -362,6 +364,9 @@ export async function runHarnessSession(
   input: HarnessRunInput,
   deps: HarnessDeps = {},
 ): Promise<HarnessRunResult> {
+  if (AGENTS_COST_KILL_SWITCH) {
+    return blocked("Agentkörningar är nödstoppade på grund av kostnadsincident. Ingen provider-session startades.");
+  }
   // Hårdspärr: endast kända interna roller kan nå providern.
   if (!isRunnableHarnessRole(input.role)) {
     return blocked("Rollen är okänd och kan inte köras.");
